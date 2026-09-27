@@ -50,6 +50,21 @@ public sealed class LayerItemViewModel : ObservableObject
         _ => null,
     };
 
+    /// <summary>Photoshop's target frame: the selected layer's pixels are what painting edits.</summary>
+    public bool IsPixelTarget => ReferenceEquals(_document.SelectedLayer, this) && !_document.EditMask;
+
+    /// <summary>Photoshop's target frame: the selected layer's mask is what painting edits.</summary>
+    public bool IsMaskTarget => ReferenceEquals(_document.SelectedLayer, this) && _document.EditMask && HasMask;
+
+    /// <summary>Disabled masks are crossed out, as in Photoshop.</summary>
+    public bool MaskDisabled => Mask is { Disabled: true };
+
+    internal void RefreshTarget()
+    {
+        OnPropertyChanged(nameof(IsPixelTarget));
+        OnPropertyChanged(nameof(IsMaskTarget));
+    }
+
     /// <summary>The mask as a small grayscale preview.</summary>
     public Bitmap? MaskThumbnail => Mask is { } m
         ? Thumbnails.GetMask(m, () => OnPropertyChanged(nameof(MaskThumbnail)))

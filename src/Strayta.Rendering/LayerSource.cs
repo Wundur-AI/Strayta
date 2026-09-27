@@ -49,6 +49,35 @@ internal abstract class Source
         }
     }
 
+    /// <summary>
+    /// <see cref="ApplyMask(LayerMask?, int, int, Span{float})"/> with a mask stroke in progress painted over the
+    /// mask, exactly as <c>MaskBaker</c> will commit it: each sample moves toward the stroke's gray by coverage.
+    /// </summary>
+    internal static void ApplyMask(LayerMask? mask, StrokeOverlay? stroke, int y, int x0, Span<float> coverage)
+    {
+        if (mask is null) return;
+        var sb = stroke?.Bounds ?? PixelRect.Empty;
+        if (stroke is null || y < sb.Top || y >= sb.Bottom)
+        {
+            ApplyMask(mask, y, x0, coverage);
+            return;
+        }
+
+        // Plain mask left and right of the stroke; per-pixel mask plus stroke across it.
+        int n = coverage.Length;
+        int s0 = Math.Clamp(sb.Left - x0, 0, n), s1 = Math.Clamp(sb.Right - x0, s0, n);
+        ApplyMask(mask, y, x0, coverage[..s0]);
+        ApplyMask(mask, y, x0 + s1, coverage[s1..]);
+        float gray = stroke.Color.R, opacity = stroke.Opacity;
+        for (int i = s0; i < s1; i++)
+        {
+            float m = SampleMask(mask, x0 + i, y);
+            float cov = stroke.CoverageAt(x0 + i, y) * opacity;
+            if (cov > 0f) m += (gray - m) * cov;
+            coverage[i] *= m;
+        }
+    }
+
     public static float SampleMask(LayerMask mask, int docX, int docY)
     {
         var b = mask.Bounds;
@@ -69,15 +98,17 @@ internal sealed class LayerSource : Source
     private readonly byte[]? _palette;
     private readonly LayerMask? _mask;
     private readonly StrokeOverlay? _stroke;
+    private readonly StrokeOverlay? _maskStroke;
     private readonly float[] _strokeColor;
 
-    private LayerSource(PixelLayer layer, byte[]? palette, StrokeOverlay? stroke)
+    private LayerSource(PixelLayer layer, byte[]? palette, StrokeOverlay? stroke, StrokeOverlay? maskStroke)
     {
         _layer = layer;
         _raster = layer.Pixels;
         _palette = palette;
         _mask = layer.Mask is { Disabled: false } m ? m : null;
         _stroke = stroke;
+        _maskStroke = maskStroke;
         var c = stroke?.Color ?? default;
         _strokeColor = layer.Pixels?.ColorMode == ColorMode.Grayscale
             ? [0.299f * c.R + 0.587f * c.G + 0.114f * c.B, 0, 0]
@@ -87,8 +118,8 @@ internal sealed class LayerSource : Source
     /// <summary>Where the layer (and a brush stroke growing it) can show within <paramref name="area"/>.</summary>
     public static PixelRect VisibleBounds(PixelLayer layer, PixelRect area, StrokeOverlay? stroke)
     {
-        var bounds = Coverage.Visible(layer, area);
-        if (stroke is { Erase: false } s && ReferenceEquals(s.Target, layer))
+        var bounds = Coverage.Visible(layer, area, StrokeOverlay.ForMaskOf(stroke, layer));
+        if (stroke is { Erase: false, TargetsMask: false } s && ReferenceEquals(s.Target, layer))
         {
             var painted = s.Bounds.Intersect(area);
             if (Coverage.MaskReach(layer.Mask, area) is { } reach) painted = painted.Intersect(reach);
@@ -101,12 +132,12 @@ internal sealed class LayerSource : Source
 
     public static LayerSource? From(PixelLayer layer, Document doc, StrokeOverlay? stroke = null)
     {
-        var active = stroke is not null && ReferenceEquals(stroke.Target, layer) ? stroke : null;
+        var active = stroke is { TargetsMask: false } && ReferenceEquals(stroke.Target, layer) ? stroke : null;
         if (layer.Pixels is null && active is null) return null;
         // Skip fully transparent or masked-out areas; fill layers often cover the whole canvas with a mask
         // revealing a small region.
-        var bounds = VisibleBounds(layer, doc.Bounds, active);
-        return bounds.IsEmpty ? null : new LayerSource(layer, doc.Palette, active) { Bounds = bounds };
+        var bounds = VisibleBounds(layer, doc.Bounds, stroke);
+        return bounds.IsEmpty ? null : new LayerSource(layer, doc.Palette, active, StrokeOverlay.ForMaskOf(stroke, layer)) { Bounds = bounds };
     }
 
     public override void FillRow(int y, int x0, int x1, Span<float> rgb, Span<float> coverage)
@@ -127,7 +158,7 @@ internal sealed class LayerSource : Source
         if (_stroke is { } s && y >= s.Bounds.Top && y < s.Bounds.Bottom)
             ApplyStroke(s, y, x0, n, rgb, coverage);
 
-        ApplyMask(_mask, y, x0, coverage[..n]);
+        ApplyMask(_mask, _maskStroke, y, x0, coverage[..n]);
     }
 
     /// <summary>Paints the stroke over the layer's pixels exactly as <c>StrokeBaker</c> will when it is committed.</summary>
@@ -258,11 +289,13 @@ internal sealed class BufferSource : Source
 {
     private readonly RenderBuffer _buffer;
     private readonly LayerMask? _mask;
+    private readonly StrokeOverlay? _maskStroke;
 
-    public BufferSource(RenderBuffer buffer, LayerMask? mask)
+    public BufferSource(RenderBuffer buffer, LayerMask? mask, StrokeOverlay? maskStroke = null)
     {
         _buffer = buffer;
         _mask = mask is { Disabled: false } ? mask : null;
+        _maskStroke = maskStroke;
     }
 
     public override void FillRow(int y, int x0, int x1, Span<float> rgb, Span<float> coverage)
@@ -280,6 +313,6 @@ internal sealed class BufferSource : Source
             rgb[i * 3 + 1] = px[t + 1] * inv;
             rgb[i * 3 + 2] = px[t + 2] * inv;
         }
-        ApplyMask(_mask, y, x0, coverage[..n]);
+        ApplyMask(_mask, _maskStroke, y, x0, coverage[..n]);
     }
 }

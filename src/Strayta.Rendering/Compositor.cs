@@ -307,7 +307,7 @@ public sealed class Compositor
                 if (bounds.IsEmpty) return;
                 var isolated = new RenderBuffer(bounds);
                 RenderChildren(group.Children, isolated);
-                var groupSource = new BufferSource(isolated, group.Mask) { Bounds = bounds };
+                var groupSource = new BufferSource(isolated, group.Mask, MaskStroke(group)) { Bounds = bounds };
                 var mode = group.BlendMode == BlendMode.PassThrough ? BlendMode.Normal : group.BlendMode;
                 Composite(target, groupSource, mode, group.Opacity, 1f, clip: null, clipOpacity: 1f);
 
@@ -342,14 +342,14 @@ public sealed class Compositor
             // Render onto a copy of the backdrop, then fade between backdrop and result.
             var copy = target.CopyRegion(bounds);
             RenderChildren(group.Children, copy);
-            Lerp(target, copy, group.Opacity, mask);
+            Lerp(target, copy, group.Opacity, mask, MaskStroke(group));
             return;
         }
 
         var isolated = new RenderBuffer(bounds);
         RenderChildren(group.Children, isolated);
         var mode = group.BlendMode == BlendMode.PassThrough ? BlendMode.Normal : group.BlendMode;
-        Composite(target, new BufferSource(isolated, mask) { Bounds = bounds }, mode, group.Opacity, 1f, clip, clipOpacity);
+        Composite(target, new BufferSource(isolated, mask, MaskStroke(group)) { Bounds = bounds }, mode, group.Opacity, 1f, clip, clipOpacity);
     }
 
     /// <summary>
@@ -380,8 +380,11 @@ public sealed class Compositor
         by == 0 || r.IsEmpty ? r : new PixelRect(r.Left - by, r.Top - by, r.Right + by, r.Bottom + by);
 
     /// <summary>Where an adjustment can have any effect: everywhere, unless its mask is black outside its bounds.</summary>
-    private static PixelRect AdjustmentReach(AdjustmentLayer a, PixelRect area) =>
-        Coverage.MaskReach(a.Mask, area) is { } reach ? reach : area;
+    private PixelRect AdjustmentReach(AdjustmentLayer a, PixelRect area) =>
+        Coverage.MaskReach(a.Mask, area, MaskStroke(a)) is { } reach ? reach : area;
+
+    /// <summary>The brush stroke being painted into <paramref name="node"/>'s layer mask, if any.</summary>
+    private StrokeOverlay? MaskStroke(LayerNode node) => StrokeOverlay.ForMaskOf(_options.ActiveStroke, node);
 
     /// <summary>
     /// Applies an adjustment to the pixels already in <paramref name="target"/>:
@@ -396,6 +399,7 @@ public sealed class Compositor
         if (region.IsEmpty || opacity <= 0f) return;
 
         var mask = layer.Mask is { Disabled: false } m ? m : null;
+        var maskStroke = MaskStroke(layer);
         var mode = layer.BlendMode;
         bool separable = BlendFunctions.IsSeparable(mode);
         int w = region.Width;
@@ -425,7 +429,7 @@ public sealed class Compositor
                 transform.ApplyRow(adjusted);
 
                 amount.Fill(opacity);
-                Source.ApplyMask(mask, y, region.Left, amount);
+                Source.ApplyMask(mask, maskStroke, y, region.Left, amount);
                 if (clip is not null)
                 {
                     clip.FillRow(y, region.Left, region.Right, Span<float>.Empty, clipCov);
@@ -578,7 +582,7 @@ public sealed class Compositor
     }
 
     /// <summary>target = lerp(target, result, opacity × mask) over result's bounds (both premultiplied).</summary>
-    private void Lerp(RenderBuffer target, RenderBuffer result, float opacity, LayerMask? mask)
+    private void Lerp(RenderBuffer target, RenderBuffer result, float opacity, LayerMask? mask, StrokeOverlay? maskStroke)
     {
         var region = result.Bounds;
         int w = region.Width;
@@ -589,7 +593,7 @@ public sealed class Compositor
             {
                 var amount = buffer.AsSpan(0, w);
                 amount.Fill(opacity);
-                Source.ApplyMask(mask, y, region.Left, amount);
+                Source.ApplyMask(mask, maskStroke, y, region.Left, amount);
                 var dst = target.Pixels.AsSpan(target.IndexOf(region.Left, y), w * 4);
                 var src = result.Pixels.AsSpan(result.IndexOf(region.Left, y), w * 4);
                 for (int i = 0; i < w; i++)

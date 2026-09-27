@@ -156,6 +156,38 @@ public partial class LayersView : UserControl
         e.Handled = true;
     }
 
+    // ---- Masks and adjustments ------------------------------------------------------------------------
+
+    // Thumbnail clicks choose what painting edits (Photoshop's "target"); the row still selects and drags as usual.
+
+    private void OnLayerThumbPressed(object? sender, PointerPressedEventArgs e)
+    {
+        if (e.GetCurrentPoint(this).Properties.IsLeftButtonPressed && sender is Control { DataContext: LayerItemViewModel item }
+            && DataContext is LayersToolViewModel { Editor.ActiveDocument: { } doc })
+            doc.Target(item, mask: false);
+    }
+
+    private void OnMaskThumbPressed(object? sender, PointerPressedEventArgs e)
+    {
+        if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed || sender is not Control { DataContext: LayerItemViewModel item }
+            || DataContext is not LayersToolViewModel { Editor.ActiveDocument: { } doc }) return;
+        if (e.KeyModifiers.HasFlag(KeyModifiers.Shift))
+        {
+            // Shift-click disables or enables the mask without changing the target, as in Photoshop.
+            doc.SelectedLayer = item;
+            doc.ToggleMaskEnabled();
+            e.Handled = true;
+            return;
+        }
+        doc.Target(item, mask: true);
+    }
+
+    private void OnNewAdjustment(object? sender, RoutedEventArgs e)
+    {
+        if (sender is MenuItem { Tag: string kind } && DataContext is LayersToolViewModel { Editor: var editor })
+            editor.NewAdjustmentCommand.Execute(kind);
+    }
+
     // ---- Renaming -----------------------------------------------------------------------------------
 
     private void OnNameDoubleTapped(object? sender, TappedEventArgs e)

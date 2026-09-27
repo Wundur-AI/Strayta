@@ -1,0 +1,151 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Strayta.Editor.ViewModels"
+             xmlns:c="using:Strayta.Editor.Controls"
+             x:Class="Strayta.Editor.Views.PropertiesView"
+             x:DataType="vm:PropertiesToolViewModel"
+             Background="{DynamicResource St.Panel}"
+             FontSize="11">
+  <UserControl.Styles>
+    <Style Selector="TextBlock.heading">
+      <Setter Property="FontSize" Value="12" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+    <Style Selector="Border.graph">
+      <Setter Property="Background" Value="{DynamicResource St.Canvas}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource St.Border}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="3" />
+      <Setter Property="ClipToBounds" Value="True" />
+    </Style>
+    <Style Selector="ComboBox.channel">
+      <Setter Property="MinHeight" Value="22" />
+      <Setter Property="Height" Value="22" />
+      <Setter Property="Padding" Value="8,0" />
+      <Setter Property="FontSize" Value="11" />
+      <Setter Property="HorizontalAlignment" Value="Stretch" />
+    </Style>
+  </UserControl.Styles>
+
+  <DockPanel>
+    <TextBlock DockPanel.Dock="Top" Text="No document open" Margin="12" Classes="muted" IsVisible="{Binding !Editor.HasDocument}" />
+    <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+      <ContentControl Margin="10,8,10,10" Content="{Binding Editor.ActiveDocument.Properties, FallbackValue={x:Null}}">
+        <ContentControl.DataTemplates>
+
+          <DataTemplate DataType="vm:MessagePanel">
+            <StackPanel Spacing="8">
+              <StackPanel Orientation="Horizontal" Spacing="7">
+                <Path Classes="icon small" Data="{Binding Icon, Converter={x:Static c:ResourceIcon.Instance}}" />
+                <TextBlock Classes="heading" Text="{Binding Title}" />
+              </StackPanel>
+              <TextBlock Classes="muted" Text="{Binding Message}" TextWrapping="Wrap" />
+            </StackPanel>
+          </DataTemplate>
+
+          <DataTemplate DataType="vm:MaskPanel">
+            <StackPanel Spacing="10">
+              <StackPanel Orientation="Horizontal" Spacing="7">
+                <Path Classes="icon small" Data="{StaticResource IconMask}" />
+                <TextBlock Classes="heading" Text="{Binding Title}" />
+              </StackPanel>
+              <TextBlock Classes="muted" Text="{Binding Status}" TextWrapping="Wrap" />
+              <StackPanel Orientation="Horizontal" Spacing="6">
+                <Button Content="{Binding ToggleText}" Command="{Binding ToggleCommand}" />
+                <Button Content="Apply" Command="{Binding ApplyMaskCommand}" IsVisible="{Binding CanApply}"
+                        ToolTip.Tip="Bake the mask into the layer's transparency" />
+                <Button Content="Delete" Command="{Binding DeleteCommand}" />
+              </StackPanel>
+            </StackPanel>
+          </DataTemplate>
+
+          <DataTemplate DataType="vm:LevelsPanel">
+            <StackPanel Spacing="9">
+              <StackPanel Orientation="Horizontal" Spacing="7">
+                <Path Classes="icon small" Data="{StaticResource IconAdjust}" />
+                <TextBlock Classes="heading" Text="{Binding Title}" />
+              </StackPanel>
+              <ComboBox Classes="channel" ItemsSource="{Binding ChannelNames}" SelectedIndex="{Binding Channel}" />
+              <Border Classes="graph" Height="96">
+                <c:HistogramView Values="{Binding Histogram}" Margin="2" />
+              </Border>
+              <c:SliderField Label="Input black" Minimum="0" Maximum="253" Value="{Binding InputBlack}" />
+              <c:SliderField Label="Midtones" Minimum="0.1" Maximum="9.99" Logarithmic="True" Format="0.00" Value="{Binding Gamma}" />
+              <c:SliderField Label="Input white" Minimum="2" Maximum="255" Value="{Binding InputWhite}" />
+              <c:SliderField Label="Output black" Minimum="0" Maximum="255" Value="{Binding OutputBlack}" />
+              <c:SliderField Label="Output white" Minimum="0" Maximum="255" Value="{Binding OutputWhite}" />
+            </StackPanel>
+          </DataTemplate>
+
+          <DataTemplate DataType="vm:CurvesPanel">
+            <StackPanel Spacing="9">
+              <StackPanel Orientation="Horizontal" Spacing="7">
+                <Path Classes="icon small" Data="{StaticResource IconAdjust}" />
+                <TextBlock Classes="heading" Text="{Binding Title}" />
+              </StackPanel>
+              <DockPanel>
+                <Button DockPanel.Dock="Right" Content="Reset" Margin="6,0,0,0" Padding="8,1" Height="22" MinHeight="0" Click="OnResetCurve"
+                        ToolTip.Tip="Make this channel's curve a straight line again" />
+                <ComboBox Classes="channel" ItemsSource="{Binding ChannelNames}" SelectedIndex="{Binding Channel}" />
+              </DockPanel>
+              <c:CurveEditor Height="220" Points="{Binding Points}" Histogram="{Binding Histogram}" />
+              <TextBlock Classes="muted" TextWrapping="Wrap"
+                         Text="Click the curve to add a point, drag points to adjust, drag a point off the graph to remove it." />
+            </StackPanel>
+          </DataTemplate>
+
+          <DataTemplate DataType="vm:HueSaturationPanel">
+            <StackPanel Spacing="9">
+              <StackPanel Orientation="Horizontal" Spacing="7">
+                <Path Classes="icon small" Data="{StaticResource IconAdjust}" />
+                <TextBlock Classes="heading" Text="{Binding Title}" />
+              </StackPanel>
+              <c:SliderField Label="Hue" Minimum="{Binding HueMinimum}" Maximum="{Binding HueMaximum}" Value="{Binding Hue}" />
+              <c:SliderField Label="Saturation" Minimum="{Binding SaturationMinimum}" Maximum="100" Value="{Binding Saturation}" />
+              <c:SliderField Label="Lightness" Minimum="-100" Maximum="100" Value="{Binding Lightness}" />
+              <CheckBox Content="Colorize" IsChecked="{Binding Colorize}" FontSize="11" />
+              <TextBlock Classes="muted" TextWrapping="Wrap" IsVisible="{Binding HasColorRangeEdits}"
+                         Text="This adjustment also changes individual color ranges. Strayta keeps them but cannot edit them yet." />
+            </StackPanel>
+          </DataTemplate>
+
+          <DataTemplate DataType="vm:BrightnessContrastPanel">
+            <StackPanel Spacing="9">
+              <StackPanel Orientation="Horizontal" Spacing="7">
+                <Path Classes="icon small" Data="{StaticResource IconAdjust}" />
+                <TextBlock Classes="heading" Text="{Binding Title}" />
+              </StackPanel>
+              <c:SliderField Label="Brightness" Minimum="-150" Maximum="150" Value="{Binding Brightness}" />
+              <c:SliderField Label="Contrast" Minimum="-50" Maximum="100" Value="{Binding Contrast}" />
+            </StackPanel>
+          </DataTemplate>
+
+          <DataTemplate DataType="vm:ThresholdPanel">
+            <StackPanel Spacing="9">
+              <StackPanel Orientation="Horizontal" Spacing="7">
+                <Path Classes="icon small" Data="{StaticResource IconAdjust}" />
+                <TextBlock Classes="heading" Text="{Binding Title}" />
+              </StackPanel>
+              <Border Classes="graph" Height="96">
+                <c:HistogramView Values="{Binding Histogram}" Margin="2" />
+              </Border>
+              <c:SliderField Label="Threshold level" Minimum="1" Maximum="255" Value="{Binding Level}" />
+            </StackPanel>
+          </DataTemplate>
+
+          <DataTemplate DataType="vm:PosterizePanel">
+            <StackPanel Spacing="9">
+              <StackPanel Orientation="Horizontal" Spacing="7">
+                <Path Classes="icon small" Data="{StaticResource IconAdjust}" />
+                <TextBlock Classes="heading" Text="{Binding Title}" />
+              </StackPanel>
+              <c:SliderField Label="Levels" Minimum="2" Maximum="255" Value="{Binding Levels}" />
+            </StackPanel>
+          </DataTemplate>
+
+        </ContentControl.DataTemplates>
+      </ContentControl>
+    </ScrollViewer>
+  </DockPanel>
+</UserControl>

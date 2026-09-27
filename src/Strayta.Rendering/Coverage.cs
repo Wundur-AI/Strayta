@@ -72,6 +72,17 @@ internal static class Coverage
     }
 
     /// <summary>
+    /// <see cref="MaskReach(LayerMask?, PixelRect)"/> while a mask stroke paints the mask: the stroke can reveal
+    /// anything it covers.
+    /// </summary>
+    public static PixelRect? MaskReach(LayerMask? mask, PixelRect area, StrokeOverlay? maskStroke)
+    {
+        var reach = MaskReach(mask, area);
+        if (reach is not { } r || maskStroke is null) return reach;
+        return Union(r, maskStroke.Bounds.Intersect(area));
+    }
+
+    /// <summary>
     /// Bounding box of <paramref name="area"/> minus <paramref name="inner"/>, when that can be tighter than
     /// the whole area: the inner rectangle must span the full width or height, leaving one band.
     /// Returns null when the complement's bounding box is the whole area anyway.
@@ -98,7 +109,7 @@ internal static class Coverage
         : new PixelRect(Math.Min(a.Left, b.Left), Math.Min(a.Top, b.Top), Math.Max(a.Right, b.Right), Math.Max(a.Bottom, b.Bottom));
 
     /// <summary>Where within <paramref name="area"/> a pixel layer's own pixels can show (transparency and mask considered).</summary>
-    public static PixelRect Visible(PixelLayer layer, PixelRect area)
+    public static PixelRect Visible(PixelLayer layer, PixelRect area, StrokeOverlay? maskStroke = null)
     {
         if (layer.Pixels is not { } raster) return PixelRect.Empty;
         var bounds = layer.Bounds;
@@ -109,7 +120,7 @@ internal static class Coverage
                 : new PixelRect(bounds.Left + nz.Left, bounds.Top + nz.Top, bounds.Left + nz.Right, bounds.Top + nz.Bottom);
         }
         bounds = bounds.Intersect(area);
-        if (MaskReach(layer.Mask, area) is { } reach) bounds = bounds.Intersect(reach);
+        if (MaskReach(layer.Mask, area, maskStroke) is { } reach) bounds = bounds.Intersect(reach);
         return bounds;
     }
 }

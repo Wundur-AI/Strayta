@@ -60,6 +60,11 @@
       <Setter Property="Background" Value="{DynamicResource St.ThumbBackground}" />
       <Setter Property="ClipToBounds" Value="True" />
     </Style>
+    <!-- Photoshop frames whichever thumbnail (layer or mask) painting edits -->
+    <Style Selector="Border.thumb.target">
+      <Setter Property="BorderBrush" Value="{DynamicResource St.Text}" />
+      <Setter Property="BorderThickness" Value="2" />
+    </Style>
   </UserControl.Styles>
 
   <DockPanel>
@@ -103,6 +108,25 @@
     <Border DockPanel.Dock="Bottom" Padding="6,3" BorderBrush="{DynamicResource St.Border}" BorderThickness="0,1,0,0">
       <DockPanel>
         <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="0">
+          <Button Classes="icon" ToolTip.Tip="Add layer mask" Command="{Binding Editor.AddMaskCommand}" CommandParameter="reveal"><Path Classes="icon small" Data="{StaticResource IconMask}" /></Button>
+          <Button Classes="icon" ToolTip.Tip="New adjustment layer">
+            <Panel>
+              <Path Classes="icon small" Data="{StaticResource IconAdjust}" />
+              <Path Classes="icon small" Data="{StaticResource IconHalfDisc}" Fill="{DynamicResource St.Text}" />
+            </Panel>
+            <Button.Flyout>
+              <MenuFlyout Placement="TopEdgeAlignedLeft">
+                <MenuItem Header="Brightness/Contrast…" Tag="Brightness/Contrast" Click="OnNewAdjustment" />
+                <MenuItem Header="Levels…" Tag="Levels" Click="OnNewAdjustment" />
+                <MenuItem Header="Curves…" Tag="Curves" Click="OnNewAdjustment" />
+                <MenuItem Header="Hue/Saturation…" Tag="Hue/Saturation" Click="OnNewAdjustment" />
+                <Separator />
+                <MenuItem Header="Invert" Tag="Invert" Click="OnNewAdjustment" />
+                <MenuItem Header="Posterize…" Tag="Posterize" Click="OnNewAdjustment" />
+                <MenuItem Header="Threshold…" Tag="Threshold" Click="OnNewAdjustment" />
+              </MenuFlyout>
+            </Button.Flyout>
+          </Button>
           <Button Classes="icon" ToolTip.Tip="New group (⌘G)" Command="{Binding Editor.NewGroupCommand}"><Path Classes="icon small" Data="{StaticResource IconFolder}" /></Button>
           <Button Classes="icon" ToolTip.Tip="New layer (⇧⌘N)" Command="{Binding Editor.NewLayerCommand}"><Path Classes="icon small" Data="{StaticResource IconNewLayer}" /></Button>
           <Button Classes="icon" ToolTip.Tip="Delete layer" Command="{Binding Editor.DeleteLayerCommand}"><Path Classes="icon small" Data="{StaticResource IconTrash}" /></Button>
@@ -141,7 +165,8 @@
 
                 <!-- Thumbnail, or an icon for groups and adjustments -->
                 <Panel DockPanel.Dock="Left" Margin="6,0,0,0" VerticalAlignment="Center">
-                  <Border Classes="thumb" IsVisible="{Binding PlaceholderIcon, Converter={x:Static ObjectConverters.IsNull}}">
+                  <Border Classes="thumb" Classes.target="{Binding IsPixelTarget}" PointerPressed="OnLayerThumbPressed"
+                          IsVisible="{Binding PlaceholderIcon, Converter={x:Static ObjectConverters.IsNull}}">
                     <Panel>
                       <Image Source="{Binding Thumbnail}" Stretch="Uniform" RenderOptions.BitmapInterpolationMode="HighQuality" />
                       <Border IsVisible="{Binding IsSmartObject}" HorizontalAlignment="Right" VerticalAlignment="Bottom"
@@ -157,8 +182,13 @@
                 <!-- Link + mask thumbnail -->
                 <StackPanel DockPanel.Dock="Left" Orientation="Horizontal" IsVisible="{Binding HasMask}" VerticalAlignment="Center">
                   <Path Classes="icon small" Width="10" Height="12" Margin="4,0" Stroke="{DynamicResource St.TextMuted}" Data="{StaticResource IconLink}" />
-                  <Border Classes="thumb">
-                    <Image Source="{Binding MaskThumbnail}" Stretch="Uniform" />
+                  <Border Classes="thumb" Classes.target="{Binding IsMaskTarget}" PointerPressed="OnMaskThumbPressed"
+                          ToolTip.Tip="Layer mask: click to paint in it, Shift-click to disable or enable it">
+                    <Panel>
+                      <Image Source="{Binding MaskThumbnail}" Stretch="Uniform" />
+                      <Path IsVisible="{Binding MaskDisabled}" Data="M0 0L24 24 M24 0L0 24" Stretch="Fill" Margin="2"
+                            Stroke="#FFE5484D" StrokeThickness="2" />
+                    </Panel>
                   </Border>
                 </StackPanel>
 

@@ -148,6 +148,8 @@ internal static partial class SelfTest
             Check(false, $"exception: {ex}");
         }
 
+        await RunMaskAndAdjustmentStepsAsync(editor, Check); // SelfTest.Masks.cs
+
         Console.WriteLine(failures.Count == 0 ? "SELFTEST PASSED" : $"SELFTEST FAILED ({failures.Count})");
     }
 

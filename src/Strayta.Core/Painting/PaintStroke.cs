@@ -26,16 +26,37 @@ public sealed class PaintStroke
     private bool _started;
 
     public PaintStroke(PixelLayer target, BrushSettings brush, RgbColor color, bool erase, PixelRect limit, SelectionMask? clip = null)
+        : this(target, brush, color, erase, limit, clip, targetsMask: false)
     {
-        Target = target;
+    }
+
+    private PaintStroke(LayerNode owner, BrushSettings brush, RgbColor color, bool erase, PixelRect limit, SelectionMask? clip, bool targetsMask)
+    {
+        Owner = owner;
         Brush = brush;
         Color = color;
         Erase = erase;
         Clip = clip;
         _limit = clip is null ? limit : limit.Intersect(clip.Bounds);
+        TargetsMask = targetsMask;
     }
 
-    public PixelLayer Target { get; }
+    /// <summary>
+    /// A stroke that paints <paramref name="gray"/> (0 black hides, 1 white reveals) into the layer mask of
+    /// <paramref name="owner"/>, which may be a pixel layer, group or adjustment layer. See <see cref="MaskBaker"/>.
+    /// </summary>
+    /// A selection confines mask painting too, as it does in Photoshop.
+    public static PaintStroke ForMask(LayerNode owner, BrushSettings brush, float gray, PixelRect limit, SelectionMask? clip = null) =>
+        new(owner, brush, new RgbColor(gray, gray, gray), erase: false, limit, clip, targetsMask: true);
+
+    /// <summary>The layer whose pixels (or, for <see cref="TargetsMask"/>, whose mask) the stroke paints.</summary>
+    public LayerNode Owner { get; }
+
+    /// <summary>True when the stroke paints into <see cref="Owner"/>'s layer mask rather than its pixels.</summary>
+    public bool TargetsMask { get; }
+
+    /// <summary>The pixel layer being painted; mask strokes have none.</summary>
+    public PixelLayer Target => !TargetsMask && Owner is PixelLayer p ? p : throw new InvalidOperationException("A mask stroke paints a mask, not layer pixels.");
     public BrushSettings Brush { get; }
     public RgbColor Color { get; }
     public bool Erase { get; }
