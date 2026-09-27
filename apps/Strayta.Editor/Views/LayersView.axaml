@@ -108,7 +108,7 @@
     <Border DockPanel.Dock="Bottom" Padding="6,3" BorderBrush="{DynamicResource St.Border}" BorderThickness="0,1,0,0">
       <DockPanel>
         <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="0">
-          <Button Classes="icon" ToolTip.Tip="Add layer mask" Command="{Binding Editor.AddMaskCommand}" CommandParameter="reveal"><Path Classes="icon small" Data="{StaticResource IconMask}" /></Button>
+          <Button Classes="icon" ToolTip.Tip="Add layer mask (reveals the selection, if any)" Command="{Binding Editor.AddLayerMaskCommand}"><Path Classes="icon small" Data="{StaticResource IconMask}" /></Button>
           <Button Classes="icon" ToolTip.Tip="New adjustment layer">
             <Panel>
               <Path Classes="icon small" Data="{StaticResource IconAdjust}" />

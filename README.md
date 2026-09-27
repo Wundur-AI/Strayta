@@ -70,10 +70,20 @@ dotnet test
   selects it; Shift adds, Option subtracts. Sample All Layers (on by default) looks at the whole image, off at the
   selected layer. Select > Subject (also a button in the tool's options bar) selects the main subject. See
   [AI selection models](#ai-selection-models) below.
+- Select > Modify > Border, Smooth, Expand, Contract and Feather (Shift+F6), with Photoshop's pixel amounts and
+  "Apply effect at canvas bounds"; soft edges stay soft when expanding or contracting. Each is one undo step.
+- Select > Select and Mask (Option+Cmd+R): a workspace that previews the selection as a red overlay, on black, on
+  white or as black and white, with Radius (edge detection that re-decides the edge from the image's colors, for
+  hair and fur), Smooth, Feather, Contrast and Shift Edge, and a Refine Edge brush (Option erases) for areas the
+  radius misses. The preview follows every slider step at screen resolution and settles at full resolution when
+  you pause. Output to the selection, a layer mask, or a new layer with a layer mask. Simpler than Photoshop's: no
+  Smart Radius, Decontaminate Colors, other brushes or view modes, and it looks at the whole image (Sample All
+  Layers).
 - Layers panel: blend mode, opacity and fill for the selected layer; visibility, thumbnails, rename
   (double-click), drag-and-drop reordering into and out of groups, new layer/group, duplicate, delete.
 - Layer masks on layers, groups and adjustment layers (Layer > Layer Mask, or the panel's mask button): click the
-  mask thumbnail to paint in it (black hides, white reveals), Shift-click to disable it; Apply, Delete.
+  mask thumbnail to paint in it (black hides, white reveals), Shift-click to disable it; Apply, Delete. Reveal
+  Selection / Hide Selection (and the panel's button while something is selected) make the mask from the selection.
 - Adjustment layers (Layer > New Adjustment Layer): Levels, Curves, Hue/Saturation, Brightness/Contrast, Invert,
   Threshold, Posterize, edited live in the Properties panel.
 - Full undo/redo. Save / Save As write PSD, keeping everything Strayta does not edit (text, smart objects,

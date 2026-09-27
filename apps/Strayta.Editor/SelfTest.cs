@@ -153,6 +153,7 @@ internal static partial class SelfTest
         await RunMagicWandStepsAsync(editor, Check); // SelfTest.MagicWand.cs
         await RunQuickSelectObjectsStepsAsync(editor, Check); // SelfTest.QuickSelectObjects.cs
         await RunEverydayToolStepsAsync(editor, Check); // SelfTest.Everyday.cs
+        await RunRefineSelectionStepsAsync(editor, Check); // SelfTest.RefineSelection.cs
         try
         {
             await RunObjectSelectionStepsAsync(editor, Check); // SelfTest.ObjectSelection.cs
