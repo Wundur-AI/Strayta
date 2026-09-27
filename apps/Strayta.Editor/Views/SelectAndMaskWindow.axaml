@@ -1,0 +1,93 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:Strayta.Editor.ViewModels"
+        xmlns:c="using:Strayta.Editor.Controls"
+        x:Class="Strayta.Editor.Views.SelectAndMaskWindow"
+        x:DataType="vm:SelectAndMaskViewModel"
+        Title="Select and Mask"
+        Width="1280" Height="820" MinWidth="900" MinHeight="560"
+        WindowStartupLocation="CenterOwner"
+        Background="{DynamicResource St.Window}">
+  <!-- Photoshop's Select and Mask workspace, simplified: tools on the left, the preview in the middle, settings on
+       the right. The canvas is the editor's own, so zooming and panning behave as in a document. -->
+  <DockPanel>
+    <!-- Options bar for the current tool -->
+    <Border DockPanel.Dock="Top" Background="{DynamicResource St.Panel}" Height="36" Padding="12,0"
+            BorderBrush="{DynamicResource St.Border}" BorderThickness="0,0,0,1">
+      <Panel>
+        <StackPanel Orientation="Horizontal" Spacing="14" VerticalAlignment="Center" IsVisible="{Binding IsBrushTool}">
+          <TextBlock Text="Refine Edge Brush" FontWeight="SemiBold" VerticalAlignment="Center" />
+          <StackPanel Orientation="Horizontal" Spacing="6">
+            <TextBlock Classes="label" Text="Size" />
+            <c:NumberField Value="{Binding BrushSize}" Width="48" ToolTip.Tip="Brush diameter in pixels ([ and ] resize)" />
+          </StackPanel>
+          <TextBlock Classes="label" Text="Paint over hair or fur to let edge detection decide there · Option erases · Space pans · wheel zooms" />
+        </StackPanel>
+        <StackPanel Orientation="Horizontal" Spacing="14" VerticalAlignment="Center" IsVisible="{Binding IsHandTool}">
+          <TextBlock Text="Hand" FontWeight="SemiBold" VerticalAlignment="Center" />
+          <TextBlock Classes="label" Text="Drag to pan · wheel zooms" />
+        </StackPanel>
+      </Panel>
+    </Border>
+
+    <!-- Tools -->
+    <Border DockPanel.Dock="Left" Width="44" Background="{DynamicResource St.Panel}" BorderBrush="{DynamicResource St.Border}" BorderThickness="0,0,1,0">
+      <StackPanel Spacing="2" Margin="0,8" HorizontalAlignment="Center">
+        <ToggleButton Classes="icon" IsChecked="{Binding IsBrushTool}" ToolTip.Tip="Refine Edge Brush (R)">
+          <Path Classes="icon" Data="{StaticResource IconBrush}" />
+        </ToggleButton>
+        <ToggleButton Classes="icon" IsChecked="{Binding IsHandTool}" ToolTip.Tip="Hand (H)">
+          <Path Classes="icon" Data="{StaticResource IconHand}" />
+        </ToggleButton>
+      </StackPanel>
+    </Border>
+
+    <!-- Properties -->
+    <Border DockPanel.Dock="Right" Width="280" Background="{DynamicResource St.Panel}" BorderBrush="{DynamicResource St.Border}" BorderThickness="1,0,0,0">
+      <DockPanel Margin="14,12">
+        <StackPanel DockPanel.Dock="Bottom" Spacing="10">
+          <TextBlock Classes="muted" Text="{Binding Info}" FontSize="11" />
+          <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
+            <Button x:Name="CancelButton" Content="Cancel" IsCancel="True" MinWidth="84" />
+            <Button x:Name="OkButton" Content="OK" IsDefault="True" MinWidth="84" />
+          </StackPanel>
+        </StackPanel>
+        <ScrollViewer>
+          <StackPanel Spacing="10">
+            <TextBlock Text="View Mode" FontWeight="SemiBold" />
+            <ComboBox SelectedIndex="{Binding ViewIndex}" HorizontalAlignment="Stretch">
+              <ComboBoxItem Content="Overlay" />
+              <ComboBoxItem Content="On Black" />
+              <ComboBoxItem Content="On White" />
+              <ComboBoxItem Content="Black &amp; White" />
+            </ComboBox>
+
+            <TextBlock Text="Edge Detection" FontWeight="SemiBold" Margin="0,8,0,0" />
+            <c:SliderField Label="Radius (px)" Minimum="0" Maximum="250" Value="{Binding Radius}"
+                           ToolTip.Tip="How far on either side of the edge the selection is re-decided from the image's colors" />
+
+            <TextBlock Text="Global Refinements" FontWeight="SemiBold" Margin="0,8,0,0" />
+            <c:SliderField Label="Smooth" Minimum="0" Maximum="100" Value="{Binding Smooth}" ToolTip.Tip="Rounds off jagged outlines" />
+            <c:SliderField Label="Feather (px)" Minimum="0" Maximum="250" Format="0.0" Value="{Binding Feather}" ToolTip.Tip="Softens the edge" />
+            <c:SliderField Label="Contrast (%)" Minimum="0" Maximum="100" Value="{Binding Contrast}" ToolTip.Tip="Hardens soft edges" />
+            <c:SliderField Label="Shift Edge (%)" Minimum="-100" Maximum="100" Value="{Binding ShiftEdge}"
+                           ToolTip.Tip="Moves the edge out (positive) or in (negative), up to 10 pixels" />
+
+            <TextBlock Text="Output Settings" FontWeight="SemiBold" Margin="0,8,0,0" />
+            <DockPanel>
+              <TextBlock Classes="label" Text="Output To" Width="70" VerticalAlignment="Center" />
+              <ComboBox SelectedIndex="{Binding OutputIndex}" HorizontalAlignment="Stretch">
+                <ComboBoxItem Content="Selection" />
+                <ComboBoxItem Content="Layer Mask" />
+                <ComboBoxItem Content="New Layer with Layer Mask" />
+              </ComboBox>
+            </DockPanel>
+          </StackPanel>
+        </ScrollViewer>
+      </DockPanel>
+    </Border>
+
+    <c:ImageCanvas x:Name="Canvas" Source="{Binding Preview}" DocumentSize="{Binding DocumentSize}"
+                   Tool="{Binding CanvasTool}" BrushSize="{Binding BrushSize}" />
+  </DockPanel>
+</Window>

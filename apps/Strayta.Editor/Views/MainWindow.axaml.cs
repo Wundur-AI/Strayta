@@ -158,6 +158,7 @@ public partial class MainWindow : Window, IEditorDialogs
         AddSelectionMenus(menu, Item);
         AddWandShortcuts();
         AddObjectSelectionMenus(menu, Item); // MainWindow.ObjectSelection.cs
+        AddRefineSelectionMenus(menu, Item); // MainWindow.RefineSelection.cs
         NativeMenu.SetMenu(this, menu);
 
         // Enter, Esc and arrow keys drive an open Free Transform before any other single-key shortcut.
