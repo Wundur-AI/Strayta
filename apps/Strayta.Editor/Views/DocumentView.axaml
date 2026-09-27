@@ -18,7 +18,8 @@
     <Panel>
       <c:ImageCanvas x:Name="Canvas" Source="{Binding Display}" DocumentSize="{Binding DocumentSize}"
                      Tool="{Binding Editor.Tool}" BrushSize="{Binding Editor.BrushSize}"
-                     Selection="{Binding Selection}" />
+                     Selection="{Binding Selection}"
+                     FreeTransform="{Binding FreeTransform}" />
 
       <!-- Why the brush can't paint here, with the fixes that apply -->
       <Border IsVisible="{Binding HasPaintBlock}" HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,14,0,0"

@@ -31,4 +31,6 @@
   <StreamGeometry x:Key="IconMarqueeRect">M4 7V4h3 M10.5 4h3 M17 4h3v3 M20 10.5v3 M20 17v3h-3 M13.5 20h-3 M7 20H4v-3 M4 13.5v-3</StreamGeometry>
   <StreamGeometry x:Key="IconMarqueeEllipse">M19.9 13.4A8 8 0 0 1 18.6 16.6 M16.6 18.6A8 8 0 0 1 13.4 19.9 M10.6 19.9A8 8 0 0 1 7.4 18.6 M5.4 16.6A8 8 0 0 1 4.1 13.4 M4.1 10.6A8 8 0 0 1 5.4 7.4 M7.4 5.4A8 8 0 0 1 10.6 4.1 M13.4 4.1A8 8 0 0 1 16.6 5.4 M18.6 7.4A8 8 0 0 1 19.9 10.6</StreamGeometry>
   <StreamGeometry x:Key="IconLasso">M12 3C7 3 3 5.7 3 9s4 6 9 6 9-2.7 9-6-4-6-9-6Z M6.5 14c-1.6 1.2-1.3 3.3.6 3.5 M7.1 17.5c.4 1.6-.6 3-2.6 3.5</StreamGeometry>
+  <StreamGeometry x:Key="IconCommit">M5 12.5l4.5 4.5L19 7.5</StreamGeometry>
+  <StreamGeometry x:Key="IconCancel">M6 6l12 12 M18 6L6 18</StreamGeometry>
 </ResourceDictionary>

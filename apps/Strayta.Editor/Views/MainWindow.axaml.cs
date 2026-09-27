@@ -50,6 +50,8 @@ public partial class MainWindow : Window, IEditorDialogs
             };
         if (Environment.GetEnvironmentVariable("STRAYTA_SELFTEST") == "1")
             Opened += async (_, _) => await SelfTest.RunAsync(Editor, AskNewDocumentAsync);
+        if (Environment.GetEnvironmentVariable("STRAYTA_TRANSFORMBENCH") == "new")
+            Opened += async (_, _) => await SelfTest.RunSyntheticBenchmarksAsync(Editor);
     }
 
     public EditorViewModel Editor { get; }
@@ -105,9 +107,12 @@ public partial class MainWindow : Window, IEditorDialogs
                 new NativeMenuItemSeparator(),
                 Item("Save", Editor.SaveCommand, new KeyGesture(Key.S, cmd)),
                 Item("Save As…", Editor.SaveAsCommand, new KeyGesture(Key.S, cmd | KeyModifiers.Shift)),
+                Item("Export As…", Editor.ExportAsCommand, new KeyGesture(Key.W, cmd | KeyModifiers.Shift | KeyModifiers.Alt)),
                 new NativeMenuItemSeparator(),
                 Item("Close", Editor.CloseCommand, new KeyGesture(Key.W, cmd))),
-            Submenu("Edit", undo, redo),
+            Submenu("Edit", undo, redo,
+                new NativeMenuItemSeparator(),
+                Item("Free Transform", Editor.FreeTransformCommand, new KeyGesture(Key.T, cmd))),
             Submenu("Layer",
                 Item("New Layer", Editor.NewLayerCommand, new KeyGesture(Key.N, cmd | KeyModifiers.Shift)),
                 Item("New Group", Editor.NewGroupCommand, new KeyGesture(Key.G, cmd)),
@@ -140,6 +145,8 @@ public partial class MainWindow : Window, IEditorDialogs
         AddSelectionMenus(menu, Item);
         NativeMenu.SetMenu(this, menu);
 
+        // Enter, Esc and arrow keys drive an open Free Transform before any other single-key shortcut.
+        AddHandler(KeyDownEvent, OnTransformKey, Avalonia.Interactivity.RoutingStrategies.Bubble);
         // Single-key shortcuts (tools, brush size) must not fire while typing, so they are handled by hand.
         AddHandler(KeyDownEvent, OnSingleKey, Avalonia.Interactivity.RoutingStrategies.Bubble);
     }

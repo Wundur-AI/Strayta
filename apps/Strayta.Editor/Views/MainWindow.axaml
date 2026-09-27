@@ -2,6 +2,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="using:Strayta.Editor.ViewModels"
         xmlns:dock="using:Dock.Avalonia.Controls"
+        xmlns:c="using:Strayta.Editor.Controls"
         x:Class="Strayta.Editor.Views.MainWindow"
         x:DataType="vm:EditorViewModel"
         Title="{Binding WindowTitle}"
@@ -55,7 +56,8 @@
     <!-- Options bar: settings for the current tool -->
     <Border DockPanel.Dock="Top" Background="{DynamicResource St.Panel}" Height="36" Padding="12,0"
             BorderBrush="{DynamicResource St.Border}" BorderThickness="0,0,0,1">
-      <StackPanel Orientation="Horizontal" Spacing="16" VerticalAlignment="Center">
+      <Panel>
+      <StackPanel Orientation="Horizontal" Spacing="16" VerticalAlignment="Center" IsVisible="{Binding !IsTransforming}">
         <TextBlock Text="{Binding ToolName}" FontWeight="SemiBold" VerticalAlignment="Center" MinWidth="52" />
 
         <TextBlock Classes="label" Text="Drag to move the selected layer · Space or middle button pans · wheel zooms"
@@ -84,6 +86,34 @@
           </StackPanel>
         </StackPanel>
       </StackPanel>
+
+      <!-- Free Transform: the box's reference point, size, angle; Enter/✓ applies, Esc/✕ cancels -->
+      <DockPanel IsVisible="{Binding IsTransforming}">
+        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+          <Button Classes="icon" ToolTip.Tip="Cancel transform (Esc)" Command="{Binding CancelTransformCommand}">
+            <Path Classes="icon" Data="{StaticResource IconCancel}" />
+          </Button>
+          <Button Classes="icon" ToolTip.Tip="Commit transform (Enter)" Command="{Binding CommitTransformCommand}">
+            <Path Classes="icon" Data="{StaticResource IconCommit}" Stroke="{DynamicResource St.Accent}" />
+          </Button>
+        </StackPanel>
+        <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+          <TextBlock Text="Free Transform" FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,0,8,0" />
+          <TextBlock Classes="label" Text="X" />
+          <c:NumberField Unit=" px" Value="{Binding ActiveDocument.FreeTransform.X, FallbackValue=0}" ToolTip.Tip="Horizontal position of the center" />
+          <TextBlock Classes="label" Text="Y" />
+          <c:NumberField Unit=" px" Value="{Binding ActiveDocument.FreeTransform.Y, FallbackValue=0}" ToolTip.Tip="Vertical position of the center" />
+          <TextBlock Classes="label" Text="W" Margin="8,0,0,0" />
+          <c:NumberField Unit="%" Value="{Binding ActiveDocument.FreeTransform.WidthPercent, FallbackValue=100}" ToolTip.Tip="Width" />
+          <TextBlock Classes="label" Text="H" />
+          <c:NumberField Unit="%" Value="{Binding ActiveDocument.FreeTransform.HeightPercent, FallbackValue=100}" ToolTip.Tip="Height" />
+          <TextBlock Classes="label" Text="Angle" Margin="8,0,0,0" />
+          <c:NumberField Unit="°" Value="{Binding ActiveDocument.FreeTransform.Angle, FallbackValue=0}" ToolTip.Tip="Rotation, clockwise" />
+          <TextBlock Classes="label" Margin="12,0,0,0"
+                     Text="Drag a corner to scale (Shift: free, Option: from center) · outside to rotate · inside to move" />
+        </StackPanel>
+      </DockPanel>
+      </Panel>
     </Border>
 
     <!-- Tool strip -->

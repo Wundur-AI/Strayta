@@ -1,5 +1,6 @@
 using Strayta.Core;
 using Strayta.Core.Painting;
+using Strayta.Editor.Editing;
 using Strayta.Editor.ViewModels;
 using Strayta.Psd;
 
@@ -138,6 +139,8 @@ internal static partial class SelfTest
             Check(!doc.IsModified && doc.Title == Path.GetFileName(path), "document is clean after saving");
             File.Delete(path);
 
+            await FreeTransformSteps(doc, editor, layer, group, Check);
+            await ExportSteps(doc, Check);
             await RunSelectionStepsAsync(editor, Check);
         }
         catch (Exception ex)
@@ -146,5 +149,115 @@ internal static partial class SelfTest
         }
 
         Console.WriteLine(failures.Count == 0 ? "SELFTEST PASSED" : $"SELFTEST FAILED ({failures.Count})");
+    }
+
+    // ---- Free Transform and Export -----------------------------------------------------------------
+
+    private static async Task FreeTransformSteps(DocumentViewModel doc, EditorViewModel editor, PixelLayer layer, LayerGroup group, Action<bool, string> check)
+    {
+        LayerItemViewModel Item(LayerNode n) => doc.Layers.SelectMany(l => l.SelfAndDescendants()).First(i => i.Node == n);
+
+        doc.SelectedLayer = Item(layer);
+        var (pixels, bounds) = (layer.Pixels, layer.Bounds);
+        check(doc.BeginFreeTransform() && editor.IsTransforming, "Free Transform opens on the painted layer");
+        var ft = doc.FreeTransform!;
+        var corner = ft.HandlePosition(TransformHandle.BottomRight);
+        check(ft.HitTest(corner.X + 1, corner.Y - 1, 4) == TransformHandle.BottomRight && ft.HitTest(ft.Center.X, ft.Center.Y, 4) == TransformHandle.Move
+              && ft.HitTest(corner.X + 60, corner.Y + 60, 4) == TransformHandle.Rotate, "handles, inside and outside hit-test as in Photoshop");
+        ft.BeginDrag(TransformHandle.BottomRight, corner.X, corner.Y);
+        ft.DragTo(corner.X + 60, corner.Y + 10, shift: false, alt: false);
+        ft.EndDrag();
+        check(ft.WidthPercent > 110 && Math.Abs(ft.WidthPercent - ft.HeightPercent) < 1e-6
+              && Math.Abs(ft.Corners[0].X - ft.Original.Left) < 1e-6 && Math.Abs(ft.Corners[0].Y - ft.Original.Top) < 1e-6, $"corner drag scales proportionally from the opposite corner (W {ft.WidthPercent:F1}%)");
+        ft.Angle = 30;
+        await Task.Delay(300); // let the preview lane draw the transformed layer
+        check(ReferenceEquals(layer.Pixels, pixels) && layer.Bounds == bounds, "the document is untouched while transforming");
+        await doc.CommitTransformAsync();
+        check(!doc.IsTransforming && !ReferenceEquals(layer.Pixels, pixels) && layer.Bounds.Height > bounds.Height * 3 && doc.UndoText == "Undo Free Transform",
+            $"commit scales and rotates the pixels as one edit ({bounds} -> {layer.Bounds})");
+        int centerAt = (layer.Bounds.Height / 2) * layer.Bounds.Width + layer.Bounds.Width / 2;
+        check(layer.Pixels!.Alpha!.Data[centerAt] == 255 && layer.Pixels.ColorPlanes[0].Data[centerAt] == 255, "the stroke is still opaque red after resampling");
+        doc.Undo();
+        check(ReferenceEquals(layer.Pixels, pixels) && layer.Bounds == bounds, "undo restores the original pixels and bounds");
+
+        check(doc.BeginFreeTransform(), "Free Transform reopens");
+        doc.FreeTransform!.WidthPercent = 50;
+        doc.Undo(); // inside a transform, undo backs out of it
+        check(!doc.IsTransforming && ReferenceEquals(layer.Pixels, pixels) && doc.CanRedo, "undo during a transform cancels it without touching history");
+
+        // Whole groups move with every layer inside; a pure move keeps pixels exactly (no resampling).
+        doc.SelectedLayer = Item(group);
+        var inside = group.Descendants().OfType<PixelLayer>().First(p => p.Pixels is not null);
+        var (insidePixels, insideBounds) = (inside.Pixels, inside.Bounds);
+        check(doc.BeginFreeTransform(), "Free Transform opens on a group");
+        ft = doc.FreeTransform!;
+        ft.BeginDrag(TransformHandle.Move, ft.Center.X, ft.Center.Y);
+        ft.DragTo(ft.Center.X + 12.4, ft.Center.Y - 5, shift: false, alt: false);
+        ft.EndDrag();
+        await doc.CommitTransformAsync();
+        check(ReferenceEquals(inside.Pixels, insidePixels) && inside.Bounds == insideBounds with
+        {
+            Left = insideBounds.Left + 12, Right = insideBounds.Right + 12, Top = insideBounds.Top - 5, Bottom = insideBounds.Bottom - 5,
+        }, $"moving a group moves its layers by whole pixels ({insideBounds} -> {inside.Bounds})");
+        doc.Undo();
+
+        doc.NewLayer();
+        check(!doc.BeginFreeTransform() && doc.Notice.Contains("no pixels"), "an empty layer is refused with a notice");
+        doc.Undo();
+    }
+
+    private static async Task ExportSteps(DocumentViewModel doc, Action<bool, string> check)
+    {
+        string dir = Path.Combine(Path.GetTempPath(), $"strayta-export-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(dir);
+        try
+        {
+            string png = Path.Combine(dir, "export.png"), jpg = Path.Combine(dir, "export.jpg");
+            await doc.ExportAsync(png, new Rendering.Export.ExportOptions { Format = Rendering.Export.ExportFormat.Png });
+            await doc.ExportAsync(jpg, new Rendering.Export.ExportOptions { Format = Rendering.Export.ExportFormat.Jpeg, Quality = 85 });
+            using var a = new Avalonia.Media.Imaging.Bitmap(png);
+            using var b = new Avalonia.Media.Imaging.Bitmap(jpg);
+            var size = new Avalonia.PixelSize(doc.Model.Width, doc.Model.Height);
+            check(a.PixelSize == size, $"exported PNG decodes at the document size ({a.PixelSize}, {new FileInfo(png).Length / 1024} KB)");
+            check(b.PixelSize == size, $"exported JPEG decodes at the document size ({b.PixelSize}, {new FileInfo(jpg).Length / 1024} KB)");
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    /// <summary>
+    /// STRAYTA_TRANSFORMBENCH=new: builds a 4000×3000 document with a large photo-like layer and runs the drag and
+    /// Free Transform benchmarks on it, for machines without a large PSD at hand.
+    /// </summary>
+    public static async Task RunSyntheticBenchmarksAsync(EditorViewModel editor)
+    {
+        const int w = 4000, h = 3000;
+        var model = Editing.LayerFactory.NewDocument(w, h, whiteBackground: true);
+        int lw = 3200, lh = 2400;
+        var planes = Enumerable.Range(0, 4).Select(_ => Plane.Create(lw, lh, 8)).ToArray();
+        Parallel.For(0, lh, y =>
+        {
+            uint seed = (uint)y * 2654435761u;
+            for (int x = 0; x < lw; x++)
+            {
+                seed = seed * 1664525u + 1013904223u;
+                int noise = (int)(seed >> 28) - 8, i = y * lw + x;
+                planes[0].Data[i] = (byte)Math.Clamp(x * 255 / lw + noise, 0, 255);
+                planes[1].Data[i] = (byte)Math.Clamp(y * 255 / lh + noise, 0, 255);
+                planes[2].Data[i] = (byte)Math.Clamp(128 + 100 * Math.Sin(x * 0.01) * Math.Cos(y * 0.013) + noise, 0, 255);
+                planes[3].Data[i] = 255;
+            }
+        });
+        model.Root.Add(new PixelLayer { Name = "Photo", Bounds = new PixelRect(400, 300, 400 + lw, 300 + lh), Pixels = new Raster(ColorMode.Rgb, planes[..3], planes[3]) });
+        var doc = new DocumentViewModel(model, null, editor);
+        editor.Factory.AddDocument(doc);
+        editor.ActiveDocument = doc;
+        await doc.RenderAsync();
+        await Task.Delay(1500); // let the view fit the image and the preview caches warm up
+        await doc.RunDragBenchmarkAsync();
+        await Task.Delay(500);
+        await doc.RunTransformBenchmarkAsync();
     }
 }

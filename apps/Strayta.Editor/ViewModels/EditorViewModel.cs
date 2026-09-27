@@ -22,6 +22,9 @@ public interface IEditorDialogs
     Task ShowErrorAsync(string title, string message);
     /// <summary>Returns the new document's size and background, or null if cancelled.</summary>
     Task<(int Width, int Height, bool White)?> AskNewDocumentAsync();
+    /// <summary>File › Export As settings (format, JPEG quality, transparency, matte), or null if cancelled.</summary>
+    Task<Strayta.Rendering.Export.ExportOptions?> AskExportOptionsAsync(Strayta.Rendering.Export.ExportOptions current, (byte R, byte G, byte B) backgroundColor);
+    Task<string?> PickExportFileAsync(string suggestedName, Strayta.Rendering.Export.ExportFormat format);
 }
 
 public sealed partial class EditorViewModel : ObservableObject
@@ -91,7 +94,7 @@ public sealed partial class EditorViewModel : ObservableObject
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasDocument))]
-    [NotifyCanExecuteChangedFor(nameof(SaveCommand), nameof(SaveAsCommand), nameof(CloseCommand))]
+    [NotifyCanExecuteChangedFor(nameof(SaveCommand), nameof(SaveAsCommand), nameof(CloseCommand), nameof(ExportAsCommand))]
     public partial DocumentViewModel? ActiveDocument { get; set; }
 
     public bool HasDocument => ActiveDocument is not null;
@@ -118,6 +121,7 @@ public sealed partial class EditorViewModel : ObservableObject
         DocumentChanged?.Invoke();
         NotifyViewMode();
         OnPropertyChanged(nameof(WindowTitle));
+        OnPropertyChanged(nameof(IsTransforming));
     }
 
     private void OnDocumentPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
@@ -125,6 +129,7 @@ public sealed partial class EditorViewModel : ObservableObject
         if (e.PropertyName is nameof(DocumentViewModel.CanUndo) or nameof(DocumentViewModel.UndoText)) DocumentChanged?.Invoke();
         if (e.PropertyName is nameof(DocumentViewModel.Mode)) NotifyViewMode();
         if (e.PropertyName is nameof(DocumentViewModel.Title) or nameof(DocumentViewModel.IsModified)) OnPropertyChanged(nameof(WindowTitle));
+        if (e.PropertyName is nameof(DocumentViewModel.IsTransforming)) OnPropertyChanged(nameof(IsTransforming));
     }
 
     public async Task OpenAsync(string path)
@@ -153,6 +158,11 @@ public sealed partial class EditorViewModel : ObservableObject
                 await Task.Delay(1500);
                 await document.RunPaintBenchmarkAsync();
                 await document.RunPaintBenchmarkWithSelectionAsync();
+            }
+            if (Environment.GetEnvironmentVariable("STRAYTA_TRANSFORMBENCH") == "1")
+            {
+                await Task.Delay(1500);
+                await document.RunTransformBenchmarkAsync();
             }
         }
         catch (Exception ex)
