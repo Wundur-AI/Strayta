@@ -46,6 +46,9 @@ public sealed class PreviewDocument
             ? new StrokeOverlay(stroke, layer, Factor)
             : null;
 
+    /// <summary>The proxy standing in for <paramref name="source"/> after the last <see cref="Sync"/>, if any.</summary>
+    public LayerNode? ProxyOf(LayerNode source) => _proxies.GetValueOrDefault(source);
+
     /// <summary>Brings the proxy up to date with the source document and returns it.</summary>
     public Document Sync()
     {

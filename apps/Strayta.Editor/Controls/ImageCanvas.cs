@@ -19,7 +19,7 @@ public enum CanvasTool
 /// Displays a document over a transparency checkerboard. Wheel zooms around the cursor; the Hand tool,
 /// the middle button or holding Space pans; the Move tool reports drags in image pixels.
 /// </summary>
-public sealed class ImageCanvas : Control
+public sealed partial class ImageCanvas : Control
 {
     public static readonly StyledProperty<Bitmap?> SourceProperty =
         AvaloniaProperty.Register<ImageCanvas, Bitmap?>(nameof(Source));
@@ -107,6 +107,7 @@ public sealed class ImageCanvas : Control
         }
         if (change.Property == ZoomProperty) ZoomChanged?.Invoke(Zoom);
         if (change.Property == ToolProperty) UpdateCursor();
+        if (change.Property == FreeTransformProperty) OnFreeTransformChanged(change);
     }
 
     public void FitToView()
@@ -151,9 +152,10 @@ public sealed class ImageCanvas : Control
         var mode = scale >= 2 && bmp.PixelSize == size ? BitmapInterpolationMode.None : BitmapInterpolationMode.HighQuality;
         using (context.PushRenderOptions(new RenderOptions { BitmapInterpolationMode = mode }))
             context.DrawImage(bmp, new Rect(0, 0, bmp.PixelSize.Width, bmp.PixelSize.Height), dest);
+        DrawTransformBox(context);
 
         // Brush outline: a dark and a light ring so it stays visible over any colors.
-        if (IsPaintTool && !_spaceHeld && _hover is { } h)
+        if (IsPaintTool && !_spaceHeld && FreeTransform is null && _hover is { } h)
         {
             double r = Math.Max(1.5, BrushSize * Zoom / 2);
             context.DrawEllipse(null, new Pen(new SolidColorBrush(Color.FromArgb(160, 0, 0, 0)), 1.5), h, r, r);
@@ -179,6 +181,12 @@ public sealed class ImageCanvas : Control
         var props = e.GetCurrentPoint(this).Properties;
         _panning = Tool == CanvasTool.Hand || _spaceHeld || props.IsMiddleButtonPressed;
         _dragStart = e.GetPosition(this);
+        if (TransformPressed(e))
+        {
+            _dragStart = null;
+            e.Pointer.Capture(this);
+            return;
+        }
         if (!_panning && IsPaintTool && props.IsLeftButtonPressed)
         {
             var p = ToImage(e.GetPosition(this));
@@ -193,6 +201,7 @@ public sealed class ImageCanvas : Control
     protected override void OnPointerMoved(PointerEventArgs e)
     {
         base.OnPointerMoved(e);
+        if (TransformMoved(e)) return;
         if (IsPaintTool)
         {
             _hover = e.GetPosition(this);
@@ -236,6 +245,7 @@ public sealed class ImageCanvas : Control
     protected override void OnPointerReleased(PointerReleasedEventArgs e)
     {
         base.OnPointerReleased(e);
+        TransformReleased();
         if (_stroking)
         {
             _stroking = false;
@@ -249,6 +259,7 @@ public sealed class ImageCanvas : Control
     protected override void OnKeyDown(KeyEventArgs e)
     {
         base.OnKeyDown(e);
+        TransformModifiersChanged(e);
         if (e.Key == Key.Space && !_spaceHeld)
         {
             _spaceHeld = true;
@@ -260,6 +271,7 @@ public sealed class ImageCanvas : Control
     protected override void OnKeyUp(KeyEventArgs e)
     {
         base.OnKeyUp(e);
+        TransformModifiersChanged(e);
         if (e.Key == Key.Space)
         {
             _spaceHeld = false;
@@ -270,6 +282,7 @@ public sealed class ImageCanvas : Control
 
     private void UpdateCursor() => Cursor = new Cursor(
         Tool == CanvasTool.Hand || _spaceHeld ? StandardCursorType.Hand
+        : FreeTransform is not null ? StandardCursorType.Arrow
         : IsPaintTool ? StandardCursorType.Cross
         : StandardCursorType.SizeAll);
 

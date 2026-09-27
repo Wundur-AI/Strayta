@@ -37,6 +37,12 @@ dotnet test
   (double-click), drag-and-drop reordering into and out of groups, new layer/group, duplicate, delete.
 - Full undo/redo. Save / Save As write PSD, keeping everything Strayta does not edit (text, smart objects,
   effects, ...) exactly as it was.
+- Edit > Free Transform (⌘T) on a layer or group: drag corners to scale (proportional; Shift frees it, Option
+  scales from the center), sides to stretch, outside to rotate (Shift snaps to 15°), inside to move; or type
+  X/Y/W/H/angle in the options bar. Enter or double-click applies (bicubic, area-filtered when shrinking,
+  masks follow), Esc cancels.
+- File > Export As writes PNG (with transparency) or JPEG (quality, flattened on a matte) with Strayta's own
+  encoders.
 - Interaction renders a screen-resolution preview; full resolution follows when you pause.
 - View > Photoshop Composite / Difference compare Strayta's render with the image stored in the file.
 
@@ -45,7 +51,9 @@ dotnet run -c Release --project apps/Strayta.Editor -- [file.psd ...]
 ```
 
 Diagnostics (environment variables): `STRAYTA_SELFTEST=1` runs a scripted editing session and reports
-each step; `STRAYTA_DRAGBENCH=1` / `STRAYTA_PAINTBENCH=1` measure frame rates on the first opened file;
+each step; `STRAYTA_DRAGBENCH=1` / `STRAYTA_PAINTBENCH=1` / `STRAYTA_TRANSFORMBENCH=1` measure frame rates on
+the first opened file (`STRAYTA_TRANSFORMBENCH=new` builds a 4000×3000 document and runs the drag and transform
+benchmarks on it);
 `STRAYTA_THEME=Light|Dark` sets the starting appearance.
 
 ## Inspect tool

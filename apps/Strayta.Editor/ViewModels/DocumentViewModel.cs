@@ -166,6 +166,11 @@ public sealed partial class DocumentViewModel : Dock.Model.Mvvm.Controls.Documen
 
     public void Undo()
     {
+        if (IsTransforming)
+        {
+            CancelTransform(); // like Photoshop, undo inside Free Transform steps back out of it
+            return;
+        }
         if (_undo.Undo() is { } edit) AfterChange(edit);
     }
 
@@ -425,10 +430,12 @@ public sealed partial class DocumentViewModel : Dock.Model.Mvvm.Controls.Documen
                 var sw = Stopwatch.StartNew();
                 var proxy = _preview.Sync();
                 var overlay = _preview.MapStroke(_stroke);
+                var transform = PrepareTransform(_preview, full: false);
                 double syncMs = sw.Elapsed.TotalMilliseconds;
                 var (rgba, warnings, renderMs, convertMs) = await Task.Run(() =>
                 {
                     var t = Stopwatch.StartNew();
+                    transform?.Invoke(CancellationToken.None);
                     var r = _previewRenderer.Render(proxy, new RenderOptions { ActiveStroke = overlay });
                     double render = t.Elapsed.TotalMilliseconds;
                     var px = r.ToRgba8();
@@ -473,6 +480,7 @@ public sealed partial class DocumentViewModel : Dock.Model.Mvvm.Controls.Documen
             var doc = Model;
             var snapshot = _snapshot.Sync();
             var strokeOverlay = _snapshot.MapStroke(_stroke);
+            var transform = PrepareTransform(_snapshot, full: true);
             var reference = _reference;
             bool untouched = !_undo.CanUndo && !_undo.CanRedo;
             var sw = Stopwatch.StartNew();
@@ -487,6 +495,7 @@ public sealed partial class DocumentViewModel : Dock.Model.Mvvm.Controls.Documen
 
             var (rgba, warnings, report) = await Task.Run(() =>
             {
+                transform?.Invoke(cancel);
                 var result = _renderer.Render(snapshot, new RenderOptions { Cancellation = cancel, ActiveStroke = strokeOverlay });
                 var pixels = result.ToRgba8(cancel);
                 var fid = reference is null || !untouched
@@ -665,6 +674,7 @@ public sealed partial class DocumentViewModel : Dock.Model.Mvvm.Controls.Documen
     public async Task SaveAsync(string path)
     {
         if (!CanSave) throw new NotSupportedException($"Saving {Model.ColorMode} documents is not supported yet.");
+        if (IsTransforming) await CommitTransformAsync();
         IsBusy = true;
         try
         {

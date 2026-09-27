@@ -27,4 +27,6 @@
   <StreamGeometry x:Key="IconChecker">M4 4h16v16H4Z M4 12h16 M12 4v16 M4 4h8v8H4Z M12 12h8v8h-8Z</StreamGeometry>
   <StreamGeometry x:Key="IconChevronRight">M9 5l7 7-7 7</StreamGeometry>
   <StreamGeometry x:Key="IconChevronDown">M5 9l7 7 7-7</StreamGeometry>
+  <StreamGeometry x:Key="IconCommit">M5 12.5l4.5 4.5L19 7.5</StreamGeometry>
+  <StreamGeometry x:Key="IconCancel">M6 6l12 12 M18 6L6 18</StreamGeometry>
 </ResourceDictionary>
