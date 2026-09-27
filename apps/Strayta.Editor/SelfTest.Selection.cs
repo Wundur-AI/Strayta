@@ -105,6 +105,37 @@ internal static partial class SelfTest
         check(Alpha(layer, 150, 150) == 0 && editor.Clipboard!.Bounds.Left >= 100, "cut copies and clears the selection");
         doc.Undo();
 
+        // Layer via Copy (⌘J) and Layer via Cut (⇧⌘J): the selection onto a new layer above, in place, deselected.
+        selection = doc.Selection;
+        layer.BlendMode = BlendMode.Multiply;
+        await editor.LayerViaCommand.ExecuteAsync("copy");
+        var viaCopy = doc.SelectedLayer?.Node as PixelLayer;
+        check(viaCopy is not null && model.Root.IndexOf(viaCopy) == model.Root.IndexOf(layer) + 1 && Alpha(viaCopy, 150, 150) == 255
+              && viaCopy.Bounds.Left >= 100 && viaCopy.Bounds.Right <= 200 && Alpha(layer, 150, 150) == 255
+              && viaCopy.BlendMode == BlendMode.Multiply && doc.Selection is null && doc.UndoText == "Undo Layer via Copy",
+            $"Layer via Copy puts the selected pixels on a new layer above, keeps the source, deselects ({viaCopy?.Bounds})");
+        doc.Undo();
+        check(viaCopy!.Parent is null && ReferenceEquals(doc.Selection, selection), "one undo removes it and restores the selection");
+        doc.SelectedLayer = doc.Layers.SelectMany(l => l.SelfAndDescendants()).First(i => i.Node == layer);
+        await editor.LayerViaCommand.ExecuteAsync("cut");
+        var viaCut = doc.SelectedLayer?.Node as PixelLayer;
+        check(viaCut is not null && Alpha(viaCut, 150, 150) == 255 && Alpha(layer, 150, 150) == 0 && doc.UndoText == "Undo Layer via Cut",
+            "Layer via Cut moves the selected pixels to a new layer");
+        doc.Undo();
+        check(viaCut!.Parent is null && Alpha(layer, 150, 150) == 255 && ReferenceEquals(doc.Selection, selection),
+            "one undo puts the cut pixels back");
+        doc.SelectedLayer = doc.Layers.SelectMany(l => l.SelfAndDescendants()).First(i => i.Node == layer);
+        doc.SetSelection(null, "Deselect");
+        int layerCount = model.Root.Children.Count;
+        await editor.LayerViaCommand.ExecuteAsync("copy");
+        check(model.Root.Children.Count == layerCount + 1 && doc.SelectedLayer?.Node is PixelLayer { Name: var dupName } && dupName.EndsWith(" copy"),
+            "with nothing selected, ⌘J duplicates the layer");
+        doc.Undo();
+        doc.Undo();
+        doc.SelectedLayer = doc.Layers.SelectMany(l => l.SelfAndDescendants()).First(i => i.Node == layer);
+        layer.BlendMode = BlendMode.Normal;
+        check(ReferenceEquals(doc.Selection, selection), "undo restores the selection for the next steps");
+
         // Invert, then fill with the foreground color: only outside the old rectangle.
         doc.InvertSelection();
         check(doc.Selection is { } inv && inv.CoverageAt(150, 150) == 0 && inv.CoverageAt(10, 10) == 255 && doc.UndoText == "Undo Select Inverse",

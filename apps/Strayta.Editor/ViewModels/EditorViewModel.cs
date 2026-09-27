@@ -316,6 +316,8 @@ public sealed partial class EditorViewModel : ObservableObject
     [RelayCommand] private void NewLayer() => ActiveDocument?.NewLayer();
     [RelayCommand] private void NewGroup() => ActiveDocument?.NewGroup();
     [RelayCommand] private void DuplicateLayer() => ActiveDocument?.DuplicateSelected();
+    /// <summary>Layer via Copy ("copy", ⌘J) or Layer via Cut ("cut", ⇧⌘J): the selection onto a new layer.</summary>
+    [RelayCommand] private Task LayerVia(string mode) => ActiveDocument?.LayerViaAsync(cut: mode == "cut") ?? Task.CompletedTask;
     [RelayCommand] private void RasterizeLayer() => ActiveDocument?.RasterizeSelected();
 
     [RelayCommand]

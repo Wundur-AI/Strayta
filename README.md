@@ -42,7 +42,8 @@ dotnet test
 - Selections: Rectangular and Elliptical Marquee (M, Shift+M switches), Lasso (L), with Photoshop's modifiers
   (Shift adds or constrains, Option subtracts or draws from the center, Shift+Option intersects; a click
   deselects). Select > All / Deselect / Reselect / Inverse. Painting, Delete (clear), Fill, Cut, Copy and
-  Paste (to a new layer) work on the selected area, and every selection change is undoable.
+  Paste (to a new layer) work on the selected area, and every selection change is undoable. Layer via Copy (⌘J)
+  and Layer via Cut (⇧⌘J) put the selected pixels on a new layer in place; with nothing selected ⌘J duplicates.
 - Tool strip slots as in Photoshop: related tools share a slot and a key (M marquees; W Object Selection, Quick
   Selection, Magic Wand). The slot shows the tool used last, Shift plus the key steps through the group, and
   pressing and holding (or right-clicking) a slot with a corner triangle lists its tools.
