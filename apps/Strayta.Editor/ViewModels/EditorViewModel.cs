@@ -171,6 +171,11 @@ public sealed partial class EditorViewModel : ObservableObject
                 await Task.Delay(1500);
                 await document.RunAdjustmentBenchmarkAsync();
             }
+            if (Environment.GetEnvironmentVariable("STRAYTA_WANDBENCH") == "1")
+            {
+                await Task.Delay(1500);
+                await document.RunWandBenchmarkAsync();
+            }
         }
         catch (Exception ex)
         {
@@ -183,6 +188,7 @@ public sealed partial class EditorViewModel : ObservableObject
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsMoveTool), nameof(IsHandTool), nameof(IsBrushTool), nameof(IsEraserTool), nameof(IsPaintTool), nameof(ToolName))]
     [NotifyPropertyChangedFor(nameof(IsRectSelectTool), nameof(IsEllipseSelectTool), nameof(IsLassoTool), nameof(IsMarqueeTool))]
+    [NotifyPropertyChangedFor(nameof(IsMagicWandTool), nameof(IsQuickSelectTool), nameof(ToolBrushSize))]
     public partial CanvasTool Tool { get; set; } = CanvasTool.Move;
 
     public bool IsMoveTool { get => Tool == CanvasTool.Move; set { if (value) Tool = CanvasTool.Move; } }
@@ -194,11 +200,15 @@ public sealed partial class EditorViewModel : ObservableObject
     {
         CanvasTool.RectSelect => "Rectangular Marquee",
         CanvasTool.EllipseSelect => "Elliptical Marquee",
+        CanvasTool.MagicWand => "Magic Wand",
+        CanvasTool.QuickSelect => "Quick Selection",
         _ => Tool.ToString(),
     };
 
     /// <summary>Brush diameter in pixels.</summary>
-    [ObservableProperty] public partial double BrushSize { get; set; } = 30;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ToolBrushSize))]
+    public partial double BrushSize { get; set; } = 30;
 
     /// <summary>Brush hardness in percent.</summary>
     [ObservableProperty] public partial double BrushHardness { get; set; } = 80;
@@ -252,8 +262,18 @@ public sealed partial class EditorViewModel : ObservableObject
     [RelayCommand]
     private void ResizeBrush(string direction)
     {
-        double step = BrushSize < 10 ? 1 : BrushSize < 100 ? 5 : BrushSize < 300 ? 10 : 25;
-        BrushSize = Math.Clamp(BrushSize + (direction == "up" ? step : -step), 1, 1000);
+        if (Tool == CanvasTool.QuickSelect)
+        {
+            QuickSelectSize = Resized(QuickSelectSize, direction); // Quick Selection has its own brush, as in Photoshop
+            return;
+        }
+        BrushSize = Resized(BrushSize, direction);
+    }
+
+    private static double Resized(double size, string direction)
+    {
+        double step = size < 10 ? 1 : size < 100 ? 5 : size < 300 ? 10 : 25;
+        return Math.Clamp(size + (direction == "up" ? step : -step), 1, 1000);
     }
 
     [RelayCommand]

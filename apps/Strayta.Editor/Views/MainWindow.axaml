@@ -68,6 +68,28 @@
         <TextBlock Classes="label" IsVisible="{Binding IsLassoTool}"
                    Text="Drag around an area to select it · Shift adds · Option subtracts · Shift+Option intersects · click to deselect" />
 
+        <!-- Magic Wand and Quick Selection -->
+        <StackPanel Orientation="Horizontal" Spacing="14" IsVisible="{Binding IsMagicWandTool}">
+          <StackPanel Orientation="Horizontal" Spacing="6">
+            <TextBlock Classes="label" Text="Tolerance" />
+            <c:NumberField Value="{Binding WandTolerance}" Width="44" ToolTip.Tip="How different a color may be from the clicked one, 0–255 per channel" />
+          </StackPanel>
+          <CheckBox Content="Anti-alias" IsChecked="{Binding WandAntiAlias}" FontSize="11" />
+          <CheckBox Content="Contiguous" IsChecked="{Binding WandContiguous}" FontSize="11" ToolTip.Tip="Only areas connected to the clicked pixel" />
+          <CheckBox Content="Sample All Layers" IsChecked="{Binding WandSampleAllLayers}" FontSize="11" ToolTip.Tip="Look at the whole image instead of the selected layer" />
+          <TextBlock Classes="label" Text="Click to select similar colors · Shift adds · Option subtracts · Shift+Option intersects" />
+        </StackPanel>
+        <StackPanel Orientation="Horizontal" Spacing="14" IsVisible="{Binding IsQuickSelectTool}">
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <TextBlock Classes="label" Text="Size" />
+            <Slider Width="110" Minimum="1" Maximum="500" Value="{Binding QuickSelectSize}" VerticalAlignment="Center" />
+            <TextBlock Text="{Binding QuickSelectSize, StringFormat='{}{0:0} px'}" VerticalAlignment="Center" MinWidth="44" />
+          </StackPanel>
+          <CheckBox Content="Sample All Layers" IsChecked="{Binding QuickSelectSampleAllLayers}" FontSize="11" ToolTip.Tip="Look at the whole image instead of the selected layer" />
+          <CheckBox Content="Auto-Enhance" IsChecked="{Binding QuickSelectAutoEnhance}" FontSize="11" ToolTip.Tip="Smoother, softer selection edges" />
+          <TextBlock Classes="label" Text="Paint over an area to select it · adds to the selection · Option subtracts · ⌘D starts over" />
+        </StackPanel>
+
         <StackPanel Orientation="Horizontal" Spacing="18" IsVisible="{Binding IsPaintTool}">
           <StackPanel Orientation="Horizontal" Spacing="8">
             <TextBlock Classes="label" Text="Size" />
@@ -159,6 +181,12 @@
           </ToggleButton>
           <ToggleButton Classes="icon" IsChecked="{Binding IsLassoTool}" ToolTip.Tip="Lasso (L)">
             <Path Classes="icon" Data="{StaticResource IconLasso}" />
+          </ToggleButton>
+          <ToggleButton Classes="icon" IsChecked="{Binding IsQuickSelectTool}" ToolTip.Tip="Quick Selection (W · Shift+W switches)">
+            <Path Classes="icon" Data="{StaticResource IconQuickSelect}" />
+          </ToggleButton>
+          <ToggleButton Classes="icon" IsChecked="{Binding IsMagicWandTool}" ToolTip.Tip="Magic Wand (W · Shift+W switches)">
+            <Path Classes="icon" Data="{StaticResource IconMagicWand}" />
           </ToggleButton>
           <ToggleButton Classes="icon" IsChecked="{Binding IsBrushTool}" ToolTip.Tip="Brush (B)">
             <Path Classes="icon" Data="{StaticResource IconBrush}" />

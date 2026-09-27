@@ -52,6 +52,8 @@ public partial class MainWindow : Window, IEditorDialogs
             Opened += async (_, _) => await SelfTest.RunAsync(Editor, AskNewDocumentAsync);
         if (Environment.GetEnvironmentVariable("STRAYTA_TRANSFORMBENCH") == "new")
             Opened += async (_, _) => await SelfTest.RunSyntheticBenchmarksAsync(Editor);
+        if (Environment.GetEnvironmentVariable("STRAYTA_WANDBENCH") == "new")
+            Opened += async (_, _) => await SelfTest.RunSyntheticWandBenchmarkAsync(Editor);
     }
 
     public EditorViewModel Editor { get; }
@@ -154,6 +156,7 @@ public partial class MainWindow : Window, IEditorDialogs
                 Item("Reset Layout", Editor.ResetLayoutCommand)),
         };
         AddSelectionMenus(menu, Item);
+        AddWandShortcuts();
         NativeMenu.SetMenu(this, menu);
 
         // Enter, Esc and arrow keys drive an open Free Transform before any other single-key shortcut.

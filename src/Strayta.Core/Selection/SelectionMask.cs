@@ -203,6 +203,17 @@ public sealed class SelectionMask
         }
     }
 
+    /// <summary>
+    /// A selection from computed coverage over <paramref name="bounds"/> (row-major, 255 = selected), for tools that
+    /// build masks themselves (magic wand, quick selection). Takes ownership of the array; null if nothing is selected.
+    /// </summary>
+    public static SelectionMask? FromCoverage(PixelRect bounds, byte[] coverage)
+    {
+        if (coverage.Length != bounds.Width * bounds.Height)
+            throw new ArgumentException("Coverage must have one byte per pixel of the bounds.", nameof(coverage));
+        return bounds.IsEmpty ? null : Trim(bounds, coverage);
+    }
+
     // ---- Operations ------------------------------------------------------------------------------
 
     /// <summary>
