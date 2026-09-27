@@ -29,6 +29,7 @@ public sealed class DockFactory(EditorViewModel editor) : Factory
         var color = new ColorToolViewModel(editor) { Id = "Color", Title = "Color", CanClose = false };
         var swatches = new SwatchesToolViewModel(editor) { Id = "Swatches", Title = "Swatches", CanClose = false };
         var properties = new PropertiesToolViewModel(editor) { Id = "Properties", Title = "Properties", CanClose = false };
+        var history = new HistoryToolViewModel(editor) { Id = "History", Title = "History", CanClose = false };
 
         // Photoshop's default right column: Color/Swatches on top, Properties in the middle, Layers below.
         var tools = new ProportionalDock
@@ -39,7 +40,7 @@ public sealed class DockFactory(EditorViewModel editor) : Factory
             VisibleDockables = CreateList<IDockable>(
                 new ToolDock { Id = "ColorDock", Alignment = Alignment.Right, Proportion = 0.25, ActiveDockable = color, VisibleDockables = CreateList<IDockable>(color, swatches) },
                 new ProportionalDockSplitter(),
-                new ToolDock { Id = "PropertiesDock", Alignment = Alignment.Right, Proportion = 0.3, ActiveDockable = properties, VisibleDockables = CreateList<IDockable>(properties) },
+                new ToolDock { Id = "PropertiesDock", Alignment = Alignment.Right, Proportion = 0.3, ActiveDockable = properties, VisibleDockables = CreateList<IDockable>(properties, history) },
                 new ProportionalDockSplitter(),
                 new ToolDock { Id = "LayersDock", Alignment = Alignment.Right, Proportion = 0.45, ActiveDockable = layers, VisibleDockables = CreateList<IDockable>(layers) }),
         };

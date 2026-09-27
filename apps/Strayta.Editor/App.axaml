@@ -36,5 +36,6 @@
     <DataTemplate DataType="vm:ColorToolViewModel"><v:ColorPanelView /></DataTemplate>
     <DataTemplate DataType="vm:SwatchesToolViewModel"><v:SwatchesView /></DataTemplate>
     <DataTemplate DataType="vm:PropertiesToolViewModel"><v:PropertiesView /></DataTemplate>
+    <DataTemplate DataType="vm:HistoryToolViewModel"><v:HistoryView /></DataTemplate>
   </Application.DataTemplates>
 </Application>

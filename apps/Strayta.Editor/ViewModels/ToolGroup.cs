@@ -62,6 +62,9 @@ public sealed partial class ToolGroup : ObservableObject
         Activate();
     }
 
+    /// <summary>A double-click on the slot: some tools have a shortcut there (the Zoom tool shows 100%).</summary>
+    public void DoubleClicked() => _editor.ToolSlotDoubleClicked(Current.Tool);
+
     /// <summary>Called when the editor's tool changes, however it was chosen, so the slot remembers it.</summary>
     internal void OnToolChanged(CanvasTool tool)
     {

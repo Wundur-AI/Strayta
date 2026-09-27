@@ -1,0 +1,44 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Strayta.Editor.ViewModels"
+             xmlns:c="using:Strayta.Editor.Controls"
+             x:Class="Strayta.Editor.Views.HistoryView"
+             x:DataType="vm:HistoryToolViewModel"
+             Background="{DynamicResource St.Panel}"
+             FontSize="11">
+  <UserControl.Styles>
+    <!-- Rows like the Layers panel: full width, hairline separators, the current state highlighted -->
+    <Style Selector="ListBox#States">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="Padding" Value="0" />
+    </Style>
+    <Style Selector="ListBox#States ListBoxItem">
+      <Setter Property="Padding" Value="8,4" />
+      <Setter Property="MinHeight" Value="0" />
+      <Setter Property="BorderBrush" Value="{DynamicResource St.RowLine}" />
+      <Setter Property="BorderThickness" Value="0,0,0,1" />
+    </Style>
+    <Style Selector="ListBox#States ListBoxItem:pointerover /template/ ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource St.Hover}" />
+    </Style>
+    <Style Selector="ListBox#States ListBoxItem:selected /template/ ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource St.RowSelected}" />
+    </Style>
+  </UserControl.Styles>
+  <Panel>
+    <TextBlock Classes="muted" Text="Open a document to see its history" IsVisible="{Binding !HasDocument}"
+               HorizontalAlignment="Center" VerticalAlignment="Center" />
+    <!-- Photoshop's History panel: the opened document, then one state per edit; later states dim after stepping back -->
+    <ListBox x:Name="States" ItemsSource="{Binding Items}" SelectedItem="{Binding Current}" SelectionMode="Single"
+             IsVisible="{Binding HasDocument}">
+      <ListBox.ItemTemplate>
+        <DataTemplate x:DataType="vm:HistoryItem">
+          <StackPanel Orientation="Horizontal" Spacing="8" Opacity="{Binding RowOpacity}" ToolTip.Tip="{Binding Name}">
+            <Path Classes="icon small" Data="{Binding Icon, Converter={x:Static c:ResourceIcon.Instance}}" VerticalAlignment="Center" />
+            <TextBlock Text="{Binding Name}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+          </StackPanel>
+        </DataTemplate>
+      </ListBox.ItemTemplate>
+    </ListBox>
+  </Panel>
+</UserControl>

@@ -19,6 +19,7 @@ public partial class DocumentView : UserControl
         Canvas.SelectionGestureCompleted += g => _ = _vm?.ApplySelectionGestureAsync(g);
         Canvas.TransformCommit += () => _ = _vm?.CommitTransformAsync();
         WireWandTools();
+        WireEverydayTools(); // DocumentView.Everyday.cs
         DataContextChanged += (_, _) =>
         {
             if (_vm is not null) _vm.ZoomRequested -= OnZoom;
@@ -38,7 +39,12 @@ public partial class DocumentView : UserControl
 
     private void OnZoom(string kind)
     {
-        if (kind == "fit") Canvas.FitToView();
-        else Canvas.ActualSize();
+        switch (kind)
+        {
+            case "fit": Canvas.FitToView(); break;
+            case "in": Canvas.ZoomStep(zoomIn: true); break;
+            case "out": Canvas.ZoomStep(zoomIn: false); break;
+            default: Canvas.ActualSize(); break;
+        }
     }
 }

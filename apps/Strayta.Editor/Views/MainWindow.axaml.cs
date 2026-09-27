@@ -54,6 +54,8 @@ public partial class MainWindow : Window, IEditorDialogs
             Opened += async (_, _) => await SelfTest.RunSyntheticBenchmarksAsync(Editor);
         if (Environment.GetEnvironmentVariable("STRAYTA_WANDBENCH") == "new")
             Opened += async (_, _) => await SelfTest.RunSyntheticWandBenchmarkAsync(Editor);
+        if (Environment.GetEnvironmentVariable("STRAYTA_TOOLBENCH") == "new")
+            Opened += async (_, _) => await SelfTest.RunSyntheticToolsBenchmarkAsync(Editor); // SelfTest.Everyday.cs
     }
 
     public EditorViewModel Editor { get; }
@@ -144,6 +146,8 @@ public partial class MainWindow : Window, IEditorDialogs
                 new NativeMenuItemSeparator(),
                 Item("Fit on Screen", Editor.FitCommand, new KeyGesture(Key.D0, cmd)),
                 Item("Actual Size", Editor.ActualSizeCommand, new KeyGesture(Key.D1, cmd)),
+                Item("Zoom In", Editor.ZoomInCommand, new KeyGesture(Key.OemPlus, cmd)),
+                Item("Zoom Out", Editor.ZoomOutCommand, new KeyGesture(Key.OemMinus, cmd)),
                 new NativeMenuItemSeparator(),
                 Submenu("Appearance",
                     Item("Dark", Editor.SetAppearanceCommand, parameter: "Dark"),
@@ -154,6 +158,7 @@ public partial class MainWindow : Window, IEditorDialogs
                 Item("Color", Editor.ShowPanelCommand, parameter: "Color"),
                 Item("Swatches", Editor.ShowPanelCommand, parameter: "Swatches"),
                 Item("Properties", Editor.ShowPanelCommand, parameter: "Properties"),
+                Item("History", Editor.ShowPanelCommand, parameter: "History"),
                 new NativeMenuItemSeparator(),
                 Item("Reset Layout", Editor.ResetLayoutCommand)),
         };

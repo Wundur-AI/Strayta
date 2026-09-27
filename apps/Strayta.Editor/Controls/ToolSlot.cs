@@ -28,6 +28,7 @@ public sealed class ToolSlot : ToggleButton
             _menuOpenedByHold = true;
             OpenMenu();
         };
+        DoubleTapped += (_, _) => Group?.DoubleClicked(); // Zoom: 100%, Hand: fit (EditorViewModel.Everyday.cs)
     }
 
     protected override Type StyleKeyOverride => typeof(ToggleButton);
