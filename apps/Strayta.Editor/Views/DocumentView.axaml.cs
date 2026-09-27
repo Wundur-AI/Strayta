@@ -20,6 +20,7 @@ public partial class DocumentView : UserControl
         Canvas.TransformCommit += () => _ = _vm?.CommitTransformAsync();
         WireWandTools();
         WireEverydayTools(); // DocumentView.Everyday.cs
+        WireCrop(); // DocumentView.Crop.cs
         DataContextChanged += (_, _) =>
         {
             if (_vm is not null) _vm.ZoomRequested -= OnZoom;

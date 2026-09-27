@@ -24,18 +24,20 @@ public sealed partial class EditorViewModel
         _fillGroup = new ToolGroup(this, "G",
             new(CanvasTool.Gradient, "Gradient", "IconGradient"),
             new(CanvasTool.PaintBucket, "Paint Bucket", "IconBucket"));
+        // Photoshop's tool-strip order.
         ToolGroups =
         [
             new ToolGroup(this, "V", new ToolInfo(CanvasTool.Move, "Move", "IconMove")),
-            new ToolGroup(this, "H", new ToolInfo(CanvasTool.Hand, "Hand", "IconHand")),
-            new ToolGroup(this, "Z", new ToolInfo(CanvasTool.Zoom, "Zoom", "IconZoom")),
             _marqueeGroup,
             new ToolGroup(this, "L", new ToolInfo(CanvasTool.Lasso, "Lasso", "IconLasso")),
             _selectionGroup,
+            new ToolGroup(this, "C", new ToolInfo(CanvasTool.Crop, "Crop", "IconCrop")),
             new ToolGroup(this, "I", new ToolInfo(CanvasTool.Eyedropper, "Eyedropper", "IconEyedropper")),
             new ToolGroup(this, "B", new ToolInfo(CanvasTool.Brush, "Brush", "IconBrush")),
             new ToolGroup(this, "E", new ToolInfo(CanvasTool.Eraser, "Eraser", "IconEraser")),
             _fillGroup,
+            new ToolGroup(this, "H", new ToolInfo(CanvasTool.Hand, "Hand", "IconHand")),
+            new ToolGroup(this, "Z", new ToolInfo(CanvasTool.Zoom, "Zoom", "IconZoom")),
         ];
     }
 
@@ -43,6 +45,7 @@ public sealed partial class EditorViewModel
     {
         foreach (var group in ToolGroups) group.OnToolChanged(value);
         NotifyEverydayTools(); // EditorViewModel.Everyday.cs
+        SyncCropTool(); // EditorViewModel.Crop.cs
     }
 
     /// <summary>A tool-group shortcut: the key alone picks the group's current tool, with Shift it steps through the group.</summary>

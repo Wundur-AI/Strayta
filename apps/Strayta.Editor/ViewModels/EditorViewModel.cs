@@ -125,6 +125,7 @@ public sealed partial class EditorViewModel : ObservableObject
         NotifyViewMode();
         OnPropertyChanged(nameof(WindowTitle));
         OnPropertyChanged(nameof(IsTransforming));
+        SyncCropTool(); // the crop box follows the Crop tool into the newly active document
     }
 
     private void OnDocumentPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)

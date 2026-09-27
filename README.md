@@ -92,6 +92,15 @@ dotnet test
   scales from the center), sides to stretch, outside to rotate (Shift snaps to 15°), inside to move; or type
   X/Y/W/H/angle in the options bar. Enter or double-click applies (bicubic, area-filtered when shrinking,
   masks follow), Esc cancels.
+- Crop tool (C): a box around the whole canvas; drag its edges (Shift keeps the shape, Option from the center),
+  drag inside to move the image under it, outside to turn it (the box shrinks so no empty corners appear), or use
+  Straighten to draw a line to level. Ratio presets, rule-of-thirds grid, and Delete Cropped Pixels (off keeps
+  pixels outside the canvas in the layers, which PSD stores). Enter or double-click crops as one undo step, Esc
+  resets. A straight crop only moves layers; a turned one resamples them and rasterizes type and smart objects.
+- Image > Image Size (⌥⌘I: pixels or percent, resolution, Bicubic Automatic / Bilinear / Nearest Neighbor),
+  Canvas Size (⌥⌘C: absolute or relative, 9-way anchor, extension color for the Background), Crop (to the
+  selection) and Trim (transparent or corner-colored edges). Masks, the stored composite, saved selections,
+  guides, paths, vector masks and type positions follow the canvas.
 - File > Export As writes PNG (with transparency) or JPEG (quality, flattened on a matte) with Strayta's own
   encoders.
 - Interaction renders a screen-resolution preview; full resolution follows when you pause.
@@ -109,6 +118,8 @@ measure frame rates (layer drag, brush stroke, free transform, Properties slider
 document).
 `STRAYTA_TOOLBENCH=new` times a Gradient drag (preview frame rate, release to edit), Paint Bucket clicks and
 Eyedropper samples on a generated 4000×3000 document.
+`STRAYTA_CROPBENCH=1` times Image Size, a crop box drag and turned and straight crops (`=new` on a generated
+4000×3000 layered document).
 `STRAYTA_SEGBENCH=1` times Object Selection and Select Subject (encoder, per-prompt latency, memory) on the
 first opened file; `STRAYTA_THEME=Light|Dark` sets the starting appearance.
 

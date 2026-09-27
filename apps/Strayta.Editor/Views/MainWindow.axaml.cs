@@ -162,6 +162,7 @@ public partial class MainWindow : Window, IEditorDialogs
                 new NativeMenuItemSeparator(),
                 Item("Reset Layout", Editor.ResetLayoutCommand)),
         };
+        AddImageMenu(menu, Item); // MainWindow.Crop.cs
         AddSelectionMenus(menu, Item);
         AddObjectSelectionMenus(menu, Item); // MainWindow.ObjectSelection.cs
         AddRefineSelectionMenus(menu, Item); // MainWindow.RefineSelection.cs

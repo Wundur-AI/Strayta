@@ -13,5 +13,7 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\Strayta.Rendering\Strayta.Rendering.csproj" />
+    <!-- Canvas operations are checked through a PSD round trip. -->
+    <ProjectReference Include="..\..\src\Strayta.Psd\Strayta.Psd.csproj" />
   </ItemGroup>
 </Project>

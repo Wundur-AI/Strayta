@@ -1,0 +1,26 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Strayta.Editor.ViewModels"
+             x:Class="Strayta.Editor.Views.CropOptionsBar"
+             x:DataType="vm:EditorViewModel">
+  <!-- Crop tool options: ratio presets, the box's size, Straighten, Delete Cropped Pixels; Esc/✕ resets, Enter/✓ crops -->
+  <StackPanel Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
+    <ComboBox ItemsSource="{Binding CropRatioNames}" SelectedIndex="{Binding CropRatioIndex}" MinWidth="130" FontSize="11"
+              VerticalAlignment="Center" ToolTip.Tip="Keep the box at a fixed shape" />
+    <Button Content="⇄" Command="{Binding SwapCropRatioCommand}" Padding="6,2" VerticalAlignment="Center"
+            ToolTip.Tip="Swap width and height" />
+    <TextBlock Text="{Binding ActiveDocument.CropBox.SizeText, FallbackValue=''}" VerticalAlignment="Center" MinWidth="120" />
+    <ToggleButton Content="Straighten" IsChecked="{Binding CropStraighten}" Padding="8,2" VerticalAlignment="Center"
+                  ToolTip.Tip="Draw a line along something that should be level (or upright)" />
+    <CheckBox Content="Delete Cropped Pixels" IsChecked="{Binding CropDeletePixels}" FontSize="11" VerticalAlignment="Center"
+              ToolTip.Tip="Off, layers keep the pixels outside the crop, hidden beyond the canvas" />
+    <Button Classes="icon" ToolTip.Tip="Reset the crop (Esc)" Command="{Binding CancelCropCommand}">
+      <Path Classes="icon" Data="{StaticResource IconCancel}" />
+    </Button>
+    <Button Classes="icon" ToolTip.Tip="Crop (Enter)" Command="{Binding CommitCropCommand}">
+      <Path Classes="icon" Data="{StaticResource IconCommit}" Stroke="{DynamicResource St.Accent}" />
+    </Button>
+    <TextBlock Classes="label" Foreground="{DynamicResource St.Warning}" Text="{Binding ActiveDocument.CropNotice, FallbackValue=''}" />
+    <TextBlock Classes="label" Text="Drag the edges · inside moves the image · outside turns it · Shift keeps the shape · Enter crops" />
+  </StackPanel>
+</UserControl>

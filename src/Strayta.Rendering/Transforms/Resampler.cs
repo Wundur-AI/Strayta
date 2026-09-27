@@ -314,7 +314,7 @@ public static class Resampler
         for (int c = 0; c < acc.Length; c++) acc[c] += data[offset + c] * weight;
     }
 
-    private static float Kernel(double d, bool cubic)
+    internal static float Kernel(double d, bool cubic)
     {
         d = Math.Abs(d);
         if (!cubic) return d < 1 ? (float)(1 - d) : 0f;
@@ -324,13 +324,13 @@ public static class Resampler
         return 0f;
     }
 
-    private static double EdgeCoverage(double s, int size, double step)
+    internal static double EdgeCoverage(double s, int size, double step)
     {
         double inside = Math.Min(s, size - s) / step; // output pixels from the center to the nearer edge
         return Math.Clamp(0.5 + inside, 0, 1);
     }
 
-    private static void Store(Plane p, int i, float v)
+    internal static void Store(Plane p, int i, float v)
     {
         switch (p.BitDepth)
         {

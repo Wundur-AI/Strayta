@@ -101,6 +101,18 @@ public sealed class PsdLayerRecord
         return copy;
     }
 
+    /// <summary>A copy with other tagged blocks and mask information (e.g. moved vector data).</summary>
+    public PsdLayerRecord WithBlocks(IReadOnlyList<TaggedBlock> blocks, PsdLayerMaskData? mask)
+    {
+        var copy = new PsdLayerRecord
+        {
+            Rect = Rect, Channels = Channels, BlendModeKey = BlendModeKey, Opacity = Opacity, Clipped = Clipped,
+            Flags = Flags, Mask = mask, BlendingRanges = BlendingRanges, PascalName = PascalName, Blocks = blocks,
+        };
+        foreach (var (id, plane) in ChannelData) copy.ChannelData[id] = plane;
+        return copy;
+    }
+
     /// <summary>
     /// A copy for a duplicated layer: same content blocks (text, effects, smart object) but without the
     /// layer ID, which must stay unique; Photoshop assigns a new one when it opens the file.
@@ -154,6 +166,20 @@ public sealed class PsdFile
     public bool? HasRealMergedData { get; init; }
 
     public ImageResource? FindResource(int id) => Resources.FirstOrDefault(r => r.Id == id);
+
+    /// <summary>A copy with a new header, resources and composite channels; layer records are shared.</summary>
+    internal PsdFile With(PsdHeader header, IReadOnlyList<ImageResource> resources, IReadOnlyList<Plane> compositeChannels) => new()
+    {
+        Header = header,
+        ColorModeData = ColorModeData,
+        Resources = resources,
+        Layers = Layers,
+        CompositeHasTransparency = CompositeHasTransparency,
+        GlobalLayerMaskInfo = GlobalLayerMaskInfo,
+        GlobalBlocks = GlobalBlocks,
+        CompositeChannels = compositeChannels,
+        HasRealMergedData = HasRealMergedData,
+    };
 
     /// <summary>
     /// The application that last saved the file, from resource 1057 (e.g. "Adobe Photoshop", "Strayta"),
