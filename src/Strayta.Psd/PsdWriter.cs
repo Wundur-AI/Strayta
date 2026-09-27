@@ -263,13 +263,29 @@ public static class PsdWriter
                 var (maskData, maskChannels) = Mask(adj.Mask, src, psb);
                 var channels = EmptyChannels(doc, psb);
                 channels.AddRange(maskChannels);
+                var blocks = Blocks(adj, src);
+                PsdAdjustmentWriter.Refresh(adj, src, blocks); // edited settings replace the stored block
                 records.Add(new Record(PixelRect.Empty, channels, PsdBlocks.BlendKeyOf(adj.BlendMode), Opacity(adj.Opacity), adj.Clipped,
-                    Flags(adj, src), maskData, src.BlendingRanges, adj.Name, Blocks(adj, src)));
+                    Flags(adj, src), maskData, src.BlendingRanges, adj.Name, blocks));
+                break;
+            }
+
+            case AdjustmentLayer { Adjustment: { } adjustment } adj:
+            {
+                // A layer created in the editor: no source record, so the adjustment block is encoded from the model.
+                var (maskData, maskChannels) = Mask(adj.Mask, null, psb);
+                var channels = EmptyChannels(doc, psb);
+                channels.AddRange(maskChannels);
+                var blocks = Blocks(adj, null);
+                blocks.Add((PsdAdjustmentWriter.KeyOf(adjustment), PsdAdjustmentWriter.Encode(adjustment)));
+                // Like Photoshop, flag the (empty) pixel data as irrelevant to the image.
+                records.Add(new Record(PixelRect.Empty, channels, PsdBlocks.BlendKeyOf(adj.BlendMode), Opacity(adj.Opacity), adj.Clipped,
+                    (byte)(0x18 | Flags(adj, null)), maskData, DefaultRanges(doc), adj.Name, blocks));
                 break;
             }
 
             case AdjustmentLayer adj:
-                throw new NotSupportedException($"Saving new adjustment layers (\"{adj.Name}\") is not supported yet.");
+                throw new NotSupportedException($"Saving new adjustment layers without settings (\"{adj.Name}\") is not supported.");
         }
     }
 

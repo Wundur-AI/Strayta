@@ -153,6 +153,11 @@ public sealed partial class EditorViewModel : ObservableObject
                 await Task.Delay(1500);
                 await document.RunPaintBenchmarkAsync();
             }
+            if (Environment.GetEnvironmentVariable("STRAYTA_ADJUSTBENCH") == "1")
+            {
+                await Task.Delay(1500);
+                await document.RunAdjustmentBenchmarkAsync();
+            }
         }
         catch (Exception ex)
         {

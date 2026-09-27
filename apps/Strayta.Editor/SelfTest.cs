@@ -9,7 +9,7 @@ namespace Strayta.Editor;
 /// Drives the real editor view models through a full editing session and reports each step
 /// (STRAYTA_SELFTEST=1). It exercises the same code paths as the UI, with a real dispatcher.
 /// </summary>
-internal static class SelfTest
+internal static partial class SelfTest
 {
     public static async Task RunAsync(EditorViewModel editor, Func<Task<(int, int, bool)?>> _)
     {
@@ -142,6 +142,8 @@ internal static class SelfTest
         {
             Check(false, $"exception: {ex}");
         }
+
+        await RunMaskAndAdjustmentStepsAsync(editor, Check); // SelfTest.Masks.cs
 
         Console.WriteLine(failures.Count == 0 ? "SELFTEST PASSED" : $"SELFTEST FAILED ({failures.Count})");
     }

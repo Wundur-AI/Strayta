@@ -35,6 +35,10 @@ dotnet test
   button pans with any tool; the wheel zooms.
 - Layers panel: blend mode, opacity and fill for the selected layer; visibility, thumbnails, rename
   (double-click), drag-and-drop reordering into and out of groups, new layer/group, duplicate, delete.
+- Layer masks on layers, groups and adjustment layers (Layer > Layer Mask, or the panel's mask button): click the
+  mask thumbnail to paint in it (black hides, white reveals), Shift-click to disable it; Apply, Delete.
+- Adjustment layers (Layer > New Adjustment Layer): Levels, Curves, Hue/Saturation, Brightness/Contrast, Invert,
+  Threshold, Posterize, edited live in the Properties panel.
 - Full undo/redo. Save / Save As write PSD, keeping everything Strayta does not edit (text, smart objects,
   effects, ...) exactly as it was.
 - Interaction renders a screen-resolution preview; full resolution follows when you pause.
@@ -45,7 +49,8 @@ dotnet run -c Release --project apps/Strayta.Editor -- [file.psd ...]
 ```
 
 Diagnostics (environment variables): `STRAYTA_SELFTEST=1` runs a scripted editing session and reports
-each step; `STRAYTA_DRAGBENCH=1` / `STRAYTA_PAINTBENCH=1` measure frame rates on the first opened file;
+each step; `STRAYTA_DRAGBENCH=1` / `STRAYTA_PAINTBENCH=1` / `STRAYTA_ADJUSTBENCH=1` measure frame rates (layer drag, brush
+stroke, Properties slider drag) on the first opened file;
 `STRAYTA_THEME=Light|Dark` sets the starting appearance.
 
 ## Inspect tool

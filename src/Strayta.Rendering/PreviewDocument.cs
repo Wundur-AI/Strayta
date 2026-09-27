@@ -40,11 +40,14 @@ public sealed class PreviewDocument
         return f;
     }
 
-    /// <summary>Maps a stroke on a source layer onto its proxy layer (call after <see cref="Sync"/>).</summary>
+    /// <summary>Maps a stroke on a source layer (or its mask) onto its proxy layer (call after <see cref="Sync"/>).</summary>
     public StrokeOverlay? MapStroke(Strayta.Core.Painting.PaintStroke? stroke) =>
-        stroke is not null && _proxies.TryGetValue(stroke.Target, out var p) && p is PixelLayer layer
-            ? new StrokeOverlay(stroke, layer, Factor)
+        stroke is not null && _proxies.TryGetValue(stroke.Owner, out var p) && (stroke.TargetsMask || p is PixelLayer)
+            ? new StrokeOverlay(stroke, p, Factor)
             : null;
+
+    /// <summary>The proxy standing in for <paramref name="source"/> (call after <see cref="Sync"/>), e.g. to hide it in a render.</summary>
+    public LayerNode? ProxyOf(LayerNode source) => _proxies.GetValueOrDefault(source);
 
     /// <summary>Brings the proxy up to date with the source document and returns it.</summary>
     public Document Sync()

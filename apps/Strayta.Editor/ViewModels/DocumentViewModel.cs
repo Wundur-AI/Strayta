@@ -183,6 +183,8 @@ public sealed partial class DocumentViewModel : Dock.Model.Mvvm.Controls.Documen
     public bool BeginStroke(float x, float y, BrushSettings brush, RgbColor color, bool erase)
     {
         if (_baking) return false;
+        if (EditMask && SelectedLayer?.Node is { } maskOwner && maskOwner.GetMask() is not null)
+            return BeginMaskStroke(maskOwner, x, y, brush, color, erase); // see DocumentViewModel.Masks.cs
         string? problem = SelectedLayer?.Node switch
         {
             null => "Select a layer to paint on, or create a new one.",
@@ -238,6 +240,11 @@ public sealed partial class DocumentViewModel : Dock.Model.Mvvm.Controls.Documen
         _baking = true;
         try
         {
+            if (stroke.TargetsMask)
+            {
+                await CommitMaskStrokeAsync(stroke);
+                return;
+            }
             var doc = Model;
             var (pixels, bounds) = await Task.Run(() => StrokeBaker.Bake(stroke.Target, stroke, doc.ColorMode, doc.BitDepth));
             _stroke = null;

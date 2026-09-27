@@ -27,4 +27,8 @@
   <StreamGeometry x:Key="IconChecker">M4 4h16v16H4Z M4 12h16 M12 4v16 M4 4h8v8H4Z M12 12h8v8h-8Z</StreamGeometry>
   <StreamGeometry x:Key="IconChevronRight">M9 5l7 7-7 7</StreamGeometry>
   <StreamGeometry x:Key="IconChevronDown">M5 9l7 7 7-7</StreamGeometry>
+  <!-- Masks and adjustments: Photoshop's rectangle-with-circle and half-filled circle (filled half drawn separately) -->
+  <StreamGeometry x:Key="IconMask">M4 5h16a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1Z M12 8a4 4 0 1 0 0 8a4 4 0 1 0 0-8Z</StreamGeometry>
+  <StreamGeometry x:Key="IconHalfDisc">M12 3a9 9 0 0 0 0 18Z</StreamGeometry>
+  <StreamGeometry x:Key="IconInfo">M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18Z M12 11v5 M12 7.5v.5</StreamGeometry>
 </ResourceDictionary>
