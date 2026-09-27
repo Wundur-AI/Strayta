@@ -156,7 +156,6 @@ public partial class MainWindow : Window, IEditorDialogs
                 Item("Reset Layout", Editor.ResetLayoutCommand)),
         };
         AddSelectionMenus(menu, Item);
-        AddWandShortcuts();
         AddObjectSelectionMenus(menu, Item); // MainWindow.ObjectSelection.cs
         NativeMenu.SetMenu(this, menu);
 
@@ -181,13 +180,17 @@ public partial class MainWindow : Window, IEditorDialogs
 
     private void OnSingleKey(object? sender, KeyEventArgs e)
     {
-        if (e.Handled || e.KeyModifiers != KeyModifiers.None || FocusManager?.GetFocusedElement() is TextBox) return;
+        if (e.Handled || FocusManager?.GetFocusedElement() is TextBox) return;
+        // Tool keys (EditorViewModel.ToolGroups): the key picks the slot's tool, Shift plus the key steps through its group.
+        if (e.KeyModifiers is KeyModifiers.None or KeyModifiers.Shift && e.Key is >= Key.A and <= Key.Z
+            && Editor.HandleToolKey(e.Key.ToString(), e.KeyModifiers == KeyModifiers.Shift))
+        {
+            e.Handled = true;
+            return;
+        }
+        if (e.KeyModifiers != KeyModifiers.None) return;
         (System.Windows.Input.ICommand Command, string Parameter)? action = e.Key switch
         {
-            Key.V => (Editor.SetToolCommand, "Move"),
-            Key.H => (Editor.SetToolCommand, "Hand"),
-            Key.B => (Editor.SetToolCommand, "Brush"),
-            Key.E => (Editor.SetToolCommand, "Eraser"),
             Key.X => (Editor.SwapColorsCommand, ""),
             Key.D => (Editor.DefaultColorsCommand, ""),
             Key.OemCloseBrackets => (Editor.ResizeBrushCommand, "up"),

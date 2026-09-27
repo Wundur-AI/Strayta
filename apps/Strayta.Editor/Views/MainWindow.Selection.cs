@@ -51,8 +51,8 @@ public partial class MainWindow
     });
 
     /// <summary>
-    /// Photoshop's keys: M marquee (Shift+M switches rectangle/ellipse), L lasso, Delete/Backspace clears the
-    /// selection, Shift or Option+Backspace fills it with the foreground color, ⌘Backspace with the background.
+    /// Photoshop's keys: Delete/Backspace clears the selection, Shift or Option+Backspace fills it with the foreground
+    /// color, ⌘Backspace with the background.
     /// </summary>
     private void OnSelectionKey(object? sender, KeyEventArgs e)
     {
@@ -61,10 +61,7 @@ public partial class MainWindow
         var mods = e.KeyModifiers;
         bool delete = e.Key is Key.Back or Key.Delete;
         (ICommand Command, string? Parameter)? action =
-            e.Key == Key.M && mods == KeyModifiers.None ? (Editor.SelectMarqueeCommand, null)
-            : e.Key == Key.M && mods == KeyModifiers.Shift ? (Editor.SelectMarqueeCommand, "cycle")
-            : e.Key == Key.L && mods == KeyModifiers.None ? (Editor.SetToolCommand, "Lasso")
-            : delete && mods == KeyModifiers.None ? (Editor.ClearCommand, null)
+            delete && mods == KeyModifiers.None ? (Editor.ClearCommand, null)
             : delete && mods is KeyModifiers.Shift or KeyModifiers.Alt ? (Editor.FillCommand, "foreground")
             : delete && mods == cmd ? (Editor.FillCommand, "background")
             : null;

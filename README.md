@@ -43,7 +43,10 @@ dotnet test
   (Shift adds or constrains, Option subtracts or draws from the center, Shift+Option intersects; a click
   deselects). Select > All / Deselect / Reselect / Inverse. Painting, Delete (clear), Fill, Cut, Copy and
   Paste (to a new layer) work on the selected area, and every selection change is undoable.
-- Magic Wand and Quick Selection (W, Shift+W switches). The wand selects colors within a tolerance of the clicked
+- Tool strip slots as in Photoshop: related tools share a slot and a key (M marquees; W Object Selection, Quick
+  Selection, Magic Wand). The slot shows the tool used last, Shift plus the key steps through the group, and
+  pressing and holding (or right-clicking) a slot with a corner triangle lists its tools.
+- Magic Wand and Quick Selection. The wand selects colors within a tolerance of the clicked
   pixel (per channel, 0–255), contiguous or across the whole image, anti-aliased or hard, from the selected layer
   (its transparency included) or all layers. Quick Selection is a brush (`[`/`]` size) that grows the selection to
   similar, connected pixels and stops at edges, live while you drag; later strokes add, Option subtracts,

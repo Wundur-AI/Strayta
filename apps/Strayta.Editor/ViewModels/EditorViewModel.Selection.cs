@@ -7,21 +7,17 @@ namespace Strayta.Editor.ViewModels;
 // Selection tools and the Select / Edit menu commands.
 public sealed partial class EditorViewModel
 {
-    public bool IsRectSelectTool { get => Tool == CanvasTool.RectSelect; set { if (value) Tool = _lastMarquee = CanvasTool.RectSelect; } }
-    public bool IsEllipseSelectTool { get => Tool == CanvasTool.EllipseSelect; set { if (value) Tool = _lastMarquee = CanvasTool.EllipseSelect; } }
+    public bool IsRectSelectTool { get => Tool == CanvasTool.RectSelect; set { if (value) Tool = CanvasTool.RectSelect; } }
+    public bool IsEllipseSelectTool { get => Tool == CanvasTool.EllipseSelect; set { if (value) Tool = CanvasTool.EllipseSelect; } }
     public bool IsLassoTool { get => Tool == CanvasTool.Lasso; set { if (value) Tool = CanvasTool.Lasso; } }
     public bool IsMarqueeTool => Tool is CanvasTool.RectSelect or CanvasTool.EllipseSelect;
-
-    /// <summary>The marquee M switches to: the one used last, as Photoshop's tool groups remember.</summary>
-    private CanvasTool _lastMarquee = CanvasTool.RectSelect;
 
     /// <summary>M picks the last used marquee; Shift+M ("cycle") switches between rectangular and elliptical.</summary>
     [RelayCommand]
     private void SelectMarquee(string? mode)
     {
-        if (mode == "cycle" && IsMarqueeTool)
-            _lastMarquee = Tool == CanvasTool.RectSelect ? CanvasTool.EllipseSelect : CanvasTool.RectSelect;
-        Tool = _lastMarquee;
+        if (mode == "cycle") _marqueeGroup.Cycle();
+        else _marqueeGroup.Activate();
     }
 
     /// <summary>Pixels from the last Copy or Cut, shared by all documents.</summary>

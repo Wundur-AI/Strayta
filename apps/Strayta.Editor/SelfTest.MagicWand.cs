@@ -1,8 +1,13 @@
+using Avalonia.Controls;
+using Avalonia.Controls.ApplicationLifetimes;
+using Avalonia.Media.Imaging;
+using Avalonia.VisualTree;
 using Vector2 = System.Numerics.Vector2;
 using Strayta.Core;
 using Strayta.Core.Selection;
 using Strayta.Editor.Controls;
 using Strayta.Editor.ViewModels;
+using SelectionMode = Strayta.Core.Selection.SelectionMode;
 
 namespace Strayta.Editor;
 
@@ -42,14 +47,43 @@ internal static partial class SelfTest
     {
         try
         {
-            // The W group: W picks the last used tool, Shift+W switches.
+            // The W group: W picks the last used tool, Shift+W steps through Object Selection, Quick Selection, Magic Wand.
             editor.SelectWandToolCommand.Execute(null);
             check(editor.Tool == CanvasTool.MagicWand && editor.ToolName == "Magic Wand", "W selects the Magic Wand");
             editor.SelectWandToolCommand.Execute("cycle");
-            check(editor.IsQuickSelectTool && editor.ToolName == "Quick Selection", "Shift+W switches to Quick Selection");
+            check(editor.IsObjectSelectTool, "Shift+W steps on to Object Selection");
+            editor.SelectWandToolCommand.Execute("cycle");
+            check(editor.IsQuickSelectTool && editor.ToolName == "Quick Selection", "Shift+W again switches to Quick Selection");
             editor.SetToolCommand.Execute("Move");
             editor.SelectWandToolCommand.Execute(null);
             check(editor.IsQuickSelectTool, "W comes back to the tool used last");
+            var slot = editor.ToolGroups.Single(g => g.Key == "W");
+            check(slot.IsActive && slot.Current.Tool == CanvasTool.QuickSelect && slot.Tools.Count == 3
+                  && editor.ToolGroups.Count(g => g.IsActive) == 1,
+                "the W tool slot shows Quick Selection, holds the three selection tools and is the only active slot");
+            editor.HandleToolKey("M", shift: false);
+            check(editor.IsRectSelectTool && !slot.IsActive && slot.Current.Tool == CanvasTool.QuickSelect,
+                "M moves to the marquee slot; the W slot keeps showing Quick Selection");
+            slot.Select(CanvasTool.MagicWand);
+            check(editor.IsMagicWandTool && slot.Current.Tool == CanvasTool.MagicWand, "choosing from the slot's menu picks that tool");
+            editor.HandleToolKey("W", shift: false);
+            check(editor.IsMagicWandTool, "W then picks the tool chosen from the menu");
+            if (Avalonia.Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime { MainWindow: { } window })
+            {
+                await Task.Delay(50); // let the tool strip update its checked state
+                var slots = window.GetVisualDescendants().OfType<ToolSlot>().ToList();
+                check(slots.Count == editor.ToolGroups.Count && slots.Count(t => t.IsChecked == true) == 1,
+                    $"the tool strip shows {slots.Count} slots, one checked");
+                if (Environment.GetEnvironmentVariable("STRAYTA_SELFTEST_SHOTS") is { Length: > 0 } dir
+                    && slots.FirstOrDefault()?.FindAncestorOfType<ItemsControl>() is { } strip)
+                {
+                    var size = new Avalonia.PixelSize((int)strip.Bounds.Width * 2, (int)strip.Bounds.Height * 2);
+                    using var bitmap = new RenderTargetBitmap(size, new Avalonia.Vector(192, 192));
+                    bitmap.Render(strip);
+                    bitmap.Save(Path.Combine(dir, "tool-strip.png"), new PngBitmapEncoderOptions());
+                }
+            }
+            editor.SetToolCommand.Execute("QuickSelect");
             double brush = editor.BrushSize;
             editor.ResizeBrushCommand.Execute("up");
             check(editor.QuickSelectSize > 30 && editor.BrushSize == brush && editor.ToolBrushSize == editor.QuickSelectSize,

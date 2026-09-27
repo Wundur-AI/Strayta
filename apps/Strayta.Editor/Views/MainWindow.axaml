@@ -177,38 +177,25 @@
             </Button.Flyout>
           </Button>
         </Panel>
-        <StackPanel Spacing="4" HorizontalAlignment="Center">
-          <ToggleButton Classes="icon" IsChecked="{Binding IsMoveTool}" ToolTip.Tip="Move (V)">
-            <Path Classes="icon" Data="{StaticResource IconMove}" />
-          </ToggleButton>
-          <ToggleButton Classes="icon" IsChecked="{Binding IsHandTool}" ToolTip.Tip="Hand (H)">
-            <Path Classes="icon" Data="{StaticResource IconHand}" />
-          </ToggleButton>
-          <ToggleButton Classes="icon" IsChecked="{Binding IsRectSelectTool}" ToolTip.Tip="Rectangular Marquee (M · Shift+M switches)">
-            <Path Classes="icon" Data="{StaticResource IconMarqueeRect}" />
-          </ToggleButton>
-          <ToggleButton Classes="icon" IsChecked="{Binding IsEllipseSelectTool}" ToolTip.Tip="Elliptical Marquee (M · Shift+M switches)">
-            <Path Classes="icon" Data="{StaticResource IconMarqueeEllipse}" />
-          </ToggleButton>
-          <ToggleButton Classes="icon" IsChecked="{Binding IsLassoTool}" ToolTip.Tip="Lasso (L)">
-            <Path Classes="icon" Data="{StaticResource IconLasso}" />
-          </ToggleButton>
-          <ToggleButton Classes="icon" IsChecked="{Binding IsQuickSelectTool}" ToolTip.Tip="Quick Selection (W · Shift+W switches)">
-            <Path Classes="icon" Data="{StaticResource IconQuickSelect}" />
-          </ToggleButton>
-          <ToggleButton Classes="icon" IsChecked="{Binding IsMagicWandTool}" ToolTip.Tip="Magic Wand (W · Shift+W switches)">
-            <Path Classes="icon" Data="{StaticResource IconMagicWand}" />
-          </ToggleButton>
-          <ToggleButton Classes="icon" IsChecked="{Binding IsObjectSelectTool}" ToolTip.Tip="Object Selection: drag a box around an object, or click it">
-            <Path Classes="icon" Data="{StaticResource IconObjectSelect}" />
-          </ToggleButton>
-          <ToggleButton Classes="icon" IsChecked="{Binding IsBrushTool}" ToolTip.Tip="Brush (B)">
-            <Path Classes="icon" Data="{StaticResource IconBrush}" />
-          </ToggleButton>
-          <ToggleButton Classes="icon" IsChecked="{Binding IsEraserTool}" ToolTip.Tip="Eraser (E)">
-            <Path Classes="icon" Data="{StaticResource IconEraser}" />
-          </ToggleButton>
-        </StackPanel>
+        <!-- Tool slots (EditorViewModel.ToolGroups): related tools share a slot, as in Photoshop. The corner triangle
+             marks a slot with more tools; press and hold or right-click it for the list. -->
+        <ItemsControl ItemsSource="{Binding ToolGroups}" HorizontalAlignment="Center">
+          <ItemsControl.ItemsPanel>
+            <ItemsPanelTemplate>
+              <StackPanel Spacing="4" />
+            </ItemsPanelTemplate>
+          </ItemsControl.ItemsPanel>
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="vm:ToolGroup">
+              <c:ToolSlot Classes="icon" IsChecked="{Binding IsActive, Mode=OneWay}" ToolTip.Tip="{Binding Tip}">
+                <Panel>
+                  <Path Classes="icon" Data="{Binding Current.Icon, Converter={x:Static c:ResourceIcon.Instance}}" />
+                  <Path Classes="slotMore" IsVisible="{Binding HasMore}" Data="M4,0 L4,4 L0,4 Z" />
+                </Panel>
+              </c:ToolSlot>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
       </DockPanel>
     </Border>
 

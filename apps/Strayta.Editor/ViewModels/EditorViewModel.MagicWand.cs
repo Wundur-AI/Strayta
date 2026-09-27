@@ -5,22 +5,18 @@ using Strayta.Editor.Controls;
 
 namespace Strayta.Editor.ViewModels;
 
-// Magic Wand and Quick Selection: the W tool group and each tool's options-bar settings (app-wide, as in Photoshop).
+// Magic Wand and Quick Selection: each tool's options-bar settings (app-wide, as in Photoshop).
 public sealed partial class EditorViewModel
 {
-    public bool IsMagicWandTool { get => Tool == CanvasTool.MagicWand; set { if (value) Tool = _lastWandTool = CanvasTool.MagicWand; } }
-    public bool IsQuickSelectTool { get => Tool == CanvasTool.QuickSelect; set { if (value) Tool = _lastWandTool = CanvasTool.QuickSelect; } }
+    public bool IsMagicWandTool { get => Tool == CanvasTool.MagicWand; set { if (value) Tool = CanvasTool.MagicWand; } }
+    public bool IsQuickSelectTool { get => Tool == CanvasTool.QuickSelect; set { if (value) Tool = CanvasTool.QuickSelect; } }
 
-    /// <summary>The tool W switches to: the one of the group used last.</summary>
-    private CanvasTool _lastWandTool = CanvasTool.MagicWand;
-
-    /// <summary>W picks the last used tool of the group; Shift+W ("cycle") switches between Quick Selection and Magic Wand.</summary>
+    /// <summary>W picks the last used tool of the selection group; Shift+W ("cycle") steps through it.</summary>
     [RelayCommand]
     private void SelectWandTool(string? mode)
     {
-        if (mode == "cycle" && Tool is CanvasTool.MagicWand or CanvasTool.QuickSelect)
-            _lastWandTool = Tool == CanvasTool.MagicWand ? CanvasTool.QuickSelect : CanvasTool.MagicWand;
-        Tool = _lastWandTool;
+        if (mode == "cycle") _selectionGroup.Cycle();
+        else _selectionGroup.Activate();
     }
 
     /// <summary>Magic Wand tolerance, 0..255 levels per channel.</summary>

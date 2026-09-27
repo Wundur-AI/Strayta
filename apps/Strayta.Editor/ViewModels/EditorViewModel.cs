@@ -36,6 +36,7 @@ public sealed partial class EditorViewModel : ObservableObject
     public EditorViewModel(IEditorDialogs dialogs)
     {
         _dialogs = dialogs;
+        CreateToolGroups();
         Factory = new DockFactory(this);
         Layout = Factory.CreateLayout();
         Factory.InitLayout(Layout);

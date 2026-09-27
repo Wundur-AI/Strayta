@@ -303,6 +303,18 @@
   <Style Selector="ToggleButton.icon:checked Path.icon">
     <Setter Property="Stroke" Value="{DynamicResource St.Accent}" />
   </Style>
+  <!-- Tool slot corner triangle: the slot holds more tools (Controls/ToolSlot.cs) -->
+  <Style Selector="Path.slotMore">
+    <Setter Property="Fill" Value="{DynamicResource St.TextMuted}" />
+    <Setter Property="Width" Value="4" />
+    <Setter Property="Height" Value="4" />
+    <Setter Property="HorizontalAlignment" Value="Right" />
+    <Setter Property="VerticalAlignment" Value="Bottom" />
+    <Setter Property="Margin" Value="0,0,-4,-4" />
+  </Style>
+  <Style Selector="ToggleButton.icon:checked Path.slotMore">
+    <Setter Property="Fill" Value="{DynamicResource St.Accent}" />
+  </Style>
   <Style Selector="Button.icon:disabled /template/ ContentPresenter">
     <Setter Property="Background" Value="Transparent" />
   </Style>
