@@ -19,6 +19,10 @@ public enum CanvasTool
     MagicWand,
     QuickSelect,
     ObjectSelect,
+    Eyedropper,
+    PaintBucket,
+    Gradient,
+    Zoom,
 }
 
 /// <summary>
@@ -164,9 +168,10 @@ public sealed partial class ImageCanvas : Control
         RenderLiveOutline(context); // first: it decides whether the selection's own outline shows
         RenderSelection(context);
         DrawTransformBox(context);
+        RenderEverydayTools(context); // ImageCanvas.Everyday.cs
 
         // Brush outline: a dark and a light ring so it stays visible over any colors.
-        if ((IsPaintTool || Tool == CanvasTool.QuickSelect) && !_spaceHeld && FreeTransform is null && _hover is { } h)
+        if ((IsPaintTool || Tool == CanvasTool.QuickSelect) && !_spaceHeld && FreeTransform is null && !EyedropperActive && _hover is { } h)
         {
             double r = Math.Max(1.5, BrushSize * Zoom / 2);
             context.DrawEllipse(null, new Pen(new SolidColorBrush(Color.FromArgb(160, 0, 0, 0)), 1.5), h, r, r);
@@ -198,6 +203,11 @@ public sealed partial class ImageCanvas : Control
             e.Pointer.Capture(this);
             return;
         }
+        if (!_panning && EverydayPressed(e, props)) // Eyedropper, Paint Bucket, Gradient, Zoom (ImageCanvas.Everyday.cs)
+        {
+            e.Pointer.Capture(this);
+            return;
+        }
         if (!_panning && IsPaintTool && props.IsLeftButtonPressed)
         {
             var p = ToImage(e.GetPosition(this));
@@ -219,6 +229,7 @@ public sealed partial class ImageCanvas : Control
     {
         base.OnPointerMoved(e);
         if (TransformMoved(e)) return;
+        if (EverydayMoved(e)) return;
         if (IsPaintTool || Tool == CanvasTool.QuickSelect)
         {
             _hover = e.GetPosition(this);
@@ -273,6 +284,7 @@ public sealed partial class ImageCanvas : Control
     {
         base.OnPointerReleased(e);
         TransformReleased();
+        EverydayReleased(e);
         if (_stroking)
         {
             _stroking = false;
@@ -289,6 +301,7 @@ public sealed partial class ImageCanvas : Control
     {
         base.OnKeyDown(e);
         TransformModifiersChanged(e);
+        EverydayKeyChanged(e, down: true);
         if (e.Key == Key.Space && !_spaceHeld)
         {
             _spaceHeld = true;
@@ -301,6 +314,7 @@ public sealed partial class ImageCanvas : Control
     {
         base.OnKeyUp(e);
         TransformModifiersChanged(e);
+        EverydayKeyChanged(e, down: false);
         if (e.Key == Key.Space)
         {
             _spaceHeld = false;
@@ -309,11 +323,10 @@ public sealed partial class ImageCanvas : Control
         }
     }
 
-    private void UpdateCursor() => Cursor = new Cursor(
-        Tool == CanvasTool.Hand || _spaceHeld ? StandardCursorType.Hand
-        : FreeTransform is not null ? StandardCursorType.Arrow
-        : IsPaintTool || IsSelectTool || IsWandTool ? StandardCursorType.Cross
-        : StandardCursorType.SizeAll);
+    private void UpdateCursor() => Cursor =
+        Tool == CanvasTool.Hand || _spaceHeld ? new Cursor(StandardCursorType.Hand)
+        : FreeTransform is not null ? new Cursor(StandardCursorType.Arrow)
+        : EverydayCursor() ?? new Cursor(IsPaintTool || IsSelectTool || IsWandTool ? StandardCursorType.Cross : StandardCursorType.SizeAll);
 
     private static IBrush CreateChecker(Color light, Color dark)
     {

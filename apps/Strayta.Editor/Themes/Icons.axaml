@@ -36,6 +36,15 @@
   <StreamGeometry x:Key="IconQuickSelect">M3.9 13.5A7 7 0 0 1 3.1 8.8 M3.9 6.5A7 7 0 0 1 7.6 3.4 M10 3A7 7 0 0 1 14.5 4.6 M16.1 6.5A7 7 0 0 1 16.9 11.2 M10 17A7 7 0 0 1 5.5 15.4 M12.4 10.9a1.5 1.5 0 0 1 2.1 0l6.4 6.4a1.5 1.5 0 0 1-2.1 2.1l-6.4-6.4a1.5 1.5 0 0 1 0-2.1Z</StreamGeometry>
   <!-- Object Selection: Photoshop's dashed box with a pointer in its corner -->
   <StreamGeometry x:Key="IconObjectSelect">M3 6V3h3 M9 3h3 M15 3h3v3 M3 9v3 M3 15v3h3 M18 9v1 M11 10v11l3-3 2.5 4.5 2-1-2.5-4.5h4Z</StreamGeometry>
+  <!-- Everyday tools: a pipette, a gradient swatch whose lines crowd toward its dark end, a tipped bucket with a
+       drop, a magnifier; History is a clock turning back. -->
+  <StreamGeometry x:Key="IconEyedropper">M20.2 3.8a2.4 2.4 0 0 0-3.4 0L14 6.6l-1.3-1.3-1.9 1.9 6 6 1.9-1.9-1.3-1.3 2.8-2.8a2.4 2.4 0 0 0 0-3.4Z M13 8.9l-8.3 8.3L4 20l2.8-.7 8.3-8.3</StreamGeometry>
+  <StreamGeometry x:Key="IconGradient">M4 5h16a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1Z M9.5 5v14 M14 5v14 M17 5v14 M19 5v14</StreamGeometry>
+  <StreamGeometry x:Key="IconBucket">M11 4.5l7 7-6.3 6.3a1.6 1.6 0 0 1-2.2 0l-4.8-4.8a1.6 1.6 0 0 1 0-2.2Z M4.2 12.5H17 M8.5 2.5l2.5 2 M20 14.5s1.8 2.3 1.8 3.5a1.8 1.8 0 0 1-3.6 0c0-1.2 1.8-3.5 1.8-3.5Z</StreamGeometry>
+  <StreamGeometry x:Key="IconZoom">M10.5 3.5a7 7 0 1 0 0 14a7 7 0 1 0 0-14Z M15.5 15.5L21 21 M7.5 10.5h6 M10.5 7.5v6</StreamGeometry>
+  <StreamGeometry x:Key="IconHistory">M3.5 12a8.5 8.5 0 1 0 2.5-6 M3.5 3.5V8H8 M12 7.5V12l3 2</StreamGeometry>
+  <StreamGeometry x:Key="IconSnapshot">M4 7h3l1.5-2h7L17 7h3a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V8a1 1 0 0 1 1-1Z M12 9.5a3.5 3.5 0 1 0 0 7a3.5 3.5 0 1 0 0-7Z</StreamGeometry>
+  <StreamGeometry x:Key="IconHistoryStep">M5 12h14 M13 6l6 6-6 6</StreamGeometry>
   <StreamGeometry x:Key="IconCommit">M5 12.5l4.5 4.5L19 7.5</StreamGeometry>
   <StreamGeometry x:Key="IconCancel">M6 6l12 12 M18 6L6 18</StreamGeometry>
   <!-- Masks and adjustments: Photoshop's rectangle-with-circle and half-filled circle (filled half drawn separately) -->

@@ -190,6 +190,19 @@ public sealed partial class DocumentViewModel : Dock.Model.Mvvm.Controls.Documen
         if (_baking) return false;
         if (EditMask && SelectedLayer?.Node is { } maskOwner && maskOwner.GetMask() is not null)
             return BeginMaskStroke(maskOwner, x, y, brush, color, erase); // see DocumentViewModel.Masks.cs
+        if (PaintableLayer() is not { } target) return false;
+        _stroke = new PaintStroke(target, brush, color, erase, Model.Bounds, Selection);
+        _stroke.StrokeTo(x, y);
+        RequestRender();
+        return true;
+    }
+
+    /// <summary>
+    /// The selected layer when its pixels can be painted (brush, eraser, Paint Bucket, Gradient); otherwise null, with
+    /// a notice and the fixes that apply shown over the canvas.
+    /// </summary>
+    private PixelLayer? PaintableLayer()
+    {
         string? problem = SelectedLayer?.Node switch
         {
             null => "Select a layer to paint on, or create a new one.",
@@ -209,15 +222,12 @@ public sealed partial class DocumentViewModel : Dock.Model.Mvvm.Controls.Documen
                 CanRasterize: node is not null && RasterizeEdit.CanRasterize(node),
                 CanShow: node is { Visible: false },
                 CanNewLayer: true);
-            return false;
+            return null;
         }
 
         Notice = "";
         PaintBlock = null;
-        _stroke = new PaintStroke((PixelLayer)SelectedLayer!.Node, brush, color, erase, Model.Bounds, Selection);
-        _stroke.StrokeTo(x, y);
-        RequestRender();
-        return true;
+        return (PixelLayer)SelectedLayer!.Node;
 
         static string Kind(LayerNode n) =>
             n.Tags.Contains("text") ? "text" : n.Tags.Contains("smart-object") ? "smart object" : n.Tags.Contains("fill") ? "fill" : "shape";
@@ -351,6 +361,7 @@ public sealed partial class DocumentViewModel : Dock.Model.Mvvm.Controls.Documen
         OnPropertyChanged(nameof(CanRedo));
         OnPropertyChanged(nameof(UndoText));
         OnPropertyChanged(nameof(RedoText));
+        HistoryChanged?.Invoke(); // History panel (DocumentViewModel.History.cs)
         if (edit is not SelectionEdit) RequestRender();
     }
 
@@ -439,7 +450,7 @@ public sealed partial class DocumentViewModel : Dock.Model.Mvvm.Controls.Documen
                 var sw = Stopwatch.StartNew();
                 var proxy = _preview.Sync();
                 var overlay = _preview.MapStroke(_stroke);
-                var transform = PrepareTransform(_preview, full: false);
+                var transform = PrepareOverlays(_preview, full: false); // Free Transform, Gradient
                 double syncMs = sw.Elapsed.TotalMilliseconds;
                 var (rgba, warnings, renderMs, convertMs) = await Task.Run(() =>
                 {
@@ -489,7 +500,7 @@ public sealed partial class DocumentViewModel : Dock.Model.Mvvm.Controls.Documen
             var doc = Model;
             var snapshot = _snapshot.Sync();
             var strokeOverlay = _snapshot.MapStroke(_stroke);
-            var transform = PrepareTransform(_snapshot, full: true);
+            var transform = PrepareOverlays(_snapshot, full: true);
             var reference = _reference;
             bool untouched = !_undo.CanUndo && !_undo.CanRedo;
             var sw = Stopwatch.StartNew();

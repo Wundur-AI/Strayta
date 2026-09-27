@@ -209,7 +209,7 @@ public sealed partial class EditorViewModel : ObservableObject
         CanvasTool.MagicWand => "Magic Wand",
         CanvasTool.QuickSelect => "Quick Selection",
         CanvasTool.ObjectSelect => "Object Selection",
-        _ => Tool.ToString(),
+        _ => ToolGroups.SelectMany(g => g.Tools).FirstOrDefault(t => t.Tool == Tool)?.Name ?? Tool.ToString(),
     };
 
     /// <summary>Brush diameter in pixels.</summary>

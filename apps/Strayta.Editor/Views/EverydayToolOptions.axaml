@@ -1,0 +1,126 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Strayta.Editor.ViewModels"
+             xmlns:c="using:Strayta.Editor.Controls"
+             x:Class="Strayta.Editor.Views.EverydayToolOptions"
+             x:DataType="vm:EditorViewModel"
+             VerticalAlignment="Center">
+  <UserControl.Styles>
+    <Style Selector="ToggleButton.gradientType">
+      <Setter Property="Padding" Value="4" />
+    </Style>
+    <Style Selector="ToggleButton.gradientType Border.swatch">
+      <Setter Property="Width" Value="16" />
+      <Setter Property="Height" Value="16" />
+      <Setter Property="CornerRadius" Value="2" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="BorderBrush" Value="{DynamicResource St.Border}" />
+    </Style>
+    <Style Selector="ComboBox">
+      <Setter Property="FontSize" Value="11" />
+      <Setter Property="MinHeight" Value="0" />
+      <Setter Property="Padding" Value="8,2" />
+    </Style>
+  </UserControl.Styles>
+
+  <!-- Options-bar settings for the Eyedropper, Paint Bucket, Gradient and Zoom tools (EditorViewModel.Everyday.cs). -->
+  <Panel>
+    <StackPanel Orientation="Horizontal" Spacing="14" IsVisible="{Binding IsEyedropperTool}">
+      <StackPanel Orientation="Horizontal" Spacing="6">
+        <TextBlock Classes="label" Text="Sample Size" VerticalAlignment="Center" />
+        <ComboBox ItemsSource="{Binding EyedropperSizeNames}" SelectedIndex="{Binding EyedropperSizeIndex}" Width="150" />
+      </StackPanel>
+      <StackPanel Orientation="Horizontal" Spacing="6">
+        <TextBlock Classes="label" Text="Sample" VerticalAlignment="Center" />
+        <ComboBox ItemsSource="{Binding EyedropperSampleNames}" SelectedIndex="{Binding EyedropperSampleIndex}" Width="120" />
+      </StackPanel>
+      <TextBlock Classes="label" VerticalAlignment="Center"
+                 Text="Click or drag to pick the foreground color · Option picks the background · Option with the Brush, Bucket or Gradient picks too" />
+    </StackPanel>
+
+    <StackPanel Orientation="Horizontal" Spacing="14" IsVisible="{Binding IsPaintBucketTool}">
+      <StackPanel Orientation="Horizontal" Spacing="6">
+        <TextBlock Classes="label" Text="Tolerance" VerticalAlignment="Center" />
+        <c:NumberField Value="{Binding BucketTolerance}" Width="44" ToolTip.Tip="How different a color may be from the clicked one, 0–255 per channel" />
+      </StackPanel>
+      <CheckBox Content="Anti-alias" IsChecked="{Binding BucketAntiAlias}" FontSize="11" />
+      <CheckBox Content="Contiguous" IsChecked="{Binding BucketContiguous}" FontSize="11" ToolTip.Tip="Only areas connected to the clicked pixel" />
+      <CheckBox Content="All Layers" IsChecked="{Binding BucketSampleAllLayers}" FontSize="11" ToolTip.Tip="Compare colors in the whole image instead of the selected layer" />
+      <TextBlock Classes="label" VerticalAlignment="Center" Text="Click to fill similar colors with the foreground color, inside the selection" />
+    </StackPanel>
+
+    <StackPanel Orientation="Horizontal" Spacing="14" IsVisible="{Binding IsGradientTool}">
+      <StackPanel Orientation="Horizontal" Spacing="6">
+        <Border Width="44" Height="18" CornerRadius="3" BorderThickness="1" BorderBrush="{DynamicResource St.Border}"
+                Background="{DynamicResource St.Window}" ClipToBounds="True">
+          <Border Background="{Binding GradientPreviewBrush}" />
+        </Border>
+        <ComboBox ItemsSource="{Binding GradientPresetNames}" SelectedIndex="{Binding GradientPresetIndex}" Width="170" />
+      </StackPanel>
+      <StackPanel Orientation="Horizontal" Spacing="2">
+        <ToggleButton Classes="icon gradientType" IsChecked="{Binding IsLinearGradient}" ToolTip.Tip="Linear Gradient">
+          <Border Classes="swatch">
+            <Border.Background>
+              <LinearGradientBrush StartPoint="0%,50%" EndPoint="100%,50%">
+                <GradientStop Color="White" Offset="0" /><GradientStop Color="Black" Offset="1" />
+              </LinearGradientBrush>
+            </Border.Background>
+          </Border>
+        </ToggleButton>
+        <ToggleButton Classes="icon gradientType" IsChecked="{Binding IsRadialGradient}" ToolTip.Tip="Radial Gradient">
+          <Border Classes="swatch">
+            <Border.Background>
+              <RadialGradientBrush>
+                <GradientStop Color="White" Offset="0" /><GradientStop Color="Black" Offset="1" />
+              </RadialGradientBrush>
+            </Border.Background>
+          </Border>
+        </ToggleButton>
+        <ToggleButton Classes="icon gradientType" IsChecked="{Binding IsAngleGradient}" ToolTip.Tip="Angle Gradient">
+          <Border Classes="swatch">
+            <Border.Background>
+              <ConicGradientBrush Angle="90">
+                <GradientStop Color="White" Offset="0" /><GradientStop Color="Black" Offset="1" />
+              </ConicGradientBrush>
+            </Border.Background>
+          </Border>
+        </ToggleButton>
+        <ToggleButton Classes="icon gradientType" IsChecked="{Binding IsReflectedGradient}" ToolTip.Tip="Reflected Gradient">
+          <Border Classes="swatch">
+            <Border.Background>
+              <LinearGradientBrush StartPoint="0%,50%" EndPoint="100%,50%">
+                <GradientStop Color="Black" Offset="0" /><GradientStop Color="White" Offset="0.5" /><GradientStop Color="Black" Offset="1" />
+              </LinearGradientBrush>
+            </Border.Background>
+          </Border>
+        </ToggleButton>
+        <ToggleButton Classes="icon gradientType" IsChecked="{Binding IsDiamondGradient}" ToolTip.Tip="Diamond Gradient">
+          <Border Classes="swatch" Background="Black">
+            <Path Data="M8 0L16 8 8 16 0 8Z" Stretch="Fill">
+              <Path.Fill>
+                <RadialGradientBrush>
+                  <GradientStop Color="White" Offset="0" /><GradientStop Color="#FF303030" Offset="1" />
+                </RadialGradientBrush>
+              </Path.Fill>
+            </Path>
+          </Border>
+        </ToggleButton>
+      </StackPanel>
+      <StackPanel Orientation="Horizontal" Spacing="8">
+        <TextBlock Classes="label" Text="Opacity" VerticalAlignment="Center" />
+        <Slider Width="90" Minimum="1" Maximum="100" Value="{Binding GradientOpacity}" VerticalAlignment="Center" />
+        <TextBlock Text="{Binding GradientOpacity, StringFormat='{}{0:0}%'}" VerticalAlignment="Center" MinWidth="34" />
+      </StackPanel>
+      <CheckBox Content="Reverse" IsChecked="{Binding GradientReverse}" FontSize="11" ToolTip.Tip="Swap the gradient's colors" />
+      <CheckBox Content="Dither" IsChecked="{Binding GradientDither}" FontSize="11" ToolTip.Tip="Add a little noise so long gradients show no bands" />
+      <TextBlock Classes="label" VerticalAlignment="Center" Text="Drag to draw · Shift snaps to 45° · fills the selection" />
+    </StackPanel>
+
+    <StackPanel Orientation="Horizontal" Spacing="10" IsVisible="{Binding IsZoomTool}">
+      <Button Content="100%" Command="{Binding ActualSizeCommand}" FontSize="11" Padding="10,2" ToolTip.Tip="Actual pixels (⌘1, or double-click the Zoom tool)" />
+      <Button Content="Fit Screen" Command="{Binding FitCommand}" FontSize="11" Padding="10,2" ToolTip.Tip="Fit on screen (⌘0)" />
+      <TextBlock Classes="label" VerticalAlignment="Center"
+                 Text="Click zooms in · Option-click zooms out · drag left or right to zoom smoothly · ⌘+ / ⌘−" />
+    </StackPanel>
+  </Panel>
+</UserControl>

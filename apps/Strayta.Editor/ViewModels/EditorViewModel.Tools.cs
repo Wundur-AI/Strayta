@@ -7,7 +7,7 @@ public sealed partial class EditorViewModel
 {
     public IReadOnlyList<ToolGroup> ToolGroups { get; private set; } = [];
 
-    private ToolGroup _marqueeGroup = null!, _selectionGroup = null!;
+    private ToolGroup _marqueeGroup = null!, _selectionGroup = null!, _fillGroup = null!;
 
     private void CreateToolGroups()
     {
@@ -20,21 +20,29 @@ public sealed partial class EditorViewModel
             new(CanvasTool.QuickSelect, "Quick Selection", "IconQuickSelect"),
             new(CanvasTool.MagicWand, "Magic Wand", "IconMagicWand"));
         _selectionGroup.Current = _selectionGroup.Tools[2];
+        // Photoshop's G slot: Gradient first, Paint Bucket behind it.
+        _fillGroup = new ToolGroup(this, "G",
+            new(CanvasTool.Gradient, "Gradient", "IconGradient"),
+            new(CanvasTool.PaintBucket, "Paint Bucket", "IconBucket"));
         ToolGroups =
         [
             new ToolGroup(this, "V", new ToolInfo(CanvasTool.Move, "Move", "IconMove")),
             new ToolGroup(this, "H", new ToolInfo(CanvasTool.Hand, "Hand", "IconHand")),
+            new ToolGroup(this, "Z", new ToolInfo(CanvasTool.Zoom, "Zoom", "IconZoom")),
             _marqueeGroup,
             new ToolGroup(this, "L", new ToolInfo(CanvasTool.Lasso, "Lasso", "IconLasso")),
             _selectionGroup,
+            new ToolGroup(this, "I", new ToolInfo(CanvasTool.Eyedropper, "Eyedropper", "IconEyedropper")),
             new ToolGroup(this, "B", new ToolInfo(CanvasTool.Brush, "Brush", "IconBrush")),
             new ToolGroup(this, "E", new ToolInfo(CanvasTool.Eraser, "Eraser", "IconEraser")),
+            _fillGroup,
         ];
     }
 
     partial void OnToolChanged(CanvasTool value)
     {
         foreach (var group in ToolGroups) group.OnToolChanged(value);
+        NotifyEverydayTools(); // EditorViewModel.Everyday.cs
     }
 
     /// <summary>A tool-group shortcut: the key alone picks the group's current tool, with Shift it steps through the group.</summary>

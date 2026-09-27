@@ -3,6 +3,7 @@
         xmlns:vm="using:Strayta.Editor.ViewModels"
         xmlns:dock="using:Dock.Avalonia.Controls"
         xmlns:c="using:Strayta.Editor.Controls"
+        xmlns:v="using:Strayta.Editor.Views"
         x:Class="Strayta.Editor.Views.MainWindow"
         x:DataType="vm:EditorViewModel"
         Title="{Binding WindowTitle}"
@@ -102,6 +103,8 @@
           <TextBlock Classes="label" IsVisible="{Binding !HasSelectionModels}" Foreground="{DynamicResource St.Warning}"
                      Text="{Binding SelectionModelsHint}" TextTrimming="CharacterEllipsis" MaxWidth="900" />
         </StackPanel>
+
+        <v:EverydayToolOptions /> <!-- Eyedropper, Paint Bucket, Gradient, Zoom -->
 
         <StackPanel Orientation="Horizontal" Spacing="18" IsVisible="{Binding IsPaintTool}">
           <StackPanel Orientation="Horizontal" Spacing="8">

@@ -39,6 +39,18 @@ dotnet test
   flattened copy.
 - Tools: Move (V), Hand (H), Brush (B), Eraser (E); `[` and `]` resize the brush. Space or the middle
   button pans with any tool; the wheel zooms.
+- Eyedropper (I): click or drag to pick the foreground color (Option: background), with a sampling ring showing
+  the new color over the old; Sample Size from a point to 101×101 average, from the current layer or all layers.
+  Option with the Brush, Paint Bucket or Gradient picks colors too.
+- Gradient and Paint Bucket (G, Shift+G switches). Gradient: drag to draw Linear, Radial, Angle, Reflected or Diamond
+  gradients, foreground to background or to transparent, Reverse, Dither, Opacity, Shift snaps to 45°; it previews
+  live at screen resolution and paints the layer, or its mask when the mask is targeted. Paint Bucket fills similar
+  colors (tolerance, anti-alias, contiguous, all layers) with the foreground color. Both stay inside the selection
+  and are one undo step each.
+- Zoom (Z): click zooms in, Option-click out, drag left/right zooms smoothly; double-click the tool for 100%.
+  View > Zoom In / Zoom Out (⌘+ / ⌘−), Fit on Screen (⌘0), Actual Size (⌘1).
+- History panel (Window > History): every step of the active document from Open on, with its tool's icon; click a
+  step to go back or forward to it, and a new edit discards the dimmed steps after it.
 - Selections: Rectangular and Elliptical Marquee (M, Shift+M switches), Lasso (L), with Photoshop's modifiers
   (Shift adds or constrains, Option subtracts or draws from the center, Shift+Option intersects; a click
   deselects). Select > All / Deselect / Reselect / Inverse. Painting, Delete (clear), Fill, Cut, Copy and
@@ -85,6 +97,8 @@ measure frame rates (layer drag, brush stroke, free transform, Properties slider
 (`STRAYTA_TRANSFORMBENCH=new` builds a 4000×3000 document and runs the drag and transform benchmarks on it);
 `STRAYTA_WANDBENCH=1` times Magic Wand clicks and a Quick Selection drag, plain and Object-Aware (`=new` on a generated 4000×3000
 document).
+`STRAYTA_TOOLBENCH=new` times a Gradient drag (preview frame rate, release to edit), Paint Bucket clicks and
+Eyedropper samples on a generated 4000×3000 document.
 `STRAYTA_SEGBENCH=1` times Object Selection and Select Subject (encoder, per-prompt latency, memory) on the
 first opened file; `STRAYTA_THEME=Light|Dark` sets the starting appearance.
 

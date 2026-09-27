@@ -33,6 +33,12 @@ public sealed class UndoStack
     public string? UndoDescription => _done.Count > 0 ? _done[^1].Description : null;
     public string? RedoDescription => _undone.Count > 0 ? _undone[^1].Description : null;
 
+    /// <summary>Applied edits, oldest first (the History panel's states up to the current one).</summary>
+    public IReadOnlyList<IEdit> Done => _done;
+
+    /// <summary>Undone edits that Redo would bring back, the next one last.</summary>
+    public IReadOnlyList<IEdit> Undone => _undone;
+
     public void Push(IEdit edit)
     {
         edit.Do();
