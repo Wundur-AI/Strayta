@@ -83,12 +83,12 @@ public static class PsdWriter
         w.U32((uint)colorModeData.Length);
         w.Bytes(colorModeData);
 
-        WriteResources(w, source);
+        WriteResources(w, doc, source);
         WriteLayerAndMaskInfo(w, doc, source, psb, compositeAlpha);
         WriteComposite(w, doc, composite, colorChannels, extraChannels, psb);
     }
 
-    private static void WriteResources(BigEndianWriter w, PsdFile? source)
+    private static void WriteResources(BigEndianWriter w, Document doc, PsdFile? source)
     {
         var section = new MemoryStream();
         var s = new BigEndianWriter(section);
@@ -102,8 +102,16 @@ public static class PsdWriter
             if ((r.Data.Length & 1) != 0) s.Zeros(1);
         }
 
+        // Resolution is modeled (Image Size can change it): the stored block is rewritten, keeping its display units.
+        var resolution = source?.FindResource(PsdResolution.ResourceId);
+        bool writeResolution = resolution is not null || source is null || doc.Resolution != 72;
         foreach (var r in source?.Resources ?? [])
-            if (!DroppedResources.Contains(r.Id) && r.Id != PsdVersionInfo.ResourceId) Write(r);
+        {
+            if (DroppedResources.Contains(r.Id) || r.Id == PsdVersionInfo.ResourceId) continue;
+            Write(r.Id == PsdResolution.ResourceId ? r with { Data = PsdResolution.Write(doc.Resolution, r.Data) } : r);
+        }
+        if (writeResolution && resolution is null)
+            Write(new ImageResource("8BIM", PsdResolution.ResourceId, "", PsdResolution.Write(doc.Resolution, null)));
 
         // Record that Strayta wrote this file, so its composite is not mistaken for a Photoshop render.
         var info = PsdVersionInfo.Read(source?.FindResource(PsdVersionInfo.ResourceId)?.Data);

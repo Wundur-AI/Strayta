@@ -19,6 +19,7 @@ public enum CanvasTool
     MagicWand,
     QuickSelect,
     ObjectSelect,
+    Crop,
 }
 
 /// <summary>
@@ -117,6 +118,7 @@ public sealed partial class ImageCanvas : Control
         OnSelectionPropertyChanged(change);
         OnWandPropertyChanged(change);
         if (change.Property == FreeTransformProperty) OnFreeTransformChanged(change);
+        if (change.Property == CropBoxProperty) OnCropBoxChanged(change); // ImageCanvas.Crop.cs
     }
 
     public void FitToView()
@@ -155,15 +157,22 @@ public sealed partial class ImageCanvas : Control
 
         var size = ImageSize;
         var dest = new Rect(_offset.X, _offset.Y, size.Width * Zoom, size.Height * Zoom);
-        context.FillRectangle(_checker, dest);
         // Screen pixels per bitmap pixel: show hard pixels only when truly zoomed in on full-resolution data.
         double scale = Zoom * size.Width / bmp.PixelSize.Width;
         var mode = scale >= 2 && bmp.PixelSize == size ? BitmapInterpolationMode.None : BitmapInterpolationMode.HighQuality;
+        using (context.PushTransform(CropImageTransform())) // the Crop tool turns and moves the image (ImageCanvas.Crop.cs)
         using (context.PushRenderOptions(new RenderOptions { BitmapInterpolationMode = mode }))
+        {
+            context.FillRectangle(_checker, dest);
             context.DrawImage(bmp, new Rect(0, 0, bmp.PixelSize.Width, bmp.PixelSize.Height), dest);
-        RenderLiveOutline(context); // first: it decides whether the selection's own outline shows
-        RenderSelection(context);
+        }
+        if (CropBox is null) // a crop drops the selection, and its outline would not follow the turned image
+        {
+            RenderLiveOutline(context); // first: it decides whether the selection's own outline shows
+            RenderSelection(context);
+        }
         DrawTransformBox(context);
+        DrawCropOverlay(context);
 
         // Brush outline: a dark and a light ring so it stays visible over any colors.
         if ((IsPaintTool || Tool == CanvasTool.QuickSelect) && !_spaceHeld && FreeTransform is null && _hover is { } h)
@@ -192,7 +201,7 @@ public sealed partial class ImageCanvas : Control
         var props = e.GetCurrentPoint(this).Properties;
         _panning = Tool == CanvasTool.Hand || _spaceHeld || props.IsMiddleButtonPressed;
         _dragStart = e.GetPosition(this);
-        if (TransformPressed(e))
+        if (TransformPressed(e) || CropPressed(e))
         {
             _dragStart = null;
             e.Pointer.Capture(this);
@@ -218,7 +227,7 @@ public sealed partial class ImageCanvas : Control
     protected override void OnPointerMoved(PointerEventArgs e)
     {
         base.OnPointerMoved(e);
-        if (TransformMoved(e)) return;
+        if (TransformMoved(e) || CropMoved(e)) return;
         if (IsPaintTool || Tool == CanvasTool.QuickSelect)
         {
             _hover = e.GetPosition(this);
@@ -273,6 +282,7 @@ public sealed partial class ImageCanvas : Control
     {
         base.OnPointerReleased(e);
         TransformReleased();
+        CropReleased();
         if (_stroking)
         {
             _stroking = false;
@@ -289,6 +299,7 @@ public sealed partial class ImageCanvas : Control
     {
         base.OnKeyDown(e);
         TransformModifiersChanged(e);
+        CropModifiersChanged(e);
         if (e.Key == Key.Space && !_spaceHeld)
         {
             _spaceHeld = true;
@@ -301,6 +312,7 @@ public sealed partial class ImageCanvas : Control
     {
         base.OnKeyUp(e);
         TransformModifiersChanged(e);
+        CropModifiersChanged(e);
         if (e.Key == Key.Space)
         {
             _spaceHeld = false;
@@ -311,7 +323,7 @@ public sealed partial class ImageCanvas : Control
 
     private void UpdateCursor() => Cursor = new Cursor(
         Tool == CanvasTool.Hand || _spaceHeld ? StandardCursorType.Hand
-        : FreeTransform is not null ? StandardCursorType.Arrow
+        : FreeTransform is not null || CropBox is not null ? StandardCursorType.Arrow
         : IsPaintTool || IsSelectTool || IsWandTool ? StandardCursorType.Cross
         : StandardCursorType.SizeAll);
 

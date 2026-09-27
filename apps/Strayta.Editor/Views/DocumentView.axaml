@@ -27,7 +27,8 @@
       <c:ImageCanvas x:Name="Canvas" Source="{Binding Display}" DocumentSize="{Binding DocumentSize}"
                      Tool="{Binding Editor.Tool}" BrushSize="{Binding Editor.ToolBrushSize}"
                      Selection="{Binding Selection}" LiveSelectionOutline="{Binding QuickSelectionOutline}"
-                     FreeTransform="{Binding FreeTransform}" />
+                     FreeTransform="{Binding FreeTransform}"
+                     CropBox="{Binding CropBox}" StraightenMode="{Binding Editor.CropStraighten}" />
 
       <!-- Why the brush can't paint here, with the fixes that apply -->
       <Border IsVisible="{Binding HasPaintBlock}" HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,14,0,0"

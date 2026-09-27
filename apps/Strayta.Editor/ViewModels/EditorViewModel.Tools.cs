@@ -27,6 +27,7 @@ public sealed partial class EditorViewModel
             _marqueeGroup,
             new ToolGroup(this, "L", new ToolInfo(CanvasTool.Lasso, "Lasso", "IconLasso")),
             _selectionGroup,
+            new ToolGroup(this, "C", new ToolInfo(CanvasTool.Crop, "Crop", "IconCrop")),
             new ToolGroup(this, "B", new ToolInfo(CanvasTool.Brush, "Brush", "IconBrush")),
             new ToolGroup(this, "E", new ToolInfo(CanvasTool.Eraser, "Eraser", "IconEraser")),
         ];
@@ -35,6 +36,7 @@ public sealed partial class EditorViewModel
     partial void OnToolChanged(CanvasTool value)
     {
         foreach (var group in ToolGroups) group.OnToolChanged(value);
+        SyncCropTool(); // EditorViewModel.Crop.cs
     }
 
     /// <summary>A tool-group shortcut: the key alone picks the group's current tool, with Shift it steps through the group.</summary>

@@ -24,7 +24,7 @@ public sealed partial class DocumentViewModel : Dock.Model.Mvvm.Controls.Documen
 {
     private readonly IRenderer _renderer = Renderers.CreateDefault();
     private readonly IRenderer _previewRenderer = Renderers.CreateDefault();
-    private readonly PreviewDocument _snapshot;
+    private PreviewDocument _snapshot; // replaced when the canvas size changes (DocumentViewModel.Crop.cs)
     private PreviewDocument? _preview;
     private double _viewZoom = 1;
     private int _modelVersion;
@@ -169,6 +169,11 @@ public sealed partial class DocumentViewModel : Dock.Model.Mvvm.Controls.Documen
         if (IsTransforming)
         {
             CancelTransform(); // like Photoshop, undo inside Free Transform steps back out of it
+            return;
+        }
+        if (CropBox is { IsModified: true, Locked: false } crop)
+        {
+            crop.Reset(); // undo inside a crop resets the box first (DocumentViewModel.Crop.cs)
             return;
         }
         if (_undo.Undo() is { } edit) AfterChange(edit);
@@ -331,6 +336,7 @@ public sealed partial class DocumentViewModel : Dock.Model.Mvvm.Controls.Documen
     private void AfterChange(IEdit edit)
     {
         IsModified = _undo.DistanceFromSave != 0;
+        if (edit is CanvasEdit) OnCanvasChanged(); // Crop, Image Size, Canvas Size: DocumentViewModel.Crop.cs
         switch (edit)
         {
             case { ChangesStructure: true }:
