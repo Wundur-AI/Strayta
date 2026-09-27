@@ -30,5 +30,8 @@ public partial class MainWindow
     {
         if (e.PropertyName is nameof(EditorViewModel.Tool) or nameof(EditorViewModel.ActiveDocument) && Editor.IsObjectSelectTool)
             Editor.ActiveDocument?.PrepareObjectSelection();
+        // Object-Aware Quick Selection uses the same analysis (EditorViewModel.QuickSelectObjects.cs).
+        if (e.PropertyName is nameof(EditorViewModel.Tool) or nameof(EditorViewModel.ActiveDocument))
+            Editor.PrepareQuickSelectObjects();
     }
 }

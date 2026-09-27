@@ -79,7 +79,7 @@ public sealed partial class DocumentViewModel
         int request = ++_objectRequest;
         var current = Selection;
         var canvas = Model.Bounds;
-        if (await SampleAsync() is not { } sample) return;
+        if (await SampleAsync(Editor.ObjectSampleAllLayers) is not { } sample) return;
         IsAnalyzing = ++_analyzing > 0;
         Notice = "Selecting the subject…";
         try
@@ -117,9 +117,9 @@ public sealed partial class DocumentViewModel
     /// The SAM embedding for what Object Selection samples now: the whole document render (Sample All Layers) or
     /// the selected layer's pixels. Cached by content identity, so it is recomputed only after the pixels change.
     /// </summary>
-    private async Task<SamEmbedding?> ObjectEmbeddingAsync(bool quiet = false)
+    private async Task<SamEmbedding?> ObjectEmbeddingAsync(bool quiet = false, bool? sampleAll = null)
     {
-        if (await SampleAsync(quiet) is not { } sample) return null;
+        if (await SampleAsync(sampleAll ?? Editor.ObjectSampleAllLayers, quiet) is not { } sample) return null;
         if (Engine.TryGetEmbedding(sample.Source, sample.Content) is { } cached) return cached.MovedTo(sample.Placement);
 
         IsAnalyzing = ++_analyzing > 0;
@@ -145,9 +145,9 @@ public sealed partial class DocumentViewModel
     /// a layer), the content (a pixel array that is replaced, never modified, on every edit) and the image.</summary>
     private sealed record Sample(object Source, object Content, PixelRect Placement, Func<RgbaImage> Image);
 
-    private async Task<Sample?> SampleAsync(bool quiet = false)
+    private async Task<Sample?> SampleAsync(bool sampleAll, bool quiet = false)
     {
-        if (Editor.ObjectSampleAllLayers)
+        if (sampleAll)
         {
             var rgba = await DocumentPixelsAsync();
             if (rgba is null) return null;

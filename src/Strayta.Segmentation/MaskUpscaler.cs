@@ -15,6 +15,16 @@ public sealed record MaskLogits(float[] Values, int Width, int Height, PixelRect
         var (u, v) = MaskUpscaler.ToMask(this, docX, docY);
         return MaskUpscaler.Bilinear(Values, Width, Height, u, v, out _, out _);
     }
+
+    /// <summary>
+    /// Signed distance in document pixels from a document position (continuous coordinates) to the mask's edge,
+    /// positive inside: the logit over its gradient, as <see cref="MaskUpscaler"/> upscales. Negative infinity
+    /// outside <see cref="Placement"/>, ±infinity where the logits are flat.
+    /// </summary>
+    public float SignedDistance(double docX, double docY) =>
+        docX < Placement.Left || docY < Placement.Top || docX >= Placement.Right || docY >= Placement.Bottom
+            ? float.NegativeInfinity
+            : MaskUpscaler.Distance(this, docX - 0.5, docY - 0.5);
 }
 
 /// <summary>
@@ -83,7 +93,10 @@ public static class MaskUpscaler
     /// Signed distance in document pixels from the center of pixel (x, y) to the mask edge, positive inside:
     /// the interpolated logit divided by its gradient. Infinite where the logits are flat.
     /// </summary>
-    internal static float Distance(MaskLogits mask, int x, int y)
+    internal static float Distance(MaskLogits mask, int x, int y) => Distance(mask, (double)x, y);
+
+    /// <summary><see cref="Distance(MaskLogits, int, int)"/> at a fractional pixel position.</summary>
+    internal static float Distance(MaskLogits mask, double x, double y)
     {
         var p = mask.Placement;
         double sx = (double)mask.Width / p.Width, sy = (double)mask.Height / p.Height;

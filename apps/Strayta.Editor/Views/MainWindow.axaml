@@ -87,6 +87,8 @@
           </StackPanel>
           <CheckBox Content="Sample All Layers" IsChecked="{Binding QuickSelectSampleAllLayers}" FontSize="11" ToolTip.Tip="Look at the whole image instead of the selected layer" />
           <CheckBox Content="Auto-Enhance" IsChecked="{Binding QuickSelectAutoEnhance}" FontSize="11" ToolTip.Tip="Smoother, softer selection edges" />
+          <CheckBox Content="Object-Aware" IsChecked="{Binding QuickSelectObjectAware}" IsEnabled="{Binding HasObjectModel}" FontSize="11"
+                    ToolTip.Tip="{Binding QuickSelectObjectAwareTip}" ToolTip.ShowOnDisabled="True" />
           <TextBlock Classes="label" Text="Paint over an area to select it · adds to the selection · Option subtracts · ⌘D starts over" />
         </StackPanel>
         <!-- Object Selection: sample source, Select Subject, and how to get the models when they are missing -->

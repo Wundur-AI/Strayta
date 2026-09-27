@@ -47,7 +47,9 @@ dotnet test
   pixel (per channel, 0–255), contiguous or across the whole image, anti-aliased or hard, from the selected layer
   (its transparency included) or all layers. Quick Selection is a brush (`[`/`]` size) that grows the selection to
   similar, connected pixels and stops at edges, live while you drag; later strokes add, Option subtracts,
-  Auto-Enhance softens the edge. Each click or stroke is one undo step.
+  Auto-Enhance softens the edge. Each click or stroke is one undo step. Object-Aware (off by default; needs the
+  [AI selection models](#ai-selection-models)) lets the local SAM model find the object being brushed, so a shaded
+  object fills from one stroke and the selection stops at its outline.
 - Object Selection (tool strip, below Lasso): drag a box around an object or click it, and a local AI model
   selects it; Shift adds, Option subtracts. Sample All Layers (on by default) looks at the whole image, off at the
   selected layer. Select > Subject (also a button in the tool's options bar) selects the main subject. See
@@ -77,7 +79,7 @@ Diagnostics (environment variables): `STRAYTA_SELFTEST=1` runs a scripted editin
 each step; `STRAYTA_DRAGBENCH=1` / `STRAYTA_PAINTBENCH=1` / `STRAYTA_TRANSFORMBENCH=1` / `STRAYTA_ADJUSTBENCH=1`
 measure frame rates (layer drag, brush stroke, free transform, Properties slider drag) on the first opened file
 (`STRAYTA_TRANSFORMBENCH=new` builds a 4000×3000 document and runs the drag and transform benchmarks on it);
-`STRAYTA_WANDBENCH=1` times Magic Wand clicks and a Quick Selection drag (`=new` on a generated 4000×3000
+`STRAYTA_WANDBENCH=1` times Magic Wand clicks and a Quick Selection drag, plain and Object-Aware (`=new` on a generated 4000×3000
 document).
 `STRAYTA_SEGBENCH=1` times Object Selection and Select Subject (encoder, per-prompt latency, memory) on the
 first opened file; `STRAYTA_THEME=Light|Dark` sets the starting appearance.

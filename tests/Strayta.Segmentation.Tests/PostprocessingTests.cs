@@ -24,6 +24,18 @@ public class PostprocessingTests
     }
 
     [Fact]
+    public void Signed_distance_is_in_document_pixels_and_negative_outside_the_placement()
+    {
+        // 64 cells over a 1280-px layer placed at (100, 50): Object-Aware Quick Selection samples this per cell.
+        var placement = new PixelRect(100, 50, 1380, 1330);
+        var logits = DiscLogits(64, placement, 740, 650, 400);
+        Assert.InRange(logits.SignedDistance(740 + 300, 650), 100 - 4, 100 + 4);   // 100 px inside the edge
+        Assert.InRange(logits.SignedDistance(740, 650 - 450), -50 - 4, -50 + 4);   // 50 px outside it
+        Assert.Equal(float.NegativeInfinity, logits.SignedDistance(50, 650));        // left of the layer
+        Assert.Equal(float.NegativeInfinity, logits.SignedDistance(740, 1330));      // just below it
+    }
+
+    [Fact]
     public void Upscaled_disc_matches_the_true_disc()
     {
         // 64 cells over 1280 px: 20 px per cell, the scale of SAM on a 5000-pixel photo.
