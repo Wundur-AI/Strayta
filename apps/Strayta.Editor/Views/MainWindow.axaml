@@ -61,6 +61,10 @@
         <TextBlock Classes="label" Text="Drag to move the selected layer · Space or middle button pans · wheel zooms"
                    IsVisible="{Binding IsMoveTool}" />
         <TextBlock Classes="label" Text="Drag to pan · wheel zooms" IsVisible="{Binding IsHandTool}" />
+        <TextBlock Classes="label" IsVisible="{Binding IsMarqueeTool}"
+                   Text="Drag to select · Shift adds (or makes it square) · Option subtracts, or draws from the center · Shift+Option intersects · click to deselect" />
+        <TextBlock Classes="label" IsVisible="{Binding IsLassoTool}"
+                   Text="Drag around an area to select it · Shift adds · Option subtracts · Shift+Option intersects · click to deselect" />
 
         <StackPanel Orientation="Horizontal" Spacing="18" IsVisible="{Binding IsPaintTool}">
           <StackPanel Orientation="Horizontal" Spacing="8">
@@ -116,6 +120,15 @@
           </ToggleButton>
           <ToggleButton Classes="icon" IsChecked="{Binding IsHandTool}" ToolTip.Tip="Hand (H)">
             <Path Classes="icon" Data="{StaticResource IconHand}" />
+          </ToggleButton>
+          <ToggleButton Classes="icon" IsChecked="{Binding IsRectSelectTool}" ToolTip.Tip="Rectangular Marquee (M · Shift+M switches)">
+            <Path Classes="icon" Data="{StaticResource IconMarqueeRect}" />
+          </ToggleButton>
+          <ToggleButton Classes="icon" IsChecked="{Binding IsEllipseSelectTool}" ToolTip.Tip="Elliptical Marquee (M · Shift+M switches)">
+            <Path Classes="icon" Data="{StaticResource IconMarqueeEllipse}" />
+          </ToggleButton>
+          <ToggleButton Classes="icon" IsChecked="{Binding IsLassoTool}" ToolTip.Tip="Lasso (L)">
+            <Path Classes="icon" Data="{StaticResource IconLasso}" />
           </ToggleButton>
           <ToggleButton Classes="icon" IsChecked="{Binding IsBrushTool}" ToolTip.Tip="Brush (B)">
             <Path Classes="icon" Data="{StaticResource IconBrush}" />

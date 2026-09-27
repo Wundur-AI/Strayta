@@ -9,7 +9,7 @@ namespace Strayta.Editor;
 /// Drives the real editor view models through a full editing session and reports each step
 /// (STRAYTA_SELFTEST=1). It exercises the same code paths as the UI, with a real dispatcher.
 /// </summary>
-internal static class SelfTest
+internal static partial class SelfTest
 {
     public static async Task RunAsync(EditorViewModel editor, Func<Task<(int, int, bool)?>> _)
     {
@@ -137,6 +137,8 @@ internal static class SelfTest
             Check(savedLayer.Pixels!.ColorPlanes[0].Data.SequenceEqual(layer.Pixels!.ColorPlanes[0].Data), "saved painted pixels match");
             Check(!doc.IsModified && doc.Title == Path.GetFileName(path), "document is clean after saving");
             File.Delete(path);
+
+            await RunSelectionStepsAsync(editor, Check);
         }
         catch (Exception ex)
         {

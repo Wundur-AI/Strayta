@@ -207,7 +207,7 @@ public sealed partial class DocumentViewModel : Dock.Model.Mvvm.Controls.Documen
 
         Notice = "";
         PaintBlock = null;
-        _stroke = new PaintStroke((PixelLayer)SelectedLayer!.Node, brush, color, erase, Model.Bounds);
+        _stroke = new PaintStroke((PixelLayer)SelectedLayer!.Node, brush, color, erase, Model.Bounds, Selection);
         _stroke.StrokeTo(x, y);
         RequestRender();
         return true;
@@ -326,6 +326,8 @@ public sealed partial class DocumentViewModel : Dock.Model.Mvvm.Controls.Documen
                 break;
             case MoveEdit:
                 break; // nothing the panels show changes while dragging
+            case SelectionEdit:
+                break; // only the canvas outline changes
             case ILayerPropertyEdit p:
                 Layers.SelectMany(l => l.SelfAndDescendants()).FirstOrDefault(i => i.Node == p.Node)?.Refresh();
                 break;
@@ -337,7 +339,7 @@ public sealed partial class DocumentViewModel : Dock.Model.Mvvm.Controls.Documen
         OnPropertyChanged(nameof(CanRedo));
         OnPropertyChanged(nameof(UndoText));
         OnPropertyChanged(nameof(RedoText));
-        RequestRender();
+        if (edit is not SelectionEdit) RequestRender();
     }
 
     /// <summary>Recreates the panel's layer items, keeping the selection and folder state.</summary>

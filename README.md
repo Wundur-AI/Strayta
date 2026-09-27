@@ -33,6 +33,10 @@ dotnet test
 - New documents, or open several PSD/PSB files at once (menu, drag and drop, or command line).
 - Tools: Move (V), Hand (H), Brush (B), Eraser (E); `[` and `]` resize the brush. Space or the middle
   button pans with any tool; the wheel zooms.
+- Selections: Rectangular and Elliptical Marquee (M, Shift+M switches), Lasso (L), with Photoshop's modifiers
+  (Shift adds or constrains, Option subtracts or draws from the center, Shift+Option intersects; a click
+  deselects). Select > All / Deselect / Reselect / Inverse. Painting, Delete (clear), Fill, Cut, Copy and
+  Paste (to a new layer) work on the selected area, and every selection change is undoable.
 - Layers panel: blend mode, opacity and fill for the selected layer; visibility, thumbnails, rename
   (double-click), drag-and-drop reordering into and out of groups, new layer/group, duplicate, delete.
 - Full undo/redo. Save / Save As write PSD, keeping everything Strayta does not edit (text, smart objects,

@@ -16,6 +16,7 @@ public partial class DocumentView : UserControl
             vm.BeginStroke(x, y, vm.Editor.CurrentBrush, vm.Editor.CurrentColor, erase: vm.Editor.Tool == Controls.CanvasTool.Eraser);
         Canvas.StrokeMove += (x, y) => _vm?.ContinueStroke(x, y);
         Canvas.StrokeEnd += () => _ = _vm?.EndStrokeAsync();
+        Canvas.SelectionGestureCompleted += g => _ = _vm?.ApplySelectionGestureAsync(g);
         DataContextChanged += (_, _) =>
         {
             if (_vm is not null) _vm.ZoomRequested -= OnZoom;

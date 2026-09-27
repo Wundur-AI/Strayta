@@ -1,3 +1,5 @@
+using Strayta.Core.Selection;
+
 namespace Strayta.Core.Painting;
 
 /// <summary>Brush tip settings. Size is the diameter in pixels; hardness, opacity and flow are 0..1.</summary>
@@ -13,6 +15,7 @@ public readonly record struct BrushSettings(float Size, float Hardness, float Op
 /// A stroke in progress: dab coverage accumulated in document space. Coverage takes the maximum of
 /// overlapping dabs, so one stroke never exceeds the brush opacity (Photoshop's behavior at 100% flow).
 /// The target layer is not modified until <see cref="StrokeBaker.Bake"/>.
+/// A selection clips the coverage itself, so the live overlay, previews and the baked result all agree.
 /// </summary>
 public sealed class PaintStroke
 {
@@ -22,19 +25,23 @@ public sealed class PaintStroke
     private float _lastX, _lastY, _carry;
     private bool _started;
 
-    public PaintStroke(PixelLayer target, BrushSettings brush, RgbColor color, bool erase, PixelRect limit)
+    public PaintStroke(PixelLayer target, BrushSettings brush, RgbColor color, bool erase, PixelRect limit, SelectionMask? clip = null)
     {
         Target = target;
         Brush = brush;
         Color = color;
         Erase = erase;
-        _limit = limit;
+        Clip = clip;
+        _limit = clip is null ? limit : limit.Intersect(clip.Bounds);
     }
 
     public PixelLayer Target { get; }
     public BrushSettings Brush { get; }
     public RgbColor Color { get; }
     public bool Erase { get; }
+
+    /// <summary>The selection painting is confined to, or null to paint anywhere.</summary>
+    public SelectionMask? Clip { get; }
 
     /// <summary>Area touched so far (document coordinates).</summary>
     public PixelRect Bounds { get; private set; } = PixelRect.Empty;
@@ -86,6 +93,7 @@ public sealed class PaintStroke
         var rect = new PixelRect((int)MathF.Floor(cx - r - 1), (int)MathF.Floor(cy - r - 1),
             (int)MathF.Ceiling(cx + r + 1), (int)MathF.Ceiling(cy + r + 1)).Intersect(_limit);
         if (rect.IsEmpty) return;
+        var clip = Clip;
 
         for (int y = rect.Top; y < rect.Bottom; y++)
         {
@@ -106,6 +114,8 @@ public sealed class PaintStroke
                         a = 1f - t * t * (3f - 2f * t); // smoothstep falloff
                     }
                 }
+                // Scaling each dab by the selection is the same as clipping the whole stroke: max(a·s, b·s) = max(a, b)·s.
+                if (clip is not null) a *= clip.CoverageAt(x, y) * (1f / 255f);
                 if (a <= 0f) continue;
 
                 int tx = FloorDiv(x, TileSize), ty = FloorDiv(y, TileSize);

@@ -137,6 +137,7 @@ public partial class MainWindow : Window, IEditorDialogs
                 new NativeMenuItemSeparator(),
                 Item("Reset Layout", Editor.ResetLayoutCommand)),
         };
+        AddSelectionMenus(menu, Item);
         NativeMenu.SetMenu(this, menu);
 
         // Single-key shortcuts (tools, brush size) must not fire while typing, so they are handled by hand.

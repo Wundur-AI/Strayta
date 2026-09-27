@@ -152,6 +152,7 @@ public sealed partial class EditorViewModel : ObservableObject
             {
                 await Task.Delay(1500);
                 await document.RunPaintBenchmarkAsync();
+                await document.RunPaintBenchmarkWithSelectionAsync();
             }
         }
         catch (Exception ex)
@@ -164,6 +165,7 @@ public sealed partial class EditorViewModel : ObservableObject
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsMoveTool), nameof(IsHandTool), nameof(IsBrushTool), nameof(IsEraserTool), nameof(IsPaintTool), nameof(ToolName))]
+    [NotifyPropertyChangedFor(nameof(IsRectSelectTool), nameof(IsEllipseSelectTool), nameof(IsLassoTool), nameof(IsMarqueeTool))]
     public partial CanvasTool Tool { get; set; } = CanvasTool.Move;
 
     public bool IsMoveTool { get => Tool == CanvasTool.Move; set { if (value) Tool = CanvasTool.Move; } }
@@ -171,7 +173,12 @@ public sealed partial class EditorViewModel : ObservableObject
     public bool IsBrushTool { get => Tool == CanvasTool.Brush; set { if (value) Tool = CanvasTool.Brush; } }
     public bool IsEraserTool { get => Tool == CanvasTool.Eraser; set { if (value) Tool = CanvasTool.Eraser; } }
     public bool IsPaintTool => Tool is CanvasTool.Brush or CanvasTool.Eraser;
-    public string ToolName => Tool.ToString();
+    public string ToolName => Tool switch
+    {
+        CanvasTool.RectSelect => "Rectangular Marquee",
+        CanvasTool.EllipseSelect => "Elliptical Marquee",
+        _ => Tool.ToString(),
+    };
 
     /// <summary>Brush diameter in pixels.</summary>
     [ObservableProperty] public partial double BrushSize { get; set; } = 30;

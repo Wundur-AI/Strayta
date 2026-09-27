@@ -13,13 +13,16 @@ public enum CanvasTool
     Hand,
     Brush,
     Eraser,
+    RectSelect,
+    EllipseSelect,
+    Lasso,
 }
 
 /// <summary>
 /// Displays a document over a transparency checkerboard. Wheel zooms around the cursor; the Hand tool,
 /// the middle button or holding Space pans; the Move tool reports drags in image pixels.
 /// </summary>
-public sealed class ImageCanvas : Control
+public sealed partial class ImageCanvas : Control
 {
     public static readonly StyledProperty<Bitmap?> SourceProperty =
         AvaloniaProperty.Register<ImageCanvas, Bitmap?>(nameof(Source));
@@ -42,6 +45,7 @@ public sealed class ImageCanvas : Control
         base.OnAttachedToVisualTree(e);
         ActualThemeVariantChanged += (_, _) => RefreshTheme();
         RefreshTheme();
+        StartAnts();
     }
 
     private void RefreshTheme()
@@ -107,6 +111,7 @@ public sealed class ImageCanvas : Control
         }
         if (change.Property == ZoomProperty) ZoomChanged?.Invoke(Zoom);
         if (change.Property == ToolProperty) UpdateCursor();
+        OnSelectionPropertyChanged(change);
     }
 
     public void FitToView()
@@ -151,6 +156,7 @@ public sealed class ImageCanvas : Control
         var mode = scale >= 2 && bmp.PixelSize == size ? BitmapInterpolationMode.None : BitmapInterpolationMode.HighQuality;
         using (context.PushRenderOptions(new RenderOptions { BitmapInterpolationMode = mode }))
             context.DrawImage(bmp, new Rect(0, 0, bmp.PixelSize.Width, bmp.PixelSize.Height), dest);
+        RenderSelection(context);
 
         // Brush outline: a dark and a light ring so it stays visible over any colors.
         if (IsPaintTool && !_spaceHeld && _hover is { } h)
@@ -185,6 +191,11 @@ public sealed class ImageCanvas : Control
             _stroking = StrokeBegin?.Invoke((float)p.X, (float)p.Y) == true;
             if (!_stroking) _dragStart = null;
         }
+        if (!_panning && IsSelectTool)
+        {
+            if (props.IsLeftButtonPressed) BeginSelection(e);
+            else _dragStart = null; // other buttons must not fall through to moving the layer
+        }
         _panOrigin = _offset;
         _moveRemainder = default;
         e.Pointer.Capture(this);
@@ -200,6 +211,11 @@ public sealed class ImageCanvas : Control
         }
         if (_dragStart is not { } start) return;
         var pos = e.GetPosition(this);
+        if (_selecting)
+        {
+            MoveSelection(e);
+            return;
+        }
         if (_stroking)
         {
             // Include coalesced intermediate points so fast strokes stay smooth.
@@ -241,6 +257,7 @@ public sealed class ImageCanvas : Control
             _stroking = false;
             StrokeEnd?.Invoke();
         }
+        if (_selecting) EndSelection(e);
         _dragStart = null;
         _panning = false;
         e.Pointer.Capture(null);
@@ -270,7 +287,7 @@ public sealed class ImageCanvas : Control
 
     private void UpdateCursor() => Cursor = new Cursor(
         Tool == CanvasTool.Hand || _spaceHeld ? StandardCursorType.Hand
-        : IsPaintTool ? StandardCursorType.Cross
+        : IsPaintTool || IsSelectTool ? StandardCursorType.Cross
         : StandardCursorType.SizeAll);
 
     private static IBrush CreateChecker(Color light, Color dark)
