@@ -74,11 +74,18 @@ internal static partial class SelfTest
             "rectangular marquee selects and is a history step");
 
         check(await AntsVisibleAsync(doc, "ants-rect"), "marching ants are drawn along the selection edge");
+        doc.MarkSavedForTest();
+        await doc.ApplySelectionGestureAsync(new SelectionGesture(CanvasTool.RectSelect, SelectionMode.Replace, new PixelRect(100, 100, 200, 200), []));
+        check(!doc.IsModified && doc.CanUndo, "a selection is a history step but doesn't mark the document as edited");
 
         // Paint across it: only the selected part changes.
         doc.BeginStroke(40, 150, new BrushSettings(30, 1f, 1f), new RgbColor(1, 0, 0), erase: false);
         for (int x = 45; x <= 360; x += 5) doc.ContinueStroke(x, 150);
         await doc.EndStrokeAsync();
+        check(doc.IsModified, "painting marks the document as edited");
+        doc.Undo();
+        check(!doc.IsModified, "undoing back to the saved state clears it, past selection steps");
+        doc.Redo();
         check(Alpha(layer, 150, 150) == 255 && Alpha(layer, 60, 150) == 0 && Alpha(layer, 300, 150) == 0 &&
               layer.Bounds.Left >= 100 && layer.Bounds.Right <= 200, $"brush stroke is clipped to the selection ({layer.Bounds})");
 

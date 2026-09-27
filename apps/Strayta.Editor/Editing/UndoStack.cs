@@ -8,6 +8,12 @@ public interface IEdit
     /// <summary>True when the edit changes the layer tree's shape (order, parents), not just properties.</summary>
     bool ChangesStructure { get; }
 
+    /// <summary>
+    /// False for history steps that don't change what is saved (selections): they are undoable but don't mark the
+    /// document as edited.
+    /// </summary>
+    bool ChangesContent => true;
+
     void Do();
     void Undo();
 
@@ -25,8 +31,20 @@ public sealed class UndoStack
     private readonly List<IEdit> _undone = [];
     private DateTime _lastPush;
 
-    /// <summary>Number of edits since the last save point; 0 means the document matches the saved file.</summary>
-    public int DistanceFromSave { get; private set; }
+    // The save point is the last content-changing edit applied when the file was saved (null: none). It stays
+    // reachable while it is in the done list, or in the undone list that Redo can bring back.
+    private IEdit? _savedEdit;
+    private bool _saveReachable = true;
+
+    /// <summary>True when the document differs from the saved file; steps that change nothing saved don't count.</summary>
+    public bool IsModified => !_saveReachable || LastContentEdit() != _savedEdit;
+
+    private IEdit? LastContentEdit()
+    {
+        for (int i = _done.Count - 1; i >= 0; i--)
+            if (_done[i].ChangesContent) return _done[i];
+        return null;
+    }
 
     public bool CanUndo => _done.Count > 0;
     public bool CanRedo => _undone.Count > 0;
@@ -43,12 +61,10 @@ public sealed class UndoStack
     {
         edit.Do();
         var now = DateTime.UtcNow;
-        bool merged = _done.Count > 0 && now - _lastPush < MergeWindow && DistanceFromSave != 0 && _done[^1].TryMerge(edit);
-        if (!merged)
-        {
-            _done.Add(edit);
-            DistanceFromSave++;
-        }
+        // Never fold into the saved edit: the document would change while still looking saved.
+        bool merged = _done.Count > 0 && now - _lastPush < MergeWindow && _done[^1] != _savedEdit && _done[^1].TryMerge(edit);
+        if (!merged) _done.Add(edit);
+        if (_savedEdit is not null && _undone.Contains(_savedEdit)) _saveReachable = false;
         _undone.Clear();
         _lastPush = now;
     }
@@ -60,7 +76,6 @@ public sealed class UndoStack
         _done.RemoveAt(_done.Count - 1);
         edit.Undo();
         _undone.Add(edit);
-        DistanceFromSave--;
         _lastPush = default;
         return edit;
     }
@@ -72,10 +87,13 @@ public sealed class UndoStack
         _undone.RemoveAt(_undone.Count - 1);
         edit.Do();
         _done.Add(edit);
-        DistanceFromSave++;
         _lastPush = default;
         return edit;
     }
 
-    public void MarkSaved() => DistanceFromSave = 0;
+    public void MarkSaved()
+    {
+        _savedEdit = LastContentEdit();
+        _saveReachable = true;
+    }
 }

@@ -343,9 +343,16 @@ public sealed partial class DocumentViewModel : Dock.Model.Mvvm.Controls.Documen
         if (SelectedLayer?.Node is { Parent: not null } node) Apply(new DeleteEdit(node));
     }
 
+    /// <summary>The self-test's stand-in for saving: makes the current state the saved one.</summary>
+    internal void MarkSavedForTest()
+    {
+        _undo.MarkSaved();
+        IsModified = false;
+    }
+
     private void AfterChange(IEdit edit)
     {
-        IsModified = _undo.DistanceFromSave != 0;
+        IsModified = _undo.IsModified;
         if (edit is CanvasEdit) OnCanvasChanged(); // Crop, Image Size, Canvas Size: DocumentViewModel.Crop.cs
         switch (edit)
         {
