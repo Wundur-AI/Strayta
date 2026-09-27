@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <IsPackable>false</IsPackable>
+    <!-- Compile loop-heavy pixel code fully optimized on first use; otherwise the first render runs ~2x slower. -->
+    <TieredCompilationQuickJitForLoops>false</TieredCompilationQuickJitForLoops>
+    <AssemblyName>strayta-inspect</AssemblyName>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Strayta.Psd\Strayta.Psd.csproj" />
+    <ProjectReference Include="..\..\src\Strayta.Rendering\Strayta.Rendering.csproj" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,39 @@
+<Application xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Strayta.Editor.ViewModels"
+             xmlns:v="using:Strayta.Editor.Views"
+             xmlns:dock="using:Dock.Avalonia.Themes.Fluent"
+             x:Class="Strayta.Editor.App"
+             Name="Strayta"
+             RequestedThemeVariant="Dark">
+  <Application.Styles>
+    <FluentTheme DensityStyle="Compact">
+      <!-- Neutral greys with one blue accent; Fluent controls (and Dock) draw from these palettes. -->
+      <FluentTheme.Palettes>
+        <ColorPaletteResources x:Key="Dark" Accent="#FF3B82F6" RegionColor="#FF232326"
+                               AltHigh="#FF1B1B1D" AltLow="#FF1B1B1D" AltMedium="#FF1B1B1D" AltMediumHigh="#FF1B1B1D" AltMediumLow="#FF1B1B1D"
+                               BaseHigh="#FFE6E6E8" BaseLow="#FF3A3A3F" BaseMedium="#FFA8A8AE" BaseMediumHigh="#FFC8C8CD" BaseMediumLow="#FF77777D"
+                               ChromeAltLow="#FFC8C8CD" ChromeBlackHigh="#FF000000" ChromeBlackLow="#FFC8C8CD" ChromeBlackMedium="#FF000000" ChromeBlackMediumLow="#FF000000"
+                               ChromeDisabledHigh="#FF3A3A3F" ChromeDisabledLow="#FFA8A8AE" ChromeGray="#FF8B8B91" ChromeHigh="#FF8B8B91"
+                               ChromeLow="#FF1F1F22" ChromeMedium="#FF2A2A2E" ChromeMediumLow="#FF303035" ChromeWhite="#FFFFFFFF"
+                               ListLow="#FF2C2C30" ListMedium="#FF38383D" />
+        <ColorPaletteResources x:Key="Light" Accent="#FF1F6FEB" RegionColor="#FFF6F6F8"
+                               AltHigh="#FFFFFFFF" AltLow="#FFFFFFFF" AltMedium="#FFFFFFFF" AltMediumHigh="#FFFFFFFF" AltMediumLow="#FFFFFFFF"
+                               BaseHigh="#FF1C1C1F" BaseLow="#FFD3D3D8" BaseMedium="#FF6C6C72" BaseMediumHigh="#FF3C3C41" BaseMediumLow="#FF8E8E94"
+                               ChromeAltLow="#FF3C3C41" ChromeBlackHigh="#FF000000" ChromeBlackLow="#FFD3D3D8" ChromeBlackMedium="#FF3C3C41" ChromeBlackMediumLow="#FF6C6C72"
+                               ChromeDisabledHigh="#FFD3D3D8" ChromeDisabledLow="#FF8E8E94" ChromeGray="#FF6C6C72" ChromeHigh="#FFD3D3D8"
+                               ChromeLow="#FFF0F0F2" ChromeMedium="#FFE9E9EC" ChromeMediumLow="#FFF3F3F5" ChromeWhite="#FFFFFFFF"
+                               ListLow="#FFEDEDF0" ListMedium="#FFE2E2E6" />
+      </FluentTheme.Palettes>
+    </FluentTheme>
+    <StyleInclude Source="avares://Avalonia.Controls.ColorPicker/Themes/Fluent/Fluent.xaml" />
+    <dock:DockFluentTheme />
+    <StyleInclude Source="avares://Strayta/Themes/Theme.axaml" />
+  </Application.Styles>
+  <Application.DataTemplates>
+    <DataTemplate DataType="vm:DocumentViewModel"><v:DocumentView /></DataTemplate>
+    <DataTemplate DataType="vm:LayersToolViewModel"><v:LayersView /></DataTemplate>
+    <DataTemplate DataType="vm:ColorToolViewModel"><v:ColorPanelView /></DataTemplate>
+    <DataTemplate DataType="vm:SwatchesToolViewModel"><v:SwatchesView /></DataTemplate>
+  </Application.DataTemplates>
+</Application>

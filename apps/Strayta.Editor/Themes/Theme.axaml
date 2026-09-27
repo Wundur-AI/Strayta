@@ -1,0 +1,340 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:dockc="using:Dock.Avalonia.Controls">
+  <Styles.Resources>
+    <ResourceDictionary>
+      <ResourceDictionary.MergedDictionaries>
+        <ResourceInclude Source="avares://Strayta/Themes/Icons.axaml" />
+      </ResourceDictionary.MergedDictionaries>
+
+      <!-- Design tokens. Custom surfaces use these; Fluent controls get the matching palette in App.axaml. -->
+      <!-- Shape and size, shared by both appearances -->
+      <CornerRadius x:Key="ControlCornerRadius">6</CornerRadius>
+      <CornerRadius x:Key="OverlayCornerRadius">8</CornerRadius>
+      <x:Double x:Key="SliderHorizontalThumbWidth">12</x:Double>
+      <x:Double x:Key="SliderHorizontalThumbHeight">12</x:Double>
+      <x:Double x:Key="SliderTrackThemeHeight">3</x:Double>
+      <Thickness x:Key="ButtonPadding">12,4,12,5</Thickness>
+
+      <ResourceDictionary.ThemeDictionaries>
+        <ResourceDictionary x:Key="Dark">
+          <SolidColorBrush x:Key="St.Window" Color="#FF18181A" />
+          <SolidColorBrush x:Key="St.Panel" Color="#FF26262A" />
+          <SolidColorBrush x:Key="St.PanelRaised" Color="#FF323237" />
+          <SolidColorBrush x:Key="St.Canvas" Color="#FF131315" />
+          <SolidColorBrush x:Key="St.Border" Color="#FF3D3D43" />
+          <SolidColorBrush x:Key="St.RowLine" Color="#FF1E1E21" />
+          <SolidColorBrush x:Key="St.RowSelected" Color="#FF3E3E45" />
+          <SolidColorBrush x:Key="St.ThumbBackground" Color="#FFE9E9EC" />
+          <SolidColorBrush x:Key="St.EyeCell" Color="#FF2D2D32" />
+          <SolidColorBrush x:Key="St.DragPreviewFill" Color="#403B82F6" />
+          <SolidColorBrush x:Key="St.EyeCellHover" Color="#FF37373D" />
+          <SolidColorBrush x:Key="St.Text" Color="#FFE6E6E8" />
+          <SolidColorBrush x:Key="St.TextMuted" Color="#FF98989F" />
+          <SolidColorBrush x:Key="St.Hover" Color="#14FFFFFF" />
+          <SolidColorBrush x:Key="St.Accent" Color="#FF3B82F6" />
+          <SolidColorBrush x:Key="St.AccentSoft" Color="#403B82F6" />
+          <SolidColorBrush x:Key="St.Warning" Color="#FFE3A945" />
+          <Color x:Key="St.CheckerLight">#FF6B6B70</Color>
+          <Color x:Key="St.CheckerDark">#FF4E4E53</Color>
+          <!-- Dock (panels, tabs, splitters) mapped onto the same tokens -->
+          <SolidColorBrush x:Key="DockApplicationAccentBrushLow" Color="#FF2C2C30" />
+          <SolidColorBrush x:Key="DockApplicationAccentBrushMed" Color="#FF34343A" />
+          <SolidColorBrush x:Key="DockApplicationAccentBrushHigh" Color="#FF3B82F6" />
+          <SolidColorBrush x:Key="DockApplicationAccentBrushIndicator" Color="#FF3B82F6" />
+          <SolidColorBrush x:Key="DockApplicationAccentForegroundBrush" Color="#FFE6E6E8" />
+          <SolidColorBrush x:Key="DockSurfaceHeaderActiveBrush" Color="#FF2C2C30" />
+          <SolidColorBrush x:Key="DockSurfaceHeaderBrush" Color="#FF232326" />
+          <SolidColorBrush x:Key="DockSurfacePanelBrush" Color="#FF232326" />
+          <SolidColorBrush x:Key="DockSurfaceSidebarBrush" Color="#FF232326" />
+          <SolidColorBrush x:Key="DockSurfaceWorkbenchBrush" Color="#FF1B1B1D" />
+          <SolidColorBrush x:Key="DockSurfaceEditorBrush" Color="#FF151517" />
+          <SolidColorBrush x:Key="DockThemeBackgroundBrush" Color="#FF1B1B1D" />
+          <SolidColorBrush x:Key="DockThemeControlBackgroundBrush" Color="#FF232326" />
+          <SolidColorBrush x:Key="DockThemeForegroundBrush" Color="#FFE6E6E8" />
+          <SolidColorBrush x:Key="DockThemeBorderLowBrush" Color="#FF38383D" />
+          <SolidColorBrush x:Key="DockThemeAccentBrush" Color="#FF3B82F6" />
+          <SolidColorBrush x:Key="DockBorderSubtleBrush" Color="#FF2E2E33" />
+          <SolidColorBrush x:Key="DockBorderStrongBrush" Color="#FF38383D" />
+          <SolidColorBrush x:Key="DockSeparatorBrush" Color="#FF38383D" />
+          <SolidColorBrush x:Key="DockDocumentTabStripBackgroundBrush" Color="#FF1B1B1D" />
+          <SolidColorBrush x:Key="DockDocumentContentBorderBrush" Color="#FF38383D" />
+          <SolidColorBrush x:Key="DockTabBackgroundBrush" Color="Transparent" />
+          <SolidColorBrush x:Key="DockTabHoverBackgroundBrush" Color="#14FFFFFF" />
+          <SolidColorBrush x:Key="DockTabActiveBackgroundBrush" Color="#FF232326" />
+          <SolidColorBrush x:Key="DockTabActiveIndicatorBrush" Color="#FF3B82F6" />
+          <SolidColorBrush x:Key="DockTabForegroundBrush" Color="#FF98989F" />
+          <SolidColorBrush x:Key="DockTabActiveForegroundBrush" Color="#FFE6E6E8" />
+          <SolidColorBrush x:Key="DockTabSelectedForegroundBrush" Color="#FFE6E6E8" />
+          <SolidColorBrush x:Key="DockDocumentTabSelectedForegroundBrush" Color="#FFE6E6E8" />
+          <SolidColorBrush x:Key="DockDocumentTabPointerOverForegroundBrush" Color="#FFE6E6E8" />
+          <SolidColorBrush x:Key="DockDocumentTabCloseSelectedForegroundBrush" Color="#FF98989F" />
+          <SolidColorBrush x:Key="DockDocumentTabClosePointerOverForegroundBrush" Color="#FFE6E6E8" />
+          <SolidColorBrush x:Key="DockSplitterIdleBrush" Color="#FF1B1B1D" />
+          <SolidColorBrush x:Key="DockSplitterHoverBrush" Color="#FF3B82F6" />
+          <SolidColorBrush x:Key="DockSplitterDragBrush" Color="#FF3B82F6" />
+          <SolidColorBrush x:Key="DockChromeButtonForegroundBrush" Color="#FF98989F" />
+          <SolidColorBrush x:Key="DockToolChromeIconBrush" Color="#FF98989F" />
+          <!-- Fluent control resources, so built-in controls follow the tokens -->
+          <SolidColorBrush x:Key="ButtonBackground" Color="#FF2C2C30" />
+          <SolidColorBrush x:Key="ButtonBackgroundPointerOver" Color="#FF34343A" />
+          <SolidColorBrush x:Key="ButtonBackgroundPressed" Color="#FF3C3C42" />
+          <SolidColorBrush x:Key="ButtonBorderBrush" Color="#FF3A3A40" />
+          <SolidColorBrush x:Key="ButtonBorderBrushPointerOver" Color="#FF3A3A40" />
+          <SolidColorBrush x:Key="ButtonBorderBrushPressed" Color="#FF3A3A40" />
+          <SolidColorBrush x:Key="ButtonForeground" Color="#FFE6E6E8" />
+          <SolidColorBrush x:Key="ButtonForegroundPointerOver" Color="#FFE6E6E8" />
+          <SolidColorBrush x:Key="ToggleButtonBackgroundChecked" Color="#403B82F6" />
+          <SolidColorBrush x:Key="ToggleButtonBackgroundCheckedPointerOver" Color="#403B82F6" />
+          <SolidColorBrush x:Key="ToggleButtonForegroundChecked" Color="#FFE6E6E8" />
+          <SolidColorBrush x:Key="ToggleButtonForegroundCheckedPointerOver" Color="#FFE6E6E8" />
+          <SolidColorBrush x:Key="ComboBoxBackground" Color="#FF2C2C30" />
+          <SolidColorBrush x:Key="ComboBoxBackgroundPointerOver" Color="#FF34343A" />
+          <SolidColorBrush x:Key="ComboBoxBorderBrush" Color="#FF3A3A40" />
+          <SolidColorBrush x:Key="ComboBoxBorderBrushPointerOver" Color="#FF3A3A40" />
+          <SolidColorBrush x:Key="ComboBoxDropDownBackground" Color="#FF2C2C30" />
+          <SolidColorBrush x:Key="TextControlBackground" Color="#FF1B1B1D" />
+          <SolidColorBrush x:Key="TextControlBackgroundPointerOver" Color="#FF1B1B1D" />
+          <SolidColorBrush x:Key="TextControlBackgroundFocused" Color="#FF1B1B1D" />
+          <SolidColorBrush x:Key="TextControlBorderBrush" Color="#FF3A3A40" />
+          <SolidColorBrush x:Key="TextControlBorderBrushPointerOver" Color="#FF3A3A40" />
+          <SolidColorBrush x:Key="TextControlBorderBrushFocused" Color="#FF3B82F6" />
+          <SolidColorBrush x:Key="ToolTipBackground" Color="#FF2C2C30" />
+          <SolidColorBrush x:Key="ToolTipForeground" Color="#FFE6E6E8" />
+          <SolidColorBrush x:Key="ToolTipBorderBrush" Color="#FF3A3A40" />
+          <SolidColorBrush x:Key="FlyoutPresenterBackground" Color="#FF2C2C30" />
+          <SolidColorBrush x:Key="FlyoutBorderThemeBrush" Color="#FF3A3A40" />
+          <SolidColorBrush x:Key="MenuFlyoutPresenterBackground" Color="#FF2C2C30" />
+          <SolidColorBrush x:Key="TreeViewItemBackgroundPointerOver" Color="#FF34343A" />
+          <SolidColorBrush x:Key="TreeViewItemBackgroundSelected" Color="#403B82F6" />
+          <SolidColorBrush x:Key="TreeViewItemBackgroundSelectedPointerOver" Color="#403B82F6" />
+          <SolidColorBrush x:Key="TreeViewItemForegroundSelected" Color="#FFE6E6E8" />
+          <SolidColorBrush x:Key="SliderTrackFill" Color="#FF3A3A40" />
+          <SolidColorBrush x:Key="SliderTrackFillPointerOver" Color="#FF3A3A40" />
+          <SolidColorBrush x:Key="SliderTrackValueFill" Color="#FF3B82F6" />
+          <SolidColorBrush x:Key="SliderTrackValueFillPointerOver" Color="#FF3B82F6" />
+          <SolidColorBrush x:Key="SliderThumbBackground" Color="#FFE6E6E8" />
+          <SolidColorBrush x:Key="SliderThumbBackgroundPointerOver" Color="#FFE6E6E8" />
+        </ResourceDictionary>
+        <ResourceDictionary x:Key="Light">
+          <SolidColorBrush x:Key="St.Window" Color="#FFE4E4E8" />
+          <SolidColorBrush x:Key="St.Panel" Color="#FFF4F4F6" />
+          <SolidColorBrush x:Key="St.PanelRaised" Color="#FFFFFFFF" />
+          <SolidColorBrush x:Key="St.Canvas" Color="#FFC5C5CB" />
+          <SolidColorBrush x:Key="St.Border" Color="#FFCFCFD5" />
+          <SolidColorBrush x:Key="St.RowLine" Color="#FFE3E3E7" />
+          <SolidColorBrush x:Key="St.RowSelected" Color="#FFD9E4F7" />
+          <SolidColorBrush x:Key="St.ThumbBackground" Color="#FFFFFFFF" />
+          <SolidColorBrush x:Key="St.EyeCell" Color="#FFEAEAED" />
+          <SolidColorBrush x:Key="St.DragPreviewFill" Color="#401F6FEB" />
+          <SolidColorBrush x:Key="St.EyeCellHover" Color="#FFDFDFE3" />
+          <SolidColorBrush x:Key="St.Text" Color="#FF1C1C1F" />
+          <SolidColorBrush x:Key="St.TextMuted" Color="#FF6C6C72" />
+          <SolidColorBrush x:Key="St.Hover" Color="#0F000000" />
+          <SolidColorBrush x:Key="St.Accent" Color="#FF1F6FEB" />
+          <SolidColorBrush x:Key="St.AccentSoft" Color="#331F6FEB" />
+          <SolidColorBrush x:Key="St.Warning" Color="#FFB7791F" />
+          <Color x:Key="St.CheckerLight">#FFFFFFFF</Color>
+          <Color x:Key="St.CheckerDark">#FFD9D9DD</Color>
+          <SolidColorBrush x:Key="DockApplicationAccentBrushLow" Color="#FFFFFFFF" />
+          <SolidColorBrush x:Key="DockApplicationAccentBrushMed" Color="#FFEDEDF0" />
+          <SolidColorBrush x:Key="DockApplicationAccentBrushHigh" Color="#FF1F6FEB" />
+          <SolidColorBrush x:Key="DockApplicationAccentBrushIndicator" Color="#FF1F6FEB" />
+          <SolidColorBrush x:Key="DockApplicationAccentForegroundBrush" Color="#FF1C1C1F" />
+          <SolidColorBrush x:Key="DockSurfaceHeaderActiveBrush" Color="#FFFFFFFF" />
+          <SolidColorBrush x:Key="DockSurfaceHeaderBrush" Color="#FFF6F6F8" />
+          <SolidColorBrush x:Key="DockSurfacePanelBrush" Color="#FFF6F6F8" />
+          <SolidColorBrush x:Key="DockSurfaceSidebarBrush" Color="#FFF6F6F8" />
+          <SolidColorBrush x:Key="DockSurfaceWorkbenchBrush" Color="#FFE9E9EC" />
+          <SolidColorBrush x:Key="DockSurfaceEditorBrush" Color="#FFC9C9CE" />
+          <SolidColorBrush x:Key="DockThemeBackgroundBrush" Color="#FFE9E9EC" />
+          <SolidColorBrush x:Key="DockThemeControlBackgroundBrush" Color="#FFF6F6F8" />
+          <SolidColorBrush x:Key="DockThemeForegroundBrush" Color="#FF1C1C1F" />
+          <SolidColorBrush x:Key="DockThemeBorderLowBrush" Color="#FFD3D3D8" />
+          <SolidColorBrush x:Key="DockThemeAccentBrush" Color="#FF1F6FEB" />
+          <SolidColorBrush x:Key="DockBorderSubtleBrush" Color="#FFE2E2E6" />
+          <SolidColorBrush x:Key="DockBorderStrongBrush" Color="#FFD3D3D8" />
+          <SolidColorBrush x:Key="DockSeparatorBrush" Color="#FFD3D3D8" />
+          <SolidColorBrush x:Key="DockDocumentTabStripBackgroundBrush" Color="#FFE9E9EC" />
+          <SolidColorBrush x:Key="DockDocumentContentBorderBrush" Color="#FFD3D3D8" />
+          <SolidColorBrush x:Key="DockTabBackgroundBrush" Color="Transparent" />
+          <SolidColorBrush x:Key="DockTabHoverBackgroundBrush" Color="#0F000000" />
+          <SolidColorBrush x:Key="DockTabActiveBackgroundBrush" Color="#FFF6F6F8" />
+          <SolidColorBrush x:Key="DockTabActiveIndicatorBrush" Color="#FF1F6FEB" />
+          <SolidColorBrush x:Key="DockTabForegroundBrush" Color="#FF6C6C72" />
+          <SolidColorBrush x:Key="DockTabActiveForegroundBrush" Color="#FF1C1C1F" />
+          <SolidColorBrush x:Key="DockTabSelectedForegroundBrush" Color="#FF1C1C1F" />
+          <SolidColorBrush x:Key="DockDocumentTabSelectedForegroundBrush" Color="#FF1C1C1F" />
+          <SolidColorBrush x:Key="DockDocumentTabPointerOverForegroundBrush" Color="#FF1C1C1F" />
+          <SolidColorBrush x:Key="DockDocumentTabCloseSelectedForegroundBrush" Color="#FF6C6C72" />
+          <SolidColorBrush x:Key="DockDocumentTabClosePointerOverForegroundBrush" Color="#FF1C1C1F" />
+          <SolidColorBrush x:Key="DockSplitterIdleBrush" Color="#FFE9E9EC" />
+          <SolidColorBrush x:Key="DockSplitterHoverBrush" Color="#FF1F6FEB" />
+          <SolidColorBrush x:Key="DockSplitterDragBrush" Color="#FF1F6FEB" />
+          <SolidColorBrush x:Key="DockChromeButtonForegroundBrush" Color="#FF6C6C72" />
+          <SolidColorBrush x:Key="DockToolChromeIconBrush" Color="#FF6C6C72" />
+          <!-- Fluent control resources, so built-in controls follow the tokens -->
+          <SolidColorBrush x:Key="ButtonBackground" Color="#FFFFFFFF" />
+          <SolidColorBrush x:Key="ButtonBackgroundPointerOver" Color="#FFF0F0F3" />
+          <SolidColorBrush x:Key="ButtonBackgroundPressed" Color="#FFE6E6EA" />
+          <SolidColorBrush x:Key="ButtonBorderBrush" Color="#FFD3D3D8" />
+          <SolidColorBrush x:Key="ButtonBorderBrushPointerOver" Color="#FFD3D3D8" />
+          <SolidColorBrush x:Key="ButtonBorderBrushPressed" Color="#FFD3D3D8" />
+          <SolidColorBrush x:Key="ButtonForeground" Color="#FF1C1C1F" />
+          <SolidColorBrush x:Key="ButtonForegroundPointerOver" Color="#FF1C1C1F" />
+          <SolidColorBrush x:Key="ToggleButtonBackgroundChecked" Color="#331F6FEB" />
+          <SolidColorBrush x:Key="ToggleButtonBackgroundCheckedPointerOver" Color="#331F6FEB" />
+          <SolidColorBrush x:Key="ToggleButtonForegroundChecked" Color="#FF1C1C1F" />
+          <SolidColorBrush x:Key="ToggleButtonForegroundCheckedPointerOver" Color="#FF1C1C1F" />
+          <SolidColorBrush x:Key="ComboBoxBackground" Color="#FFFFFFFF" />
+          <SolidColorBrush x:Key="ComboBoxBackgroundPointerOver" Color="#FFF0F0F3" />
+          <SolidColorBrush x:Key="ComboBoxBorderBrush" Color="#FFD3D3D8" />
+          <SolidColorBrush x:Key="ComboBoxBorderBrushPointerOver" Color="#FFD3D3D8" />
+          <SolidColorBrush x:Key="ComboBoxDropDownBackground" Color="#FFFFFFFF" />
+          <SolidColorBrush x:Key="TextControlBackground" Color="#FFFFFFFF" />
+          <SolidColorBrush x:Key="TextControlBackgroundPointerOver" Color="#FFFFFFFF" />
+          <SolidColorBrush x:Key="TextControlBackgroundFocused" Color="#FFFFFFFF" />
+          <SolidColorBrush x:Key="TextControlBorderBrush" Color="#FFD3D3D8" />
+          <SolidColorBrush x:Key="TextControlBorderBrushPointerOver" Color="#FFD3D3D8" />
+          <SolidColorBrush x:Key="TextControlBorderBrushFocused" Color="#FF1F6FEB" />
+          <SolidColorBrush x:Key="ToolTipBackground" Color="#FFFFFFFF" />
+          <SolidColorBrush x:Key="ToolTipForeground" Color="#FF1C1C1F" />
+          <SolidColorBrush x:Key="ToolTipBorderBrush" Color="#FFD3D3D8" />
+          <SolidColorBrush x:Key="FlyoutPresenterBackground" Color="#FFFFFFFF" />
+          <SolidColorBrush x:Key="FlyoutBorderThemeBrush" Color="#FFD3D3D8" />
+          <SolidColorBrush x:Key="MenuFlyoutPresenterBackground" Color="#FFFFFFFF" />
+          <SolidColorBrush x:Key="TreeViewItemBackgroundPointerOver" Color="#FFF0F0F3" />
+          <SolidColorBrush x:Key="TreeViewItemBackgroundSelected" Color="#331F6FEB" />
+          <SolidColorBrush x:Key="TreeViewItemBackgroundSelectedPointerOver" Color="#331F6FEB" />
+          <SolidColorBrush x:Key="TreeViewItemForegroundSelected" Color="#FF1C1C1F" />
+          <SolidColorBrush x:Key="SliderTrackFill" Color="#FFD3D3D8" />
+          <SolidColorBrush x:Key="SliderTrackFillPointerOver" Color="#FFD3D3D8" />
+          <SolidColorBrush x:Key="SliderTrackValueFill" Color="#FF1F6FEB" />
+          <SolidColorBrush x:Key="SliderTrackValueFillPointerOver" Color="#FF1F6FEB" />
+          <SolidColorBrush x:Key="SliderThumbBackground" Color="#FF1C1C1F" />
+          <SolidColorBrush x:Key="SliderThumbBackgroundPointerOver" Color="#FF1C1C1F" />
+        </ResourceDictionary>
+      </ResourceDictionary.ThemeDictionaries>
+    </ResourceDictionary>
+  </Styles.Resources>
+
+  <!-- Dense, quiet defaults for a tool UI -->
+  <Style Selector="Window">
+    <Setter Property="Background" Value="{DynamicResource St.Window}" />
+    <Setter Property="FontSize" Value="12" />
+  </Style>
+  <Style Selector="TextBlock.muted">
+    <Setter Property="Foreground" Value="{DynamicResource St.TextMuted}" />
+    <Setter Property="FontSize" Value="11" />
+  </Style>
+  <Style Selector="TextBlock.label">
+    <Setter Property="Foreground" Value="{DynamicResource St.TextMuted}" />
+    <Setter Property="FontSize" Value="11" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+  </Style>
+
+  <Style Selector="FlyoutPresenter">
+    <Setter Property="CornerRadius" Value="8" />
+    <Setter Property="BorderThickness" Value="1" />
+  </Style>
+  <Style Selector="ToolTip">
+    <Setter Property="FontSize" Value="11.5" />
+    <Setter Property="Padding" Value="8,4" />
+    <Setter Property="CornerRadius" Value="6" />
+  </Style>
+  <Style Selector="Button:not(.icon)">
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="FontSize" Value="12" />
+  </Style>
+  <Style Selector="TextBlock.title">
+    <Setter Property="FontSize" Value="11" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="Foreground" Value="{DynamicResource St.TextMuted}" />
+    <Setter Property="LetterSpacing" Value="0.4" />
+  </Style>
+
+  <!-- Dragging a tab or panel shows a translucent accent rectangle the size of what is being moved,
+       instead of a live copy of its contents. -->
+  <Style Selector="dockc|DragPreviewWindow">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="TransparencyLevelHint" Value="Transparent" />
+  </Style>
+  <Style Selector="dockc|DragPreviewControl">
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Border Width="{TemplateBinding PreviewContentWidth}" Height="{TemplateBinding PreviewContentHeight}"
+                MinWidth="160" MinHeight="100" CornerRadius="6" BorderThickness="2"
+                Background="{DynamicResource St.DragPreviewFill}" BorderBrush="{DynamicResource St.Accent}" />
+      </ControlTemplate>
+    </Setter>
+  </Style>
+
+  <!-- Line icons -->
+  <Style Selector="Path.icon">
+    <Setter Property="Stroke" Value="{DynamicResource St.Text}" />
+    <Setter Property="StrokeThickness" Value="1.6" />
+    <Setter Property="StrokeLineCap" Value="Round" />
+    <Setter Property="StrokeJoin" Value="Round" />
+    <Setter Property="Stretch" Value="Uniform" />
+    <Setter Property="Width" Value="16" />
+    <Setter Property="Height" Value="16" />
+  </Style>
+  <Style Selector="Path.icon.small">
+    <Setter Property="Width" Value="13" />
+    <Setter Property="Height" Value="13" />
+    <Setter Property="StrokeThickness" Value="1.4" />
+  </Style>
+
+  <!-- Borderless icon buttons (toolbars, panel footers) -->
+  <Style Selector="Button.icon, ToggleButton.icon">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="Padding" Value="6" />
+    <Setter Property="CornerRadius" Value="5" />
+    <Setter Property="MinWidth" Value="0" />
+    <Setter Property="MinHeight" Value="0" />
+  </Style>
+  <Style Selector="Button.icon:pointerover /template/ ContentPresenter, ToggleButton.icon:pointerover /template/ ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource St.Hover}" />
+  </Style>
+  <Style Selector="ToggleButton.icon:checked /template/ ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource St.AccentSoft}" />
+  </Style>
+  <Style Selector="ToggleButton.icon:checked Path.icon">
+    <Setter Property="Stroke" Value="{DynamicResource St.Accent}" />
+  </Style>
+  <Style Selector="Button.icon:disabled /template/ ContentPresenter">
+    <Setter Property="Background" Value="Transparent" />
+  </Style>
+  <Style Selector="Button.icon:disabled Path.icon">
+    <Setter Property="Opacity" Value="0.35" />
+  </Style>
+
+  <!-- Segmented view switcher -->
+  <Style Selector="ToggleButton.segment">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="Padding" Value="10,3" />
+    <Setter Property="CornerRadius" Value="4" />
+    <Setter Property="FontSize" Value="11.5" />
+    <Setter Property="MinHeight" Value="0" />
+  </Style>
+  <Style Selector="ToggleButton.segment:checked /template/ ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource St.PanelRaised}" />
+  </Style>
+
+  <!-- Compact inputs -->
+  <Style Selector="Slider">
+    <Setter Property="MinHeight" Value="0" />
+    <Setter Property="Margin" Value="0,-12" />
+  </Style>
+  <Style Selector="ComboBox">
+    <Setter Property="MinHeight" Value="26" />
+    <Setter Property="Padding" Value="8,2" />
+    <Setter Property="FontSize" Value="12" />
+  </Style>
+  <Style Selector="TreeViewItem">
+    <Setter Property="MinHeight" Value="0" />
+    <Setter Property="Padding" Value="0" />
+  </Style>
+</Styles>

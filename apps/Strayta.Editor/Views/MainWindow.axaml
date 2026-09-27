@@ -1,0 +1,141 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:Strayta.Editor.ViewModels"
+        xmlns:dock="using:Dock.Avalonia.Controls"
+        x:Class="Strayta.Editor.Views.MainWindow"
+        x:DataType="vm:EditorViewModel"
+        Title="{Binding WindowTitle}"
+        Width="1500" Height="950" MinWidth="900" MinHeight="600"
+        ExtendClientAreaToDecorationsHint="True"
+        ExtendClientAreaTitleBarHeightHint="44"
+        DragDrop.AllowDrop="True">
+  <DockPanel>
+    <!-- Title bar with the main toolbar. The window's own buttons (traffic lights on macOS, caption buttons on
+         Windows) sit on top of it; empty areas drag the window and double-clicking zooms. -->
+    <Border x:Name="TitleBar" DockPanel.Dock="Top" Height="44" Background="{DynamicResource St.PanelRaised}"
+            BorderBrush="{DynamicResource St.Border}" BorderThickness="0,0,0,1"
+            PointerPressed="OnTitleBarPressed" DoubleTapped="OnTitleBarDoubleTapped">
+      <Grid ColumnDefinitions="Auto,*,Auto">
+        <StackPanel x:Name="TitleLeft" Orientation="Horizontal" Spacing="2" VerticalAlignment="Center" Margin="84,0,0,0">
+          <Button Classes="icon" ToolTip.Tip="New (⌘N)" Command="{Binding NewDocumentCommand}"><Path Classes="icon" Data="{StaticResource IconNew}" /></Button>
+          <Button Classes="icon" ToolTip.Tip="Open (⌘O)" Command="{Binding OpenCommand}"><Path Classes="icon" Data="{StaticResource IconOpen}" /></Button>
+          <Button Classes="icon" ToolTip.Tip="Save (⌘S)" Command="{Binding SaveCommand}"><Path Classes="icon" Data="{StaticResource IconSave}" /></Button>
+          <Border Width="1" Height="18" Margin="8,0" Background="{DynamicResource St.Border}" />
+          <Button Classes="icon" ToolTip.Tip="{Binding ActiveDocument.UndoText, FallbackValue='Undo'}" Command="{Binding UndoCommand}"
+                  IsEnabled="{Binding ActiveDocument.CanUndo, FallbackValue=False}"><Path Classes="icon" Data="{StaticResource IconUndo}" /></Button>
+          <Button Classes="icon" ToolTip.Tip="{Binding ActiveDocument.RedoText, FallbackValue='Redo'}" Command="{Binding RedoCommand}"
+                  IsEnabled="{Binding ActiveDocument.CanRedo, FallbackValue=False}"><Path Classes="icon" Data="{StaticResource IconRedo}" /></Button>
+        </StackPanel>
+
+        <TextBlock Grid.Column="1" Text="{Binding WindowTitle}" HorizontalAlignment="Center" VerticalAlignment="Center"
+                   FontWeight="SemiBold" TextTrimming="CharacterEllipsis" IsHitTestVisible="False" />
+
+        <StackPanel x:Name="TitleRight" Grid.Column="2" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center" Margin="0,0,10,0">
+          <Border Background="{DynamicResource St.Window}" CornerRadius="7" Padding="2" IsEnabled="{Binding HasDocument}">
+            <StackPanel Orientation="Horizontal" Spacing="2">
+              <ToggleButton Classes="segment" Content="Strayta" IsChecked="{Binding IsStraytaView}" ToolTip.Tip="Strayta's render" />
+              <ToggleButton Classes="segment" Content="Photoshop" IsChecked="{Binding IsPhotoshopView}" ToolTip.Tip="The image stored in the file" />
+              <ToggleButton Classes="segment" Content="Difference" IsChecked="{Binding IsDifferenceView}" ToolTip.Tip="Pixels that differ, in red" />
+            </StackPanel>
+          </Border>
+          <Button Classes="icon" ToolTip.Tip="Fit on screen (⌘0)" Command="{Binding FitCommand}"><Path Classes="icon" Data="{StaticResource IconFit}" /></Button>
+          <Button Classes="icon" ToolTip.Tip="Switch light / dark" Command="{Binding ToggleAppearanceCommand}">
+            <Panel>
+              <Path Classes="icon" Data="{StaticResource IconSun}" IsVisible="{Binding !IsLightAppearance}" />
+              <Path Classes="icon" Data="{StaticResource IconMoon}" IsVisible="{Binding IsLightAppearance}" />
+            </Panel>
+          </Button>
+        </StackPanel>
+      </Grid>
+    </Border>
+
+    <!-- Shows the native menu inside the window on platforms without a global menu bar (Windows, Linux). -->
+    <NativeMenuBar DockPanel.Dock="Top" />
+
+    <!-- Options bar: settings for the current tool -->
+    <Border DockPanel.Dock="Top" Background="{DynamicResource St.Panel}" Height="36" Padding="12,0"
+            BorderBrush="{DynamicResource St.Border}" BorderThickness="0,0,0,1">
+      <StackPanel Orientation="Horizontal" Spacing="16" VerticalAlignment="Center">
+        <TextBlock Text="{Binding ToolName}" FontWeight="SemiBold" VerticalAlignment="Center" MinWidth="52" />
+
+        <TextBlock Classes="label" Text="Drag to move the selected layer · Space or middle button pans · wheel zooms"
+                   IsVisible="{Binding IsMoveTool}" />
+        <TextBlock Classes="label" Text="Drag to pan · wheel zooms" IsVisible="{Binding IsHandTool}" />
+
+        <StackPanel Orientation="Horizontal" Spacing="18" IsVisible="{Binding IsPaintTool}">
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <TextBlock Classes="label" Text="Size" />
+            <Slider Width="130" Minimum="1" Maximum="500" Value="{Binding BrushSize}" VerticalAlignment="Center" />
+            <TextBlock Text="{Binding BrushSize, StringFormat='{}{0:0} px'}" VerticalAlignment="Center" MinWidth="44" />
+          </StackPanel>
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <TextBlock Classes="label" Text="Hardness" />
+            <Slider Width="100" Minimum="0" Maximum="100" Value="{Binding BrushHardness}" VerticalAlignment="Center" />
+            <TextBlock Text="{Binding BrushHardness, StringFormat='{}{0:0}%'}" VerticalAlignment="Center" MinWidth="34" />
+          </StackPanel>
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <TextBlock Classes="label" Text="Opacity" />
+            <Slider Width="100" Minimum="1" Maximum="100" Value="{Binding BrushOpacity}" VerticalAlignment="Center" />
+            <TextBlock Text="{Binding BrushOpacity, StringFormat='{}{0:0}%'}" VerticalAlignment="Center" MinWidth="34" />
+          </StackPanel>
+        </StackPanel>
+      </StackPanel>
+    </Border>
+
+    <!-- Tool strip -->
+    <Border DockPanel.Dock="Left" Width="46" Background="{DynamicResource St.Panel}"
+            BorderBrush="{DynamicResource St.Border}" BorderThickness="0,0,1,0" ZIndex="1"
+            BoxShadow="2 0 6 0 #30000000">
+      <DockPanel Margin="0,8">
+        <!-- Foreground / background colors (X swaps, D resets) -->
+        <Panel DockPanel.Dock="Bottom" Width="36" Height="36" HorizontalAlignment="Center">
+          <Button HorizontalAlignment="Right" VerticalAlignment="Bottom" Padding="0" BorderThickness="0" Background="Transparent"
+                  ToolTip.Tip="Background color">
+            <Border Width="20" Height="20" CornerRadius="4" Background="{Binding BackgroundBrush}"
+                    BorderBrush="{DynamicResource St.Border}" BorderThickness="1" />
+            <Button.Flyout>
+              <Flyout Placement="RightEdgeAlignedBottom">
+                <ColorView Color="{Binding BackgroundColor}" IsAlphaVisible="False" Width="300" />
+              </Flyout>
+            </Button.Flyout>
+          </Button>
+          <Button HorizontalAlignment="Left" VerticalAlignment="Top" Padding="0" BorderThickness="0" Background="Transparent"
+                  ToolTip.Tip="Foreground (brush) color · X swaps · D resets">
+            <Border Width="20" Height="20" CornerRadius="4" Background="{Binding ForegroundBrush}"
+                    BorderBrush="{DynamicResource St.Border}" BorderThickness="1" BoxShadow="0 1 3 0 #60000000" />
+            <Button.Flyout>
+              <Flyout Placement="RightEdgeAlignedBottom">
+                <ColorView Color="{Binding ForegroundColor}" IsAlphaVisible="False" Width="300" />
+              </Flyout>
+            </Button.Flyout>
+          </Button>
+        </Panel>
+        <StackPanel Spacing="4" HorizontalAlignment="Center">
+          <ToggleButton Classes="icon" IsChecked="{Binding IsMoveTool}" ToolTip.Tip="Move (V)">
+            <Path Classes="icon" Data="{StaticResource IconMove}" />
+          </ToggleButton>
+          <ToggleButton Classes="icon" IsChecked="{Binding IsHandTool}" ToolTip.Tip="Hand (H)">
+            <Path Classes="icon" Data="{StaticResource IconHand}" />
+          </ToggleButton>
+          <ToggleButton Classes="icon" IsChecked="{Binding IsBrushTool}" ToolTip.Tip="Brush (B)">
+            <Path Classes="icon" Data="{StaticResource IconBrush}" />
+          </ToggleButton>
+          <ToggleButton Classes="icon" IsChecked="{Binding IsEraserTool}" ToolTip.Tip="Eraser (E)">
+            <Path Classes="icon" Data="{StaticResource IconEraser}" />
+          </ToggleButton>
+        </StackPanel>
+      </DockPanel>
+    </Border>
+
+    <Panel>
+      <dock:DockControl x:Name="Dock" />
+      <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="10" IsVisible="{Binding !HasDocument}">
+        <TextBlock Text="Open a Photoshop file or start a new one" Classes="muted" FontSize="14" HorizontalAlignment="Center" />
+        <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Center">
+          <Button Content="New…" Command="{Binding NewDocumentCommand}" />
+          <Button Content="Open…" Command="{Binding OpenCommand}" />
+        </StackPanel>
+      </StackPanel>
+    </Panel>
+  </DockPanel>
+</Window>

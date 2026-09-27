@@ -1,0 +1,30 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Strayta.Editor.ViewModels"
+             x:Class="Strayta.Editor.Views.SwatchesView"
+             x:DataType="vm:SwatchesToolViewModel"
+             Background="{DynamicResource St.Panel}">
+  <DockPanel Margin="8">
+    <DockPanel DockPanel.Dock="Bottom" Margin="0,8,0,0">
+      <Button DockPanel.Dock="Right" Classes="icon" ToolTip.Tip="Save the current color as a swatch" Command="{Binding Editor.AddSwatchCommand}">
+        <Path Classes="icon" Data="{StaticResource IconNewLayer}" />
+      </Button>
+      <TextBlock Classes="muted" Text="Click a swatch to paint with it" VerticalAlignment="Center" />
+    </DockPanel>
+    <ScrollViewer>
+      <ItemsControl ItemsSource="{Binding Editor.Swatches}">
+        <ItemsControl.ItemsPanel>
+          <ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate>
+        </ItemsControl.ItemsPanel>
+        <ItemsControl.ItemTemplate>
+          <DataTemplate x:DataType="Color">
+            <Button Width="22" Height="22" Margin="0,0,4,4" Padding="0" CornerRadius="4" BorderThickness="1"
+                    BorderBrush="{DynamicResource St.Border}" Background="{Binding Converter={x:Static vm:ColorBrushes.Instance}}"
+                    Command="{Binding $parent[ItemsControl].((vm:SwatchesToolViewModel)DataContext).Editor.UseSwatchCommand}"
+                    CommandParameter="{Binding}" ToolTip.Tip="{Binding}" />
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+    </ScrollViewer>
+  </DockPanel>
+</UserControl>

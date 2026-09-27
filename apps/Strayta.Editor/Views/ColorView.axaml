@@ -1,0 +1,10 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Strayta.Editor.ViewModels"
+             x:Class="Strayta.Editor.Views.ColorPanelView"
+             x:DataType="vm:ColorToolViewModel"
+             Background="{DynamicResource St.Panel}">
+  <ColorView Color="{Binding Editor.ForegroundColor}" IsAlphaVisible="False" IsAlphaEnabled="False"
+             IsColorPaletteVisible="False" IsAccentColorsVisible="False" IsColorModelVisible="True"
+             Margin="8" HorizontalAlignment="Stretch" />
+</UserControl>

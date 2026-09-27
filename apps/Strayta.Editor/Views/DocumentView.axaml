@@ -1,0 +1,43 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Strayta.Editor.ViewModels"
+             xmlns:c="using:Strayta.Editor.Controls"
+             x:Class="Strayta.Editor.Views.DocumentView"
+             x:DataType="vm:DocumentViewModel">
+  <DockPanel>
+    <Border DockPanel.Dock="Bottom" Background="{DynamicResource St.Panel}" Padding="10,3"
+            BorderBrush="{DynamicResource St.Border}" BorderThickness="0,1,0,0">
+      <DockPanel>
+        <ProgressBar DockPanel.Dock="Right" IsIndeterminate="True" IsVisible="{Binding IsBusy}" Width="70" MinHeight="3" Height="3"
+                     Margin="10,0,0,0" VerticalAlignment="Center" />
+        <TextBlock DockPanel.Dock="Right" Classes="muted" Text="{Binding RenderInfo}" />
+        <TextBlock DockPanel.Dock="Left" Classes="muted" Text="{Binding Status}" Margin="0,0,16,0" />
+        <TextBlock Text="{Binding Notice}" Foreground="{DynamicResource St.Warning}" FontSize="11" TextTrimming="CharacterEllipsis" />
+      </DockPanel>
+    </Border>
+    <Panel>
+      <c:ImageCanvas x:Name="Canvas" Source="{Binding Display}" DocumentSize="{Binding DocumentSize}"
+                     Tool="{Binding Editor.Tool}" BrushSize="{Binding Editor.BrushSize}" />
+
+      <!-- Why the brush can't paint here, with the fixes that apply -->
+      <Border IsVisible="{Binding HasPaintBlock}" HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,14,0,0"
+              MaxWidth="520" Padding="14,10" CornerRadius="8" Background="{DynamicResource St.PanelRaised}"
+              BorderBrush="{DynamicResource St.Warning}" BorderThickness="1" BoxShadow="0 4 16 0 #60000000">
+        <StackPanel Spacing="10">
+          <DockPanel>
+            <Button DockPanel.Dock="Right" Classes="icon" Padding="2" VerticalAlignment="Top" Click="OnDismiss" ToolTip.Tip="Dismiss">
+              <TextBlock Text="✕" FontSize="11" />
+            </Button>
+            <Path Classes="icon small" Data="{StaticResource IconWarning}" Stroke="{DynamicResource St.Warning}" Margin="0,1,8,0" VerticalAlignment="Top" />
+            <TextBlock Text="{Binding PaintBlock.Message, FallbackValue=''}" TextWrapping="Wrap" />
+          </DockPanel>
+          <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
+            <Button Content="Show Layer" Click="OnShow" IsVisible="{Binding PaintBlock.CanShow, FallbackValue=False}" />
+            <Button Content="Rasterize Layer" Click="OnRasterize" IsVisible="{Binding PaintBlock.CanRasterize, FallbackValue=False}" />
+            <Button Content="New Layer" Click="OnNewLayer" IsVisible="{Binding PaintBlock.CanNewLayer, FallbackValue=False}" />
+          </StackPanel>
+        </StackPanel>
+      </Border>
+    </Panel>
+  </DockPanel>
+</UserControl>

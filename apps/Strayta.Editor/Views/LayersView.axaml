@@ -1,0 +1,194 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Strayta.Editor.ViewModels"
+             xmlns:c="using:Strayta.Editor.Controls"
+             xmlns:core="using:Strayta.Core"
+             x:Class="Strayta.Editor.Views.LayersView"
+             x:DataType="vm:LayersToolViewModel"
+             Background="{DynamicResource St.Panel}"
+             FontSize="11">
+  <UserControl.Styles>
+    <!-- Photoshop-like rows: full-width, separated by hairlines, neutral selection -->
+    <Style Selector="ListBox#Rows">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="Padding" Value="0" />
+    </Style>
+    <Style Selector="ListBox#Rows ListBoxItem">
+      <Setter Property="Padding" Value="0" />
+      <Setter Property="MinHeight" Value="0" />
+      <Setter Property="BorderBrush" Value="{DynamicResource St.RowLine}" />
+      <Setter Property="BorderThickness" Value="0,0,0,1" />
+    </Style>
+    <Style Selector="ListBox#Rows ListBoxItem:pointerover /template/ ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource St.Hover}" />
+    </Style>
+    <Style Selector="ListBox#Rows ListBoxItem:selected /template/ ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource St.RowSelected}" />
+    </Style>
+    <Style Selector="ToggleButton.flat">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="Padding" Value="0" />
+      <Setter Property="MinWidth" Value="0" />
+      <Setter Property="MinHeight" Value="0" />
+    </Style>
+    <Style Selector="ToggleButton.flat:checked /template/ ContentPresenter, ToggleButton.flat:unchecked /template/ ContentPresenter, ToggleButton.flat:pointerover /template/ ContentPresenter">
+      <Setter Property="Background" Value="Transparent" />
+    </Style>
+    <Style Selector="ToggleButton.eye:unchecked Path.icon">
+      <Setter Property="Opacity" Value="0" />
+    </Style>
+    <Style Selector="ToggleButton.lock:unchecked Path.icon">
+      <Setter Property="Opacity" Value="0.45" />
+    </Style>
+    <Style Selector="ToggleButton.lock:checked Path.icon">
+      <Setter Property="Stroke" Value="{DynamicResource St.Accent}" />
+    </Style>
+    <Style Selector="Border.eye">
+      <Setter Property="Background" Value="{DynamicResource St.EyeCell}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource St.Border}" />
+      <Setter Property="BorderThickness" Value="0,0,1,0" />
+    </Style>
+    <Style Selector="Border.eye:pointerover">
+      <Setter Property="Background" Value="{DynamicResource St.EyeCellHover}" />
+    </Style>
+    <Style Selector="Border.thumb">
+      <Setter Property="Width" Value="34" />
+      <Setter Property="Height" Value="27" />
+      <Setter Property="BorderBrush" Value="{DynamicResource St.Border}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="Background" Value="{DynamicResource St.ThumbBackground}" />
+      <Setter Property="ClipToBounds" Value="True" />
+    </Style>
+  </UserControl.Styles>
+
+  <DockPanel>
+    <!-- Blending and locks for the selected layer -->
+    <Border DockPanel.Dock="Top" Padding="8,5,8,4" Background="{DynamicResource St.PanelRaised}"
+            BorderBrush="{DynamicResource St.Border}" BorderThickness="0,0,0,1">
+      <StackPanel Spacing="3" DataContext="{Binding Editor.ActiveDocument.SelectedLayer}" x:DataType="vm:LayerItemViewModel"
+                  IsEnabled="{Binding Converter={x:Static ObjectConverters.IsNotNull}}">
+        <DockPanel>
+          <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="6" Margin="8,0,0,0">
+            <TextBlock Classes="label" Text="Opacity:" />
+            <c:PercentField Value="{Binding Opacity}" />
+          </StackPanel>
+          <ComboBox x:Name="BlendCombo" ItemsSource="{Binding BlendModeChoices}" SelectedItem="{Binding BlendMode, Mode=OneWay}"
+                    SelectionChanged="OnBlendChosen" HorizontalAlignment="Stretch" MinWidth="0"
+                    MinHeight="22" Height="22" Padding="8,0" FontSize="11">
+            <ComboBox.ItemTemplate>
+              <DataTemplate x:DataType="core:BlendMode">
+                <TextBlock Text="{Binding Converter={x:Static c:BlendModeNames.Instance}}" />
+              </DataTemplate>
+            </ComboBox.ItemTemplate>
+          </ComboBox>
+        </DockPanel>
+        <DockPanel>
+          <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="6" IsVisible="{Binding !IsGroup}">
+            <TextBlock Classes="label" Text="Fill:" />
+            <c:PercentField Value="{Binding Fill}" />
+          </StackPanel>
+          <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+            <TextBlock Classes="label" Text="Lock:" />
+            <ToggleButton Classes="flat lock" IsChecked="{Binding TransparencyLocked}" IsEnabled="{Binding !IsGroup}"
+                          ToolTip.Tip="Lock transparent pixels">
+              <Path Classes="icon small" Data="{StaticResource IconChecker}" />
+            </ToggleButton>
+          </StackPanel>
+        </DockPanel>
+      </StackPanel>
+    </Border>
+
+    <!-- Footer actions -->
+    <Border DockPanel.Dock="Bottom" Padding="6,3" BorderBrush="{DynamicResource St.Border}" BorderThickness="0,1,0,0">
+      <DockPanel>
+        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="0">
+          <Button Classes="icon" ToolTip.Tip="New group (⌘G)" Command="{Binding Editor.NewGroupCommand}"><Path Classes="icon small" Data="{StaticResource IconFolder}" /></Button>
+          <Button Classes="icon" ToolTip.Tip="New layer (⇧⌘N)" Command="{Binding Editor.NewLayerCommand}"><Path Classes="icon small" Data="{StaticResource IconNewLayer}" /></Button>
+          <Button Classes="icon" ToolTip.Tip="Delete layer" Command="{Binding Editor.DeleteLayerCommand}"><Path Classes="icon small" Data="{StaticResource IconTrash}" /></Button>
+        </StackPanel>
+        <StackPanel Orientation="Horizontal" Spacing="5" VerticalAlignment="Center" Background="Transparent"
+                    IsVisible="{Binding Editor.ActiveDocument.HasWarnings, FallbackValue=False}"
+                    ToolTip.Tip="{Binding Editor.ActiveDocument.WarningsText, FallbackValue=''}">
+          <Path Classes="icon small" Data="{StaticResource IconWarning}" Stroke="{DynamicResource St.Warning}" />
+          <TextBlock Text="{Binding Editor.ActiveDocument.Warnings.Count, StringFormat='{}{0} not rendered', FallbackValue=''}"
+                     Foreground="{DynamicResource St.Warning}" FontSize="11" VerticalAlignment="Center" />
+        </StackPanel>
+      </DockPanel>
+    </Border>
+
+    <TextBlock DockPanel.Dock="Top" Text="No document open" Margin="12" Classes="muted" IsVisible="{Binding !Editor.HasDocument}" />
+    <Panel>
+      <ListBox x:Name="Rows" ItemsSource="{Binding Editor.ActiveDocument.Rows}"
+               SelectedItem="{Binding Editor.ActiveDocument.SelectedLayer, Mode=TwoWay}"
+               ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+        <ListBox.ItemTemplate>
+          <DataTemplate x:DataType="vm:LayerItemViewModel">
+            <Grid ColumnDefinitions="30,*" Height="34">
+              <!-- Eye column: its own button-like cell, fixed at the left edge like Photoshop -->
+              <Border Classes="hit eye" PointerPressed="OnEyePressed" ToolTip.Tip="Show or hide">
+                <Path Classes="icon small" Data="{StaticResource IconEye}" Opacity="{Binding EyeOpacity}"
+                      HorizontalAlignment="Center" VerticalAlignment="Center" />
+              </Border>
+
+              <DockPanel Grid.Column="1" Margin="{Binding Indent}">
+                <!-- Group disclosure -->
+                <Border DockPanel.Dock="Left" Classes="hit" Width="22" Background="Transparent" IsVisible="{Binding IsGroup}"
+                        PointerPressed="OnChevronPressed">
+                  <Path Classes="icon small" Width="9" Height="9" HorizontalAlignment="Center" VerticalAlignment="Center"
+                        Data="{Binding IsExpanded, Converter={x:Static vm:Disclosure.Instance}}" />
+                </Border>
+
+                <!-- Thumbnail, or an icon for groups and adjustments -->
+                <Panel DockPanel.Dock="Left" Margin="6,0,0,0" VerticalAlignment="Center">
+                  <Border Classes="thumb" IsVisible="{Binding PlaceholderIcon, Converter={x:Static ObjectConverters.IsNull}}">
+                    <Panel>
+                      <Image Source="{Binding Thumbnail}" Stretch="Uniform" RenderOptions.BitmapInterpolationMode="HighQuality" />
+                      <Border IsVisible="{Binding IsSmartObject}" HorizontalAlignment="Right" VerticalAlignment="Bottom"
+                              Background="{DynamicResource St.Panel}" CornerRadius="2,0,0,0" Padding="1">
+                        <Path Classes="icon" Width="9" Height="9" StrokeThickness="1.2" Data="{StaticResource IconNew}" />
+                      </Border>
+                    </Panel>
+                  </Border>
+                  <Path Classes="icon" Width="17" Height="17" Stroke="{DynamicResource St.TextMuted}" Data="{Binding PlaceholderIcon}"
+                        IsVisible="{Binding PlaceholderIcon, Converter={x:Static ObjectConverters.IsNotNull}}" Margin="8,0" />
+                </Panel>
+
+                <!-- Link + mask thumbnail -->
+                <StackPanel DockPanel.Dock="Left" Orientation="Horizontal" IsVisible="{Binding HasMask}" VerticalAlignment="Center">
+                  <Path Classes="icon small" Width="10" Height="12" Margin="4,0" Stroke="{DynamicResource St.TextMuted}" Data="{StaticResource IconLink}" />
+                  <Border Classes="thumb">
+                    <Image Source="{Binding MaskThumbnail}" Stretch="Uniform" />
+                  </Border>
+                </StackPanel>
+
+                <!-- Markers on the right -->
+                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center" Margin="0,0,8,0">
+                  <TextBlock Text="fx" FontStyle="Italic" FontWeight="SemiBold" Classes="muted" IsVisible="{Binding HasEffects}" ToolTip.Tip="Has layer styles" />
+                  <Path Classes="icon small" Data="{StaticResource IconWarning}" IsVisible="{Binding HasUnsupported}" Stroke="{DynamicResource St.Warning}"
+                        ToolTip.Tip="Uses effects or adjustments that are not rendered yet" />
+                  <Path Classes="icon small" Data="{StaticResource IconLock}" IsVisible="{Binding IsLocked}" Stroke="{DynamicResource St.TextMuted}"
+                        ToolTip.Tip="Transparent pixels locked" />
+                </StackPanel>
+
+                <!-- Name (double-click to rename) -->
+                <Panel VerticalAlignment="Center" Margin="10,0,0,0">
+                  <TextBlock IsVisible="{Binding !IsRenaming}" Text="{Binding Name}" TextTrimming="CharacterEllipsis"
+                             Background="Transparent" DoubleTapped="OnNameDoubleTapped" />
+                  <TextBox IsVisible="{Binding IsRenaming}" Text="{Binding Name, Mode=OneWay}" Padding="4,1" MinHeight="0"
+                           KeyDown="OnRenameKeyDown" LostFocus="OnRenameLostFocus" AttachedToVisualTree="OnRenameAttached" />
+                </Panel>
+              </DockPanel>
+            </Grid>
+          </DataTemplate>
+        </ListBox.ItemTemplate>
+      </ListBox>
+
+      <!-- Drop indicator for drag-and-drop reordering -->
+      <Canvas IsHitTestVisible="False">
+        <Border x:Name="DropLine" Height="2" Background="{DynamicResource St.Accent}" IsVisible="False" />
+        <Border x:Name="DropBox" BorderBrush="{DynamicResource St.Accent}" BorderThickness="2" IsVisible="False" />
+      </Canvas>
+    </Panel>
+  </DockPanel>
+</UserControl>
