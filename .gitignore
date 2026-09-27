@@ -494,3 +494,6 @@ corpus/
 .idea/
 .vs/
 *.user
+
+# Claude Code working state (agent worktrees)
+.claude/
