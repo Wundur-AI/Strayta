@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Local AI segmentation (Object Selection, Select Subject). Kept out of Core and Rendering so the PSD engine
+       never depends on ONNX Runtime; only the editor references this project. -->
+  <ItemGroup>
+    <PackageReference Include="Microsoft.ML.OnnxRuntime" Version="1.30.0" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Strayta.Core\Strayta.Core.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="Strayta.Segmentation.Tests" />
+  </ItemGroup>
+</Project>

@@ -34,6 +34,8 @@
   <!-- Magic Wand: a wand with a sparkle at its tip. Quick Selection: a brush inside a dashed selection. -->
   <StreamGeometry x:Key="IconMagicWand">M3 21l9.5-9.5 M16 3v2.5 M16 8.5V11 M11.5 7H14 M18 7h2.5 M13 4l1 1 M18 9l1 1 M19 4l-1 1</StreamGeometry>
   <StreamGeometry x:Key="IconQuickSelect">M3.9 13.5A7 7 0 0 1 3.1 8.8 M3.9 6.5A7 7 0 0 1 7.6 3.4 M10 3A7 7 0 0 1 14.5 4.6 M16.1 6.5A7 7 0 0 1 16.9 11.2 M10 17A7 7 0 0 1 5.5 15.4 M12.4 10.9a1.5 1.5 0 0 1 2.1 0l6.4 6.4a1.5 1.5 0 0 1-2.1 2.1l-6.4-6.4a1.5 1.5 0 0 1 0-2.1Z</StreamGeometry>
+  <!-- Object Selection: Photoshop's dashed box with a pointer in its corner -->
+  <StreamGeometry x:Key="IconObjectSelect">M3 6V3h3 M9 3h3 M15 3h3v3 M3 9v3 M3 15v3h3 M18 9v1 M11 10v11l3-3 2.5 4.5 2-1-2.5-4.5h4Z</StreamGeometry>
   <StreamGeometry x:Key="IconCommit">M5 12.5l4.5 4.5L19 7.5</StreamGeometry>
   <StreamGeometry x:Key="IconCancel">M6 6l12 12 M18 6L6 18</StreamGeometry>
   <!-- Masks and adjustments: Photoshop's rectangle-with-circle and half-filled circle (filled half drawn separately) -->

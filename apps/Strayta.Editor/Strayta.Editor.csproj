@@ -22,5 +22,24 @@
     <ProjectReference Include="..\..\src\Strayta.Psd\Strayta.Psd.csproj" />
     <ProjectReference Include="..\..\src\Strayta.Rendering\Strayta.Rendering.csproj" />
     <ProjectReference Include="..\..\src\Strayta.Imaging\Strayta.Imaging.csproj" />
+    <ProjectReference Include="..\..\src\Strayta.Segmentation\Strayta.Segmentation.csproj" />
   </ItemGroup>
+
+  <!-- AI selection models (Object Selection, Select Subject) ship next to the app in models/. They are too large
+       for version control: tools/FetchModels.proj downloads them into the repository's models/ folder, and this
+       copies whatever is there. Without them the editor still builds and runs; the tools explain how to fetch them.
+       `dotnet build -p:FetchModels=true` fetches first. -->
+  <ItemGroup>
+    <None Include="..\..\models\*.onnx" Link="models\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <!-- Their licenses and attributions travel with them. -->
+    <None Include="..\..\models\MODELS.md" Link="models\MODELS.md" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <None Include="..\..\models\licenses\*.txt" Link="models\licenses\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+  <Target Name="FetchModels" BeforeTargets="BeforeBuild" Condition="'$(FetchModels)' == 'true'">
+    <MSBuild Projects="..\..\tools\FetchModels.proj" Targets="Build" />
+    <ItemGroup>
+      <!-- The glob above was evaluated before the download; pick up files that just arrived. -->
+      <None Include="..\..\models\*.onnx" Exclude="@(None)" Link="models\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    </ItemGroup>
+  </Target>
 </Project>

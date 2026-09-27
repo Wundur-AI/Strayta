@@ -89,6 +89,17 @@
           <CheckBox Content="Auto-Enhance" IsChecked="{Binding QuickSelectAutoEnhance}" FontSize="11" ToolTip.Tip="Smoother, softer selection edges" />
           <TextBlock Classes="label" Text="Paint over an area to select it · adds to the selection · Option subtracts · ⌘D starts over" />
         </StackPanel>
+        <!-- Object Selection: sample source, Select Subject, and how to get the models when they are missing -->
+        <StackPanel Orientation="Horizontal" Spacing="14" IsVisible="{Binding IsObjectSelectTool}">
+          <CheckBox Content="Sample All Layers" IsChecked="{Binding ObjectSampleAllLayers}" VerticalAlignment="Center"
+                    ToolTip.Tip="Look at the whole image; off looks only at the selected layer" />
+          <Button Content="Select Subject" Command="{Binding SelectSubjectCommand}" IsEnabled="{Binding HasSelectionModels}"
+                  VerticalAlignment="Center" ToolTip.Tip="Select the main subject of the image (Select › Subject)" />
+          <TextBlock Classes="label" IsVisible="{Binding HasSelectionModels}"
+                     Text="Drag a box around an object, or click it · Shift adds · Option subtracts · runs on this computer" />
+          <TextBlock Classes="label" IsVisible="{Binding !HasSelectionModels}" Foreground="{DynamicResource St.Warning}"
+                     Text="{Binding SelectionModelsHint}" TextTrimming="CharacterEllipsis" MaxWidth="900" />
+        </StackPanel>
 
         <StackPanel Orientation="Horizontal" Spacing="18" IsVisible="{Binding IsPaintTool}">
           <StackPanel Orientation="Horizontal" Spacing="8">
@@ -187,6 +198,9 @@
           </ToggleButton>
           <ToggleButton Classes="icon" IsChecked="{Binding IsMagicWandTool}" ToolTip.Tip="Magic Wand (W · Shift+W switches)">
             <Path Classes="icon" Data="{StaticResource IconMagicWand}" />
+          </ToggleButton>
+          <ToggleButton Classes="icon" IsChecked="{Binding IsObjectSelectTool}" ToolTip.Tip="Object Selection: drag a box around an object, or click it">
+            <Path Classes="icon" Data="{StaticResource IconObjectSelect}" />
           </ToggleButton>
           <ToggleButton Classes="icon" IsChecked="{Binding IsBrushTool}" ToolTip.Tip="Brush (B)">
             <Path Classes="icon" Data="{StaticResource IconBrush}" />

@@ -44,6 +44,11 @@ public sealed partial class DocumentViewModel
     /// </summary>
     public async Task ApplySelectionGestureAsync(SelectionGesture gesture)
     {
+        if (gesture.Tool == CanvasTool.ObjectSelect)
+        {
+            await ApplyObjectSelectionAsync(gesture); // DocumentViewModel.ObjectSelection.cs
+            return;
+        }
         if (gesture.IsClick)
         {
             // A click without dragging deselects (only in the plain mode, as in Photoshop).

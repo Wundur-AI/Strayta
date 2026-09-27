@@ -18,6 +18,7 @@ public enum CanvasTool
     Lasso,
     MagicWand,
     QuickSelect,
+    ObjectSelect,
 }
 
 /// <summary>

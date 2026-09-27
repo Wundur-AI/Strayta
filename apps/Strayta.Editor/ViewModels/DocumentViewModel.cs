@@ -515,7 +515,7 @@ public sealed partial class DocumentViewModel : Dock.Model.Mvvm.Controls.Documen
 
             if (cancel.IsCancellationRequested || version != _modelVersion) return;
             _lastRender = rgba;
-            _lastRenderVersion = version;
+            _lastRenderVersion = version; // lets the selection tools reuse this render
             Show(rgba, doc.Width, doc.Height, warnings, version, full: true);
             string against = Model.SourceData is PsdFile { CompositeIsFromPhotoshop: true } ? "Photoshop" : "the image stored in the file";
             RenderInfo = report is not null
