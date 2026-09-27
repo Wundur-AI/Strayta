@@ -105,7 +105,8 @@ public sealed class QuickSelectionImage
 /// <para>The distance limit scales with the brush and the image, so a click in a flat area grows a sizable blob, as
 /// Photoshop's does, while strokes along an object fill it out to its edges. Distances only ever shrink as brushing
 /// adds seeds, so each pointer move runs Dijkstra (with a bucket queue) from the new seeds only and touches just the
-/// cells whose distance improves; that is what keeps a drag live on large images.</para>
+/// cells whose distance improves; that is what keeps a drag live on large images. An outside guess of the object
+/// (<see cref="SetPrior"/>, e.g. from a segmentation model) changes the costs, and the region is regrown then.</para>
 /// <para>On release the working-resolution region is refined at full resolution in a band one cell wide around its
 /// boundary: each pixel is placed between the local inside and outside colors (their means over nearby cells) by
 /// projecting its color onto the line between them, which snaps the edge to the image's own edge within the cell.
@@ -122,6 +123,14 @@ public sealed class QuickSelectionStroke
     private const float ColorWeight = 10f;
     private const int MaxClusters = 8;
 
+    // Prior (see SetPrior). Distances along the prior are in units of its uncertainty.
+    private const float InsideStep = 0.35f;     // step cost per unit length deep inside the prior's outline
+    private const float InsideEdge = 0f;        // share of the edge term kept deep inside
+    private const float OutsidePenalty = 6f;    // extra step cost per unit length per uncertainty outside the outline
+    private const float Barrier = 1f;           // cells this many uncertainties outside are never selected
+    private const float MinAgreement = 0.6f;    // share of the brushed cells that must lie inside the prior for it to apply
+    private const float MinStep = InsideStep;   // every step costs at least this times its length
+
     private readonly QuickSelectionImage _image;
     private readonly int _w, _h;
     private readonly float[] _dist;
@@ -130,6 +139,8 @@ public sealed class QuickSelectionStroke
     private readonly SelectionMask? _baseSelection;
     private readonly float _radius, _limit;
     private readonly List<int>[] _queue;
+    private readonly List<int> _seeds = [];
+    private float[]? _priorBase, _priorEdge, _priorColor; // per-cell step factors while a prior applies
     private readonly List<Cluster> _clusters = [];
     private float[] _clusterMean = [], _clusterInvSpread = [];
     private readonly float[] _colorCost;
@@ -166,6 +177,9 @@ public sealed class QuickSelectionStroke
 
     public SelectionMode Mode { get; }
 
+    /// <summary>The working image the stroke grows on (what a <see cref="QuickSelectionPrior"/> must be sampled for).</summary>
+    public QuickSelectionImage Image => _image;
+
     /// <summary>True until the brush has touched the image.</summary>
     public bool IsEmpty => _maxX < 0;
 
@@ -197,6 +211,7 @@ public sealed class QuickSelectionStroke
 
         foreach (int s in seeds) Learn(s);
         UpdateModel();
+        _seeds.AddRange(seeds);
         foreach (int s in seeds)
         {
             _dist[s] = 0;
@@ -211,6 +226,107 @@ public sealed class QuickSelectionStroke
             _seeded[i] = true;
             seeds.Add(i);
         }
+    }
+
+    /// <summary>True while a prior set with <see cref="SetPrior"/> steers the growth.</summary>
+    public bool HasPrior => _priorBase is not null;
+
+    /// <summary>
+    /// Steers the growth with an outside guess of the region (null returns to plain growth), and regrows the region
+    /// from everything brushed so far under the new costs. Ignored (plain growth) when fewer than
+    /// <see cref="MinAgreement"/> of the brushed cells lie inside it. Returns whether it applies.
+    /// </summary>
+    /// <remarks>
+    /// <para>The prior says what the object is; the image says exactly where its edge runs. So the prior does not
+    /// replace the region; it changes the cost of each step by the signed distance s of the cell entered from the
+    /// prior's outline, in units of the prior's uncertainty u, scaled inside by its <see cref="QuickSelectionPrior.Trust"/>:</para>
+    /// <list type="bullet">
+    /// <item>inside (s ≥ 0) the color term is dropped: the object's shading, highlights and print no longer look like
+    /// "not what was brushed", which is what makes plain growth stall on a shaded object and need many strokes;</item>
+    /// <item>going deeper (s from 0 to 1) the edge term and the base cost fade to <see cref="InsideEdge"/> (none) and
+    /// <see cref="InsideStep"/>, so one stroke reaches across the whole object and over the edges of details inside it
+    /// (a logo on a cap);</item>
+    /// <item>near the outline the edge term is (nearly) at full strength, so a real image edge close to the prior's
+    /// low-resolution, slightly misplaced outline stops the growth, and the full-resolution refine snaps to it;</item>
+    /// <item>outside (s &lt; 0) each step costs <see cref="OutsidePenalty"/>·|s| more, with the color term back, and
+    /// cells from s ≤ −<see cref="Barrier"/> on are barred. Where the image shows no edge (a low-contrast boundary, a
+    /// background the color of the object's shadow side) growth ends within about u of the outline instead of leaking.</item>
+    /// </list>
+    /// <para>With trust 0 (the prior covers a wall or the sky rather than an object) inside costs are plain Quick
+    /// Selection's, and only the outside is held back: painting there behaves as before but cannot spill into the
+    /// objects around it. When the prior disagrees with the brushing (most brushed cells outside it: the guess is
+    /// about something else) it is ignored altogether.</para>
+    /// <para>Measured with SAM 2.1 masks on shaded synthetic objects and a product photo: keeping a tenth of the edge
+    /// term inside stopped growth at a label (IoU 0.81 vs 0.92 without); a base cost of 1 inside instead of 0.35 left
+    /// big objects partly unselected (0.57–0.95 vs 0.78–1.0); u from half to two mask cells and penalties from 0 to 20
+    /// changed IoU by under 0.01 where the model's outline is right, so u is one mask cell and the penalty a middle 6.</para>
+    /// <para>Changing costs can make distances grow, which the incremental update cannot express, so a new prior regrows
+    /// the region from all brushed cells: one full Dijkstra over the reachable area, 1–16 ms on a 1024-cell grid.</para>
+    /// </remarks>
+    public bool SetPrior(QuickSelectionPrior? prior)
+    {
+        if (prior is not null && (prior.Width != _w || prior.Height != _h))
+            throw new ArgumentException("The prior was made for another working image.", nameof(prior));
+        bool apply = prior is not null && Agrees(prior);
+        if (!apply && _priorBase is null) return false; // nothing changes
+
+        if (apply)
+        {
+            _priorBase ??= new float[_w * _h];
+            _priorEdge ??= new float[_w * _h];
+            _priorColor ??= new float[_w * _h];
+            var dist = prior!.Distance;
+            float invU = 1f / prior.Uncertainty;
+            float insideStep = InsideStep, insideEdge = InsideEdge, penalty = OutsidePenalty, barrier = Barrier, trust = prior.Trust;
+            float[] b = _priorBase, e = _priorEdge, c = _priorColor;
+            Parallel.For(0, _h, y =>
+            {
+                for (int i = y * _w; i < (y + 1) * _w; i++)
+                {
+                    float s = dist[i] * invU;
+                    if (s >= 0)
+                    {
+                        float t = Math.Min(s, 1f) * trust;
+                        b[i] = 1f + (insideStep - 1f) * t;
+                        e[i] = 1f + (insideEdge - 1f) * t;
+                        c[i] = 1f - trust;
+                    }
+                    else
+                    {
+                        b[i] = s <= -barrier ? float.PositiveInfinity : 1f - penalty * s;
+                        e[i] = 1f;
+                        c[i] = 1f;
+                    }
+                }
+            });
+        }
+        else _priorBase = _priorEdge = _priorColor = null;
+        Regrow();
+        return apply;
+    }
+
+    private bool Agrees(QuickSelectionPrior prior)
+    {
+        if (_seeds.Count == 0) return true; // nothing brushed yet: judged again with the next prior
+        int inside = 0;
+        foreach (int s in _seeds)
+            if (prior.Distance[s] > 0) inside++;
+        return inside >= MinAgreement * _seeds.Count;
+    }
+
+    /// <summary>Recomputes all distances from the brushed cells under the current costs.</summary>
+    private void Regrow()
+    {
+        _dist.AsSpan().Fill(float.PositiveInfinity);
+        _minX = _minY = int.MaxValue;
+        _maxX = _maxY = -1;
+        if (_seeds.Count == 0) return;
+        foreach (int s in _seeds)
+        {
+            _dist[s] = 0;
+            _queue[0].Add(s);
+        }
+        Propagate();
     }
 
     // ---- Color model --------------------------------------------------------------------------------
@@ -295,7 +411,7 @@ public sealed class QuickSelectionStroke
     ];
 
     /// <summary>
-    /// Dijkstra from the queued cells with a bucket queue. Every step costs at least one unit, more than a bucket's
+    /// Dijkstra from the queued cells with a bucket queue. Every step costs at least MinStep (0.35) units, more than a bucket's
     /// width, so relaxed cells always land in a later bucket and each bucket is final once reached.
     /// </summary>
     private void Propagate()
@@ -321,9 +437,11 @@ public sealed class QuickSelectionStroke
                     int qx = px + dx, qy = py + dy;
                     if ((uint)qx >= (uint)_w || (uint)qy >= (uint)_h) continue;
                     int q = qy * _w + qx;
-                    if (_dist[q] <= d + length) continue; // cannot improve: every step costs at least its length
+                    if (_dist[q] <= d + length * MinStep) continue; // cannot improve: see MinStep
                     float edge = Math.Max(0f, QuickSelectionImage.Distance(color, p * 4, q * 4) * invNoise - EdgeFree);
-                    float nd = d + length * (1f + EdgeWeight * edge * edge + ColorCost(q));
+                    float nd = _priorBase is null
+                        ? d + length * (1f + EdgeWeight * edge * edge + ColorCost(q))
+                        : d + length * (_priorBase[q] + _priorEdge![q] * EdgeWeight * edge * edge + _priorColor![q] * ColorCost(q));
                     if (nd >= _dist[q] || nd >= _limit) continue;
                     _dist[q] = nd;
                     _queue[(int)(nd * Buckets)].Add(q);

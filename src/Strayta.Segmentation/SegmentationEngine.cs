@@ -150,7 +150,20 @@ public sealed class SegmentationEngine : IDisposable
     /// Runs the prompt decoder (a few milliseconds) and returns the best of SAM's three candidate masks as
     /// low-resolution logits over the embedding's placement.
     /// </summary>
-    public MaskLogits Decode(SamEmbedding embedding, SamPrompt prompt) => Use(() =>
+    public MaskLogits Decode(SamEmbedding embedding, SamPrompt prompt)
+    {
+        var candidates = DecodeCandidates(embedding, prompt);
+        var best = candidates[0];
+        foreach (var c in candidates)
+            if (c.Score > best.Score) best = c;
+        return best;
+    }
+
+    /// <summary>
+    /// Runs the prompt decoder once and returns all of SAM's candidate masks (for a single point: roughly a sub-part,
+    /// a part and the whole object), each with SAM's own quality score, cleaned of specks and pinholes.
+    /// </summary>
+    public IReadOnlyList<MaskLogits> DecodeCandidates(SamEmbedding embedding, SamPrompt prompt) => Use(() =>
     {
         if (prompt.IsEmpty) throw new ArgumentException("The prompt has no points and no box.", nameof(prompt));
         var (_, decoder) = LoadSam();
@@ -171,16 +184,19 @@ public sealed class SegmentationEngine : IDisposable
         double inference = sw.Elapsed.TotalMilliseconds;
 
         var shape = outputs[0].GetTensorTypeAndShape().Shape; // [1, candidates, h, w]
-        int candidates = (int)shape[1], mh = (int)shape[2], mw = (int)shape[3];
-        var scores = outputs[1].GetTensorDataAsSpan<float>();
-        int best = 0;
-        for (int i = 1; i < candidates; i++)
-            if (scores[i] > scores[best]) best = i;
-        var values = outputs[0].GetTensorDataAsSpan<float>().Slice(best * mh * mw, mh * mw).ToArray();
-        // Object Selection picks one object: drop specks beside it and fill pinholes in it.
-        MaskCleanup.Clean(values, mw, mh, minIslandFraction: 0.1f, maxHoleFraction: 0.02f);
+        int count = (int)shape[1], mh = (int)shape[2], mw = (int)shape[3];
+        var scores = outputs[1].GetTensorDataAsSpan<float>().ToArray();
+        var all = outputs[0].GetTensorDataAsSpan<float>();
+        var result = new MaskLogits[count];
+        for (int i = 0; i < count; i++)
+        {
+            var values = all.Slice(i * mh * mw, mh * mw).ToArray();
+            // Object Selection picks one object: drop specks beside it and fill pinholes in it.
+            MaskCleanup.Clean(values, mw, mh, minIslandFraction: 0.1f, maxHoleFraction: 0.02f);
+            result[i] = new MaskLogits(values, mw, mh, embedding.Placement, scores[i]);
+        }
         LastTimings = new SegmentationTimings(0, inference, sw.Elapsed.TotalMilliseconds - inference);
-        return new MaskLogits(values, mw, mh, embedding.Placement, scores[best]);
+        return result;
     });
 
     /// <summary>

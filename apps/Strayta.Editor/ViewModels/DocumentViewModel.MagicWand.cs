@@ -3,6 +3,7 @@ using System.Numerics;
 using CommunityToolkit.Mvvm.ComponentModel;
 using Strayta.Core;
 using Strayta.Core.Selection;
+using Strayta.Segmentation;
 
 namespace Strayta.Editor.ViewModels;
 
@@ -96,6 +97,8 @@ public sealed partial class DocumentViewModel
         public Task Pump = Task.CompletedTask;
         public int Frames;
         public readonly List<double> UpdateMs = [];
+        /// <summary>The Object-Aware state, when that option is on (DocumentViewModel.QuickSelectObjects.cs).</summary>
+        public ObjectAwareDrag? Objects;
     }
 
     private QuickSelectDrag? _quickDrag;
@@ -114,7 +117,9 @@ public sealed partial class DocumentViewModel
         drag.Pending.Add(drag.Last);
         _quickDrag = drag;
         Notice = "";
+        drag.Objects = StartObjectAware(mode, before, size);
         drag.Pump = PumpAsync(drag);
+        AddObjectAwarePoint(drag, drag.Last);
         return true;
 
         async Task<QuickSelectionStroke?> StartStrokeAsync()
@@ -135,6 +140,7 @@ public sealed partial class DocumentViewModel
         if (_quickDrag is not { } drag) return;
         drag.Pending.Add(new Vector2(x, y));
         if (!drag.Pumping) drag.Pump = PumpAsync(drag);
+        AddObjectAwarePoint(drag, new Vector2(x, y));
     }
 
     private async Task PumpAsync(QuickSelectDrag drag)
@@ -143,24 +149,31 @@ public sealed partial class DocumentViewModel
         try
         {
             if (await drag.Stroke is not { } stroke) return;
-            while (drag.Pending.Count > 0)
+            var objects = drag.Objects;
+            while (drag.Pending.Count > 0 || objects is { Pending.Set: true })
             {
                 var points = drag.Pending.ToArray();
                 drag.Pending.Clear();
-                var from = drag.Last;
-                drag.Last = points[^1];
-                var (loops, ms) = await Task.Run(() =>
+                var from = points.Length > 0 ? drag.Last : default;
+                if (points.Length > 0) drag.Last = points[^1];
+                var (prior, priorSet) = objects?.Pending ?? default;
+                if (objects is not null) objects.Pending = default;
+                var (loops, ms, applied) = await Task.Run(() =>
                 {
                     var clock = Stopwatch.StartNew();
-                    bool grew = false;
+                    // A new prior (or dropping one) regrows the region from everything brushed so far.
+                    bool had = stroke.HasPrior;
+                    bool applied = priorSet && stroke.SetPrior(prior);
+                    bool grew = applied || (priorSet && had);
                     var a = from;
                     foreach (var b in points)
                     {
                         grew |= stroke.AddSegment(a, b);
                         a = b;
                     }
-                    return (grew ? stroke.PreviewOutline() : null, clock.Elapsed.TotalMilliseconds);
+                    return (grew && !stroke.IsEmpty ? stroke.PreviewOutline() : null, clock.Elapsed.TotalMilliseconds, applied);
                 });
+                if (applied) NoteObjectAwarePrior(objects!);
                 if (loops is null || !ReferenceEquals(drag, _quickDrag)) continue;
                 QuickSelectionOutline = loops;
                 drag.Frames++;
@@ -180,7 +193,8 @@ public sealed partial class DocumentViewModel
         _quickFinishing = true;
         try
         {
-            if (!drag.Pumping && drag.Pending.Count > 0) drag.Pump = PumpAsync(drag);
+            await FinishObjectAwareAsync(drag);
+            if (!drag.Pumping && (drag.Pending.Count > 0 || drag.Objects is { Pending.Set: true })) drag.Pump = PumpAsync(drag);
             await drag.Pump;
             var stroke = await drag.Stroke;
             _quickDrag = null;
@@ -199,6 +213,7 @@ public sealed partial class DocumentViewModel
             var clock = Stopwatch.StartNew();
             var next = await Task.Run(() => stroke.Finish(autoEnhance));
             LastQuickSelectStats = (drag.Frames, drag.UpdateMs, clock.Elapsed.TotalMilliseconds);
+            RecordObjectAware(drag, stroke, next);
             if (ReferenceEquals(drag.Before, Selection)) SetSelection(next, "Quick Selection");
             QuickSelectionOutline = null; // the canvas keeps showing it until the new selection's outline is ready
         }
@@ -212,8 +227,9 @@ public sealed partial class DocumentViewModel
 
     /// <summary>
     /// Magic Wand clicks (flattened and current layer, cold and warm, contiguous and not) and a two-second Quick
-    /// Selection drag with 120 Hz input, reporting click times, live outline updates per second and the mouse-up
-    /// refinement (STRAYTA_WANDBENCH=1 on the first opened file, =new on a generated 4000×3000 document).
+    /// Selection drag with 120 Hz input, plain and then Object-Aware (when the models are installed), reporting click
+    /// times, live outline updates per second, per-update compute, SAM decodes and the mouse-up refinement
+    /// (STRAYTA_WANDBENCH=1 on the first opened file, =new on a generated 4000×3000 document).
     /// </summary>
     public async Task RunWandBenchmarkAsync(Vector2? dragFrom = null, Vector2? dragTo = null)
     {
@@ -268,28 +284,56 @@ public sealed partial class DocumentViewModel
         Editor.QuickSelectSize = Math.Max(10, Math.Round(Math.Max(w, h) / 80.0));
         var a = dragFrom ?? new Vector2(w * 0.4f, h * 0.45f);
         var z = dragTo ?? new Vector2(w * 0.6f, h * 0.55f);
-        Deselect();
         await SampleImageAsync(true); // measured above; the drag should measure the growing, not the first render
-        var prepare = Stopwatch.StartNew();
-        BeginQuickSelection(a.X, a.Y, SelectionMode.Replace);
-        await _quickDrag!.Stroke;
-        double prepareMs = prepare.Elapsed.TotalMilliseconds;
-        var input = Stopwatch.StartNew();
-        const int steps = 240;
-        for (int i = 1; i <= steps; i++)
+        async Task QuickDrag(string label)
         {
-            float t = i / (float)steps;
-            var p = Vector2.Lerp(a, z, t) + new Vector2(0, MathF.Sin(t * MathF.PI * 6) * (z.Y - a.Y) * 0.5f);
-            ContinueQuickSelection(p.X, p.Y);
-            await Task.Delay(8);
+            Deselect();
+            var prepare = Stopwatch.StartNew();
+            BeginQuickSelection(a.X, a.Y, SelectionMode.Replace);
+            await _quickDrag!.Stroke;
+            double prepareMs = prepare.Elapsed.TotalMilliseconds;
+            var input = Stopwatch.StartNew();
+            const int steps = 240;
+            for (int i = 1; i <= steps; i++)
+            {
+                float t = i / (float)steps;
+                var p = Vector2.Lerp(a, z, t) + new Vector2(0, MathF.Sin(t * MathF.PI * 6) * (z.Y - a.Y) * 0.5f);
+                ContinueQuickSelection(p.X, p.Y);
+                await Task.Delay(8);
+            }
+            double inputMs = input.Elapsed.TotalMilliseconds;
+            var release = Stopwatch.StartNew();
+            await EndQuickSelectionAsync();
+            double releaseMs = release.Elapsed.TotalMilliseconds;
+            var (frames, updates, finishMs) = LastQuickSelectStats;
+            var sorted = updates.OrderBy(t => t).ToList();
+            Console.WriteLine($"QSBENCH{label} drag {inputMs:F0} ms: {frames} outline updates = {frames / (inputMs / 1000):F1} fps; update compute median " +
+                              $"{(sorted.Count > 0 ? sorted[sorted.Count / 2] : double.NaN):F1} ms, p90 {(sorted.Count > 0 ? sorted[(int)(sorted.Count * 0.9)] : double.NaN):F1} ms, " +
+                              $"max {(sorted.Count > 0 ? sorted[^1] : double.NaN):F1} ms; mouse-up refine {finishMs:F0} ms (release to selection {releaseMs:F0} ms); " +
+                              $"stroke setup {prepareMs:F0} ms; brush {Editor.QuickSelectSize:F0} px; selected {Selection?.Bounds}");
+            if (Editor.QuickSelectObjectAware)
+            {
+                var (decodes, decodeMs, applied, firstMs, used) = LastObjectAwareStats;
+                var d = decodeMs.OrderBy(t => t).ToList();
+                Console.WriteLine($"QSBENCH{label} {decodes} SAM decodes (decode + prior build median {(d.Count > 0 ? d[d.Count / 2] : double.NaN):F1} ms, " +
+                                  $"max {(d.Count > 0 ? d[^1] : double.NaN):F1} ms), {applied} priors applied, first after {firstMs:F0} ms; object prior used: {used}");
+            }
         }
-        double inputMs = input.Elapsed.TotalMilliseconds;
-        await EndQuickSelectionAsync();
-        var (frames, updates, finishMs) = LastQuickSelectStats;
-        var sorted = updates.OrderBy(t => t).ToList();
-        Console.WriteLine($"QSBENCH drag {inputMs:F0} ms: {frames} outline updates = {frames / (inputMs / 1000):F1} fps; update compute median " +
-                          $"{(sorted.Count > 0 ? sorted[sorted.Count / 2] : double.NaN):F1} ms, p90 {(sorted.Count > 0 ? sorted[(int)(sorted.Count * 0.9)] : double.NaN):F1} ms; " +
-                          $"mouse-up refine {finishMs:F0} ms; stroke setup {prepareMs:F0} ms; brush {Editor.QuickSelectSize:F0} px; selected {Selection?.Bounds}");
+
+        bool objectAware = Editor.QuickSelectObjectAware;
+        Editor.QuickSelectObjectAware = false;
+        await QuickDrag("");
+        if (Engine.CanSelectObjects)
+        {
+            // The same drag with Object-Aware on, the image analyzed beforehand (as when the tool was picked).
+            Editor.QuickSelectObjectAware = true;
+            var encode = Stopwatch.StartNew();
+            await PrepareQuickSelectObjects();
+            Console.WriteLine($"QSBENCH object-aware: image analysis {encode.ElapsedMilliseconds} ms (in the background when the tool is picked)");
+            await QuickDrag(" object-aware");
+        }
+        else Console.WriteLine($"QSBENCH object-aware skipped: {SegmentationModels.FetchHint}");
+        Editor.QuickSelectObjectAware = objectAware;
 
         (Editor.WandSampleAllLayers, Editor.WandContiguous, Editor.QuickSelectSampleAllLayers, Editor.QuickSelectSize) = wand;
         while (CanUndo) Undo();

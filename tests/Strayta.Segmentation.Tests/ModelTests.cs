@@ -54,6 +54,23 @@ public sealed class ModelTests : IClassFixture<ModelTests.EngineFixture>
     }
 
     [Fact]
+    public void Candidates_are_all_three_masks_and_decode_picks_the_best()
+    {
+        RequireObjectModel();
+        var embedding = _engine.Encode(Image);
+        var prompt = new SamPrompt([new PromptPoint(Cx - 60, Cy), new PromptPoint(Cx + 60, Cy + 20)]);
+        var candidates = _engine.DecodeCandidates(embedding, prompt);
+        Assert.Equal(3, candidates.Count);
+        var best = _engine.Decode(embedding, prompt);
+        Assert.Equal(candidates.Max(c => c.Score), best.Score);
+        // Brushed points inside the disc: the largest good candidate is the disc, with its edge where the disc's is.
+        var disc = candidates.Where(c => c.Score > 0.7f).MaxBy(c => c.Values.Count(v => v > 0))!;
+        Assert.True(disc.SignedDistance(Cx, Cy) > 100, $"{disc.SignedDistance(Cx, Cy)}");
+        Assert.InRange(disc.SignedDistance(Cx + R, Cy), -6, 6);
+        Assert.True(disc.SignedDistance(40, 40) < 0);
+    }
+
+    [Fact]
     public void A_moved_layer_reuses_its_embedding_at_the_new_place()
     {
         RequireObjectModel();
