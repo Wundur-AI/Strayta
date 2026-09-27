@@ -202,9 +202,23 @@ public sealed class PsdFile
 
     public Document ToDocument() => PsdDocumentConverter.Convert(this);
 
-    /// <summary>Opens a file for editing: keeps every block in memory so it can be saved back unchanged.</summary>
-    public static Document OpenForEditing(string path) =>
-        Open(path, new PsdReadOptions { MaxRawBlockBytes = long.MaxValue }).ToDocument();
+    /// <summary>
+    /// Opens a file for editing: keeps every block in memory so it can be saved back unchanged. A flat file (no layer
+    /// records) keeps its image only in the composite, so it becomes a Background layer, as in Photoshop; otherwise
+    /// edits would start from an empty canvas and saving would write a blank image.
+    /// </summary>
+    public static Document OpenForEditing(string path)
+    {
+        var doc = Open(path, new PsdReadOptions { MaxRawBlockBytes = long.MaxValue }).ToDocument();
+        if (doc.Root.Children.Count == 0 && doc.Composite is { } composite)
+            doc.Root.Add(new PixelLayer
+            {
+                Name = composite.Alpha is null ? "Background" : "Layer 0",
+                Bounds = doc.Bounds,
+                Pixels = composite,
+            });
+        return doc;
+    }
 }
 
 public sealed class PsdReadOptions
