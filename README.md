@@ -37,6 +37,11 @@ dotnet test
   (Shift adds or constrains, Option subtracts or draws from the center, Shift+Option intersects; a click
   deselects). Select > All / Deselect / Reselect / Inverse. Painting, Delete (clear), Fill, Cut, Copy and
   Paste (to a new layer) work on the selected area, and every selection change is undoable.
+- Magic Wand and Quick Selection (W, Shift+W switches). The wand selects colors within a tolerance of the clicked
+  pixel (per channel, 0–255), contiguous or across the whole image, anti-aliased or hard, from the selected layer
+  (its transparency included) or all layers. Quick Selection is a brush (`[`/`]` size) that grows the selection to
+  similar, connected pixels and stops at edges, live while you drag; later strokes add, Option subtracts,
+  Auto-Enhance softens the edge. Each click or stroke is one undo step.
 - Layers panel: blend mode, opacity and fill for the selected layer; visibility, thumbnails, rename
   (double-click), drag-and-drop reordering into and out of groups, new layer/group, duplicate, delete.
 - Layer masks on layers, groups and adjustment layers (Layer > Layer Mask, or the panel's mask button): click the
@@ -62,7 +67,8 @@ Diagnostics (environment variables): `STRAYTA_SELFTEST=1` runs a scripted editin
 each step; `STRAYTA_DRAGBENCH=1` / `STRAYTA_PAINTBENCH=1` / `STRAYTA_TRANSFORMBENCH=1` / `STRAYTA_ADJUSTBENCH=1`
 measure frame rates (layer drag, brush stroke, free transform, Properties slider drag) on the first opened file
 (`STRAYTA_TRANSFORMBENCH=new` builds a 4000×3000 document and runs the drag and transform benchmarks on it);
-`STRAYTA_THEME=Light|Dark` sets the starting appearance.
+`STRAYTA_WANDBENCH=1` times Magic Wand clicks and a Quick Selection drag (`=new` on a generated 4000×3000
+document); `STRAYTA_THEME=Light|Dark` sets the starting appearance.
 
 ## Inspect tool
 

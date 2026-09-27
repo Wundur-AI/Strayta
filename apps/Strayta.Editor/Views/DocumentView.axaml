@@ -17,8 +17,8 @@
     </Border>
     <Panel>
       <c:ImageCanvas x:Name="Canvas" Source="{Binding Display}" DocumentSize="{Binding DocumentSize}"
-                     Tool="{Binding Editor.Tool}" BrushSize="{Binding Editor.BrushSize}"
-                     Selection="{Binding Selection}"
+                     Tool="{Binding Editor.Tool}" BrushSize="{Binding Editor.ToolBrushSize}"
+                     Selection="{Binding Selection}" LiveSelectionOutline="{Binding QuickSelectionOutline}"
                      FreeTransform="{Binding FreeTransform}" />
 
       <!-- Why the brush can't paint here, with the fixes that apply -->

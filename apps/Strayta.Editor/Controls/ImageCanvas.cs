@@ -16,6 +16,8 @@ public enum CanvasTool
     RectSelect,
     EllipseSelect,
     Lasso,
+    MagicWand,
+    QuickSelect,
 }
 
 /// <summary>
@@ -112,6 +114,7 @@ public sealed partial class ImageCanvas : Control
         if (change.Property == ZoomProperty) ZoomChanged?.Invoke(Zoom);
         if (change.Property == ToolProperty) UpdateCursor();
         OnSelectionPropertyChanged(change);
+        OnWandPropertyChanged(change);
         if (change.Property == FreeTransformProperty) OnFreeTransformChanged(change);
     }
 
@@ -157,11 +160,12 @@ public sealed partial class ImageCanvas : Control
         var mode = scale >= 2 && bmp.PixelSize == size ? BitmapInterpolationMode.None : BitmapInterpolationMode.HighQuality;
         using (context.PushRenderOptions(new RenderOptions { BitmapInterpolationMode = mode }))
             context.DrawImage(bmp, new Rect(0, 0, bmp.PixelSize.Width, bmp.PixelSize.Height), dest);
+        RenderLiveOutline(context); // first: it decides whether the selection's own outline shows
         RenderSelection(context);
         DrawTransformBox(context);
 
         // Brush outline: a dark and a light ring so it stays visible over any colors.
-        if (IsPaintTool && !_spaceHeld && FreeTransform is null && _hover is { } h)
+        if ((IsPaintTool || Tool == CanvasTool.QuickSelect) && !_spaceHeld && FreeTransform is null && _hover is { } h)
         {
             double r = Math.Max(1.5, BrushSize * Zoom / 2);
             context.DrawEllipse(null, new Pen(new SolidColorBrush(Color.FromArgb(160, 0, 0, 0)), 1.5), h, r, r);
@@ -204,6 +208,7 @@ public sealed partial class ImageCanvas : Control
             if (props.IsLeftButtonPressed) BeginSelection(e);
             else _dragStart = null; // other buttons must not fall through to moving the layer
         }
+        if (!_panning && IsWandTool) WandPressed(e, props.IsLeftButtonPressed);
         _panOrigin = _offset;
         _moveRemainder = default;
         e.Pointer.Capture(this);
@@ -213,7 +218,7 @@ public sealed partial class ImageCanvas : Control
     {
         base.OnPointerMoved(e);
         if (TransformMoved(e)) return;
-        if (IsPaintTool)
+        if (IsPaintTool || Tool == CanvasTool.QuickSelect)
         {
             _hover = e.GetPosition(this);
             InvalidateVisual();
@@ -223,6 +228,11 @@ public sealed partial class ImageCanvas : Control
         if (_selecting)
         {
             MoveSelection(e);
+            return;
+        }
+        if (_quickSelecting)
+        {
+            QuickSelectMoved(e);
             return;
         }
         if (_stroking)
@@ -268,6 +278,7 @@ public sealed partial class ImageCanvas : Control
             StrokeEnd?.Invoke();
         }
         if (_selecting) EndSelection(e);
+        if (_quickSelecting) QuickSelectReleased();
         _dragStart = null;
         _panning = false;
         e.Pointer.Capture(null);
@@ -300,7 +311,7 @@ public sealed partial class ImageCanvas : Control
     private void UpdateCursor() => Cursor = new Cursor(
         Tool == CanvasTool.Hand || _spaceHeld ? StandardCursorType.Hand
         : FreeTransform is not null ? StandardCursorType.Arrow
-        : IsPaintTool || IsSelectTool ? StandardCursorType.Cross
+        : IsPaintTool || IsSelectTool || IsWandTool ? StandardCursorType.Cross
         : StandardCursorType.SizeAll);
 
     private static IBrush CreateChecker(Color light, Color dark)

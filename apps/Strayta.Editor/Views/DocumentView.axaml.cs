@@ -18,6 +18,7 @@ public partial class DocumentView : UserControl
         Canvas.StrokeEnd += () => _ = _vm?.EndStrokeAsync();
         Canvas.SelectionGestureCompleted += g => _ = _vm?.ApplySelectionGestureAsync(g);
         Canvas.TransformCommit += () => _ = _vm?.CommitTransformAsync();
+        WireWandTools();
         DataContextChanged += (_, _) =>
         {
             if (_vm is not null) _vm.ZoomRequested -= OnZoom;
