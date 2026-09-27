@@ -11,6 +11,7 @@ layered image documents, starting with Photoshop PSD/PSB files.
 |---|---|
 | `Strayta.Core` | Format-agnostic document model: layers, groups, masks, blend modes, color modes, pixel buffers. |
 | `Strayta.Psd` | PSD/PSB reader and writer, mapping to and from the Core model; unmodeled data round-trips byte for byte. |
+| `Strayta.Imaging` | Opens standard images (PNG, JPEG, WebP, GIF, BMP, ICO; HEIC on macOS) as documents, and writes PNG at the image's own bit depth. Uses SkiaSharp for decoding, keeping it out of the core engine. |
 | `Strayta.Rendering` | Compositing engine that renders a Core document to pixels (`IRenderer`; CPU today). |
 
 `Strayta.Core` depends on nothing else in the repo. Format and rendering
@@ -30,7 +31,11 @@ dotnet test
 `apps/Strayta.Editor` is an Avalonia desktop editor with tabbed documents and dockable panels
 (documents and panels can be dragged out into their own windows), in dark or light appearance.
 
-- New documents, or open several PSD/PSB files at once (menu, drag and drop, or command line).
+- New documents, or open several PSD/PSB files and standard images at once (menu, drag and drop, or command
+  line). Images open as a single Background layer, upright (camera orientation applied), keeping their color
+  profile, bit depth (16-bit PNG) and grayscale. Save writes back to PNG/JPEG while the document is a single
+  plain layer; once it has layers, Save asks for a PSD, and saving a layered document as PNG/JPEG writes a
+  flattened copy.
 - Tools: Move (V), Hand (H), Brush (B), Eraser (E); `[` and `]` resize the brush. Space or the middle
   button pans with any tool; the wheel zooms.
 - Selections: Rectangular and Elliptical Marquee (M, Shift+M switches), Lasso (L), with Photoshop's modifiers

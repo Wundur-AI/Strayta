@@ -149,6 +149,7 @@ internal static partial class SelfTest
         }
 
         await RunMaskAndAdjustmentStepsAsync(editor, Check); // SelfTest.Masks.cs
+        await RunImageStepsAsync(editor, Check); // SelfTest.Images.cs
 
         Console.WriteLine(failures.Count == 0 ? "SELFTEST PASSED" : $"SELFTEST FAILED ({failures.Count})");
     }

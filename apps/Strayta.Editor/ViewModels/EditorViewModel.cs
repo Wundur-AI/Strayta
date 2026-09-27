@@ -8,6 +8,8 @@ using Strayta.Core;
 using Strayta.Core.Painting;
 using Strayta.Editor.Controls;
 using Strayta.Editor.Editing;
+using Strayta.Imaging;
+using Strayta.Rendering.Export;
 using Strayta.Psd;
 
 namespace Strayta.Editor.ViewModels;
@@ -143,7 +145,7 @@ public sealed partial class EditorViewModel : ObservableObject
 
         try
         {
-            var model = await Task.Run(() => PsdFile.OpenForEditing(path));
+            var model = await Task.Run(() => ImageImporter.CanOpen(path) ? ImageImporter.Open(path) : PsdFile.OpenForEditing(path));
             var document = new DocumentViewModel(model, path, this) { ConfirmClose = ConfirmCloseAsync };
             Factory.AddDocument(document);
             ActiveDocument = document;
@@ -343,12 +345,50 @@ public sealed partial class EditorViewModel : ObservableObject
             await _dialogs.ShowErrorAsync("Cannot save", $"Saving {doc.Model.ColorMode} documents is not supported yet.");
             return false;
         }
-        string? path = saveAs || doc.FilePath is null ? await _dialogs.PickFileToSaveAsync(doc.Title) : doc.FilePath;
+
+        // Photoshop's rule: Save writes back to an opened PNG/JPEG only while the document is still a single
+        // plain layer; once it has layers, Save becomes Save As with PSD suggested, so nothing is flattened silently.
+        string? path;
+        if (!saveAs && doc.FilePath is not null && (doc.ImageSource is null || doc.ImageSource.IsWritable && doc.IsFlatImage))
+            path = doc.FilePath;
+        else
+        {
+            string suggested = doc.ImageSource is not null && !doc.IsFlatImage
+                ? Path.ChangeExtension(doc.Title, ".psd")
+                : doc.Title;
+            path = await _dialogs.PickFileToSaveAsync(suggested);
+        }
         if (path is null) return false;
+
         try
         {
-            await doc.SaveAsync(path);
-            return true;
+            if (ExportOptions.FormatFromPath(path) is not { } format)
+            {
+                await doc.SaveAsync(path);
+                return true;
+            }
+
+            var options = ExportSettings with { Format = format, Transparency = true };
+            if (format == ExportFormat.Jpeg)
+            {
+                // Ask for quality the first time a document is saved as JPEG, then reuse it.
+                if (doc.JpegQuality is not { } quality)
+                {
+                    var background = (BackgroundColor.R, BackgroundColor.G, BackgroundColor.B);
+                    if (await _dialogs.AskExportOptionsAsync(options, background) is not { } chosen) return false;
+                    quality = chosen.Quality;
+                    options = options with { Matte = chosen.Matte };
+                }
+                doc.JpegQuality = quality;
+                options = options with { Quality = quality };
+            }
+
+            // A layered document saved as PNG/JPEG writes a flattened copy and stays tied to its own file.
+            bool flat = doc.IsFlatImage;
+            await doc.SaveImageAsync(path, options, becomesFile: flat);
+            if (!flat)
+                doc.Notice = $"Saved a flattened copy as {Path.GetFileName(path)}. Save as PSD to keep the layers.";
+            return flat;
         }
         catch (Exception ex)
         {

@@ -219,13 +219,18 @@ public partial class MainWindow : Window, IEditorDialogs
 
     private static readonly FilePickerFileType PsdFiles = new("Photoshop documents") { Patterns = ["*.psd", "*.psb"] };
 
+    private static readonly FilePickerFileType OpenableFiles = new("Images and Photoshop documents")
+    {
+        Patterns = ["*.psd", "*.psb", "*.png", "*.jpg", "*.jpeg", "*.webp", "*.gif", "*.bmp", "*.ico", "*.heic", "*.heif"],
+    };
+
     public async Task<string?> PickFileToOpenAsync()
     {
         var files = await StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
         {
             Title = "Open",
             AllowMultiple = false,
-            FileTypeFilter = [PsdFiles, FilePickerFileTypes.All],
+            FileTypeFilter = [OpenableFiles, PsdFiles, FilePickerFileTypes.All],
         });
         return files is [var f] ? f.TryGetLocalPath() : null;
     }
@@ -236,8 +241,14 @@ public partial class MainWindow : Window, IEditorDialogs
         {
             Title = "Save As",
             SuggestedFileName = suggestedName,
-            DefaultExtension = "psd",
-            FileTypeChoices = [PsdFiles],
+            DefaultExtension = Path.GetExtension(suggestedName).TrimStart('.') is { Length: > 0 } ext ? ext : "psd",
+            // The document's own format first; PNG/JPEG only hold a single flat layer (layered documents get a flattened copy).
+            FileTypeChoices = Path.GetExtension(suggestedName).ToLowerInvariant() switch
+            {
+                ".png" => [PngFiles, JpegFiles, PsdFiles],
+                ".jpg" or ".jpeg" or ".jpe" => [JpegFiles, PngFiles, PsdFiles],
+                _ => [PsdFiles, PngFiles, JpegFiles],
+            },
         });
         return file?.TryGetLocalPath();
     }

@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <!-- The same SkiaSharp Avalonia already ships, used here only to decode standard image formats. -->
+    <PackageReference Include="SkiaSharp" Version="3.119.4" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Strayta.Core\Strayta.Core.csproj" />
+  </ItemGroup>
+</Project>
