@@ -149,6 +149,14 @@ internal static partial class SelfTest
         }
 
         await RunMaskAndAdjustmentStepsAsync(editor, Check); // SelfTest.Masks.cs
+        try
+        {
+            await RunObjectSelectionStepsAsync(editor, Check); // SelfTest.ObjectSelection.cs
+        }
+        catch (Exception ex)
+        {
+            Check(false, $"exception in Object Selection steps: {ex}");
+        }
 
         Console.WriteLine(failures.Count == 0 ? "SELFTEST PASSED" : $"SELFTEST FAILED ({failures.Count})");
     }

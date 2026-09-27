@@ -16,6 +16,7 @@ public enum CanvasTool
     RectSelect,
     EllipseSelect,
     Lasso,
+    ObjectSelect,
 }
 
 /// <summary>

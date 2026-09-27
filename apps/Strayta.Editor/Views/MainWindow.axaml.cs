@@ -154,6 +154,7 @@ public partial class MainWindow : Window, IEditorDialogs
                 Item("Reset Layout", Editor.ResetLayoutCommand)),
         };
         AddSelectionMenus(menu, Item);
+        AddObjectSelectionMenus(menu, Item); // MainWindow.ObjectSelection.cs
         NativeMenu.SetMenu(this, menu);
 
         // Enter, Esc and arrow keys drive an open Free Transform before any other single-key shortcut.

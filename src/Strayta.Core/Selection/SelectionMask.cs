@@ -68,6 +68,25 @@ public sealed class SelectionMask
     /// <summary>Selects the whole canvas.</summary>
     public static SelectionMask All(PixelRect canvas) => new(canvas, null);
 
+    /// <summary>
+    /// A selection from per-pixel coverage computed elsewhere (e.g. a segmentation model): <paramref name="coverage"/>
+    /// is row-major over <paramref name="bounds"/>. Clipped to the canvas and trimmed; null when nothing is selected.
+    /// The array is adopted, not copied, so the caller must not change it afterwards.
+    /// </summary>
+    public static SelectionMask? FromCoverage(PixelRect bounds, byte[] coverage, PixelRect canvas)
+    {
+        if (coverage.Length != (long)bounds.Width * bounds.Height)
+            throw new ArgumentException($"Expected {bounds.Width * bounds.Height} coverage values for {bounds}.", nameof(coverage));
+        var clipped = bounds.Intersect(canvas);
+        if (clipped.IsEmpty) return null;
+        if (clipped == bounds) return Trim(bounds, coverage);
+        var copy = new byte[clipped.Width * clipped.Height];
+        for (int y = clipped.Top; y < clipped.Bottom; y++)
+            coverage.AsSpan((y - bounds.Top) * bounds.Width + (clipped.Left - bounds.Left), clipped.Width)
+                .CopyTo(copy.AsSpan((y - clipped.Top) * clipped.Width, clipped.Width));
+        return Trim(clipped, copy);
+    }
+
     /// <summary>A hard-edged rectangle (the marquee snaps to whole pixels), clipped to the canvas.</summary>
     public static SelectionMask? Rectangle(PixelRect rect, PixelRect canvas)
     {

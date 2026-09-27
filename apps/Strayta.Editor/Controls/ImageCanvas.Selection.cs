@@ -31,7 +31,7 @@ public sealed partial class ImageCanvas
     /// <summary>Raised when a marquee or lasso drag (or a click that deselects) finishes.</summary>
     public event Action<SelectionGesture>? SelectionGestureCompleted;
 
-    private bool IsSelectTool => Tool is CanvasTool.RectSelect or CanvasTool.EllipseSelect or CanvasTool.Lasso;
+    private bool IsSelectTool => Tool is CanvasTool.RectSelect or CanvasTool.EllipseSelect or CanvasTool.Lasso or CanvasTool.ObjectSelect;
 
     // Traced outline of Selection, in document coordinates, at _outlineFactor detail.
     private IReadOnlyList<Vector2[]> _outline = [];
@@ -175,7 +175,9 @@ public sealed partial class ImageCanvas
         }
         var gesture = _shapeTool == CanvasTool.Lasso
             ? new SelectionGesture(_shapeTool, _selectMode, PixelRect.Empty, _dragged ? [.. _lasso] : [])
-            : new SelectionGesture(_shapeTool, _selectMode, _dragged ? _shapeBox : PixelRect.Empty, []);
+            : new SelectionGesture(_shapeTool, _selectMode, _dragged ? _shapeBox : PixelRect.Empty,
+                // Object Selection treats a click as "the object under the cursor", so it needs the point.
+                _shapeTool == CanvasTool.ObjectSelect && !_dragged ? [new Vector2((float)_selectStart.X, (float)_selectStart.Y)] : []);
         if (gesture.IsClick) _showShape = _hideOutline = false;
         else _shapeUntil = DateTime.UtcNow.AddSeconds(1); // in case the result is unchanged and no new outline comes
         InvalidateVisual();
@@ -188,8 +190,10 @@ public sealed partial class ImageCanvas
     /// </summary>
     private PixelRect MarqueeBox(KeyModifiers mods)
     {
-        bool constrain = mods.HasFlag(KeyModifiers.Shift) && (!_shiftForMode || _shiftReleased);
-        bool centered = mods.HasFlag(KeyModifiers.Alt) && (!_altForMode || _altReleased);
+        // Object Selection's box is only a hint for the model; Photoshop does not constrain or center it.
+        bool marquee = _shapeTool != CanvasTool.ObjectSelect;
+        bool constrain = marquee && mods.HasFlag(KeyModifiers.Shift) && (!_shiftForMode || _shiftReleased);
+        bool centered = marquee && mods.HasFlag(KeyModifiers.Alt) && (!_altForMode || _altReleased);
         double dx = _selectEnd.X - _selectStart.X, dy = _selectEnd.Y - _selectStart.Y;
         if (constrain)
         {

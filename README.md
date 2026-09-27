@@ -12,6 +12,7 @@ layered image documents, starting with Photoshop PSD/PSB files.
 | `Strayta.Core` | Format-agnostic document model: layers, groups, masks, blend modes, color modes, pixel buffers. |
 | `Strayta.Psd` | PSD/PSB reader and writer, mapping to and from the Core model; unmodeled data round-trips byte for byte. |
 | `Strayta.Rendering` | Compositing engine that renders a Core document to pixels (`IRenderer`; CPU today). |
+| `Strayta.Segmentation` | Local AI selection (SAM 2.1, BiRefNet) on ONNX Runtime, producing Core selections. Used by the editor only. |
 
 `Strayta.Core` depends on nothing else in the repo. Format and rendering
 packages depend only on Core.
@@ -37,6 +38,10 @@ dotnet test
   (Shift adds or constrains, Option subtracts or draws from the center, Shift+Option intersects; a click
   deselects). Select > All / Deselect / Reselect / Inverse. Painting, Delete (clear), Fill, Cut, Copy and
   Paste (to a new layer) work on the selected area, and every selection change is undoable.
+- Object Selection (tool strip, below Lasso): drag a box around an object or click it, and a local AI model
+  selects it; Shift adds, Option subtracts. Sample All Layers (on by default) looks at the whole image, off at the
+  selected layer. Select > Subject (also a button in the tool's options bar) selects the main subject. See
+  [AI selection models](#ai-selection-models) below.
 - Layers panel: blend mode, opacity and fill for the selected layer; visibility, thumbnails, rename
   (double-click), drag-and-drop reordering into and out of groups, new layer/group, duplicate, delete.
 - Layer masks on layers, groups and adjustment layers (Layer > Layer Mask, or the panel's mask button): click the
@@ -62,7 +67,32 @@ Diagnostics (environment variables): `STRAYTA_SELFTEST=1` runs a scripted editin
 each step; `STRAYTA_DRAGBENCH=1` / `STRAYTA_PAINTBENCH=1` / `STRAYTA_TRANSFORMBENCH=1` / `STRAYTA_ADJUSTBENCH=1`
 measure frame rates (layer drag, brush stroke, free transform, Properties slider drag) on the first opened file
 (`STRAYTA_TRANSFORMBENCH=new` builds a 4000×3000 document and runs the drag and transform benchmarks on it);
-`STRAYTA_THEME=Light|Dark` sets the starting appearance.
+`STRAYTA_SEGBENCH=1` times Object Selection and Select Subject (encoder, per-prompt latency, memory) on the
+first opened file; `STRAYTA_THEME=Light|Dark` sets the starting appearance.
+
+### AI selection models
+
+Object Selection and Select > Subject run neural networks on your computer with ONNX Runtime (CPU); images never
+leave the machine. `src/Strayta.Segmentation` holds the inference code and only the editor references it; the
+PSD engine and renderer do not depend on it.
+
+The models (about 335 MB) are not in the repository. Fetch them once:
+
+```sh
+dotnet build tools/FetchModels.proj
+```
+
+This downloads pinned files from Hugging Face into `models/`, verifies their SHA-256, and building the editor
+copies them to `models/` next to the app (`dotnet build apps/Strayta.Editor -p:FetchModels=true` does both).
+Set `STRAYTA_MODELS` to use another folder. Without the models the editor runs normally and the tool explains
+how to fetch them; model tests are skipped.
+
+| Feature | Model | License |
+|---|---|---|
+| Object Selection | SAM 2.1 Hiera-S (Meta), ONNX export by Viet-Anh Nguyen | Apache-2.0 |
+| Select Subject | BiRefNet-lite (Zheng Peng et al.), 512×512 ONNX export | MIT |
+
+Sources, exact revisions, checksums, attributions and license texts are in [models/MODELS.md](models/MODELS.md).
 
 ## Inspect tool
 

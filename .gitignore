@@ -497,3 +497,8 @@ corpus/
 
 # Claude Code working state (agent worktrees)
 .claude/
+
+# AI selection models: downloaded by tools/FetchModels.proj, never committed (see models/MODELS.md)
+/models/*
+!/models/MODELS.md
+!/models/licenses/

@@ -169,6 +169,11 @@ public sealed partial class EditorViewModel : ObservableObject
                 await Task.Delay(1500);
                 await document.RunAdjustmentBenchmarkAsync();
             }
+            if (Environment.GetEnvironmentVariable("STRAYTA_SEGBENCH") == "1")
+            {
+                await Task.Delay(1500);
+                await document.RunSegmentationBenchmarkAsync(); // DocumentViewModel.ObjectSelection.cs
+            }
         }
         catch (Exception ex)
         {
@@ -181,6 +186,7 @@ public sealed partial class EditorViewModel : ObservableObject
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsMoveTool), nameof(IsHandTool), nameof(IsBrushTool), nameof(IsEraserTool), nameof(IsPaintTool), nameof(ToolName))]
     [NotifyPropertyChangedFor(nameof(IsRectSelectTool), nameof(IsEllipseSelectTool), nameof(IsLassoTool), nameof(IsMarqueeTool))]
+    [NotifyPropertyChangedFor(nameof(IsObjectSelectTool))]
     public partial CanvasTool Tool { get; set; } = CanvasTool.Move;
 
     public bool IsMoveTool { get => Tool == CanvasTool.Move; set { if (value) Tool = CanvasTool.Move; } }
@@ -192,6 +198,7 @@ public sealed partial class EditorViewModel : ObservableObject
     {
         CanvasTool.RectSelect => "Rectangular Marquee",
         CanvasTool.EllipseSelect => "Elliptical Marquee",
+        CanvasTool.ObjectSelect => "Object Selection",
         _ => Tool.ToString(),
     };
 

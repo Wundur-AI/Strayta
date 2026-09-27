@@ -1,0 +1,91 @@
+<!--
+  Downloads the AI selection models into models/ (see models/MODELS.md for sources and licenses):
+
+      dotnet build tools/FetchModels.proj
+
+  Each file comes from a pinned Hugging Face revision and is checked against its SHA-256; files already present
+  with the right hash are left alone. The models are too large for git, so models/ is ignored except MODELS.md.
+  Building the editor with -p:FetchModels=true runs this first.
+-->
+<Project DefaultTargets="Build">
+  <PropertyGroup>
+    <ModelsDir>$([MSBuild]::NormalizeDirectory('$(MSBuildThisFileDirectory)', '..', 'models'))</ModelsDir>
+    <ModelsDownloadDir>$(ModelsDir).download/</ModelsDownloadDir>
+
+    <!-- SAM 2.1 Hiera-S, ONNX export by Viet-Anh Nguyen (AnyLabeling), Apache-2.0. -->
+    <SamRevision>6a3ac868340a3196a349050a6efae22a5acc0330</SamRevision>
+    <SamZipName>sam2.1_hiera_small_20260221.zip</SamZipName>
+    <SamZipUrl>https://huggingface.co/vietanhdev/segment-anything-2.1-onnx-models/resolve/$(SamRevision)/$(SamZipName)</SamZipUrl>
+    <SamZipSha256>7c232acd0a95053704aa2ae9f9a3e8f9e93899fa51335b14d38e34bb7267973d</SamZipSha256>
+    <SamEncoderFile>sam2.1_hiera_small.encoder.onnx</SamEncoderFile>
+    <SamEncoderSha256>275013f35a03fcf9d9f32f0490bfb7acd8b8fb86f145ba173123eb3886c8d4b2</SamEncoderSha256>
+    <SamDecoderFile>sam2.1_hiera_small.decoder.onnx</SamDecoderFile>
+    <SamDecoderSha256>d158eb26a43d39eed23ef677d6826d17eb9eda951921f9a252fa5d36d871b57d</SamDecoderSha256>
+
+    <!-- BiRefNet_lite re-exported at 512×512, MIT. -->
+    <SubjectRevision>4a3c40c36c94093cc1e724d9ea428b8fa4b57dc7</SubjectRevision>
+    <SubjectUrl>https://huggingface.co/studioludens/birefnet-lite-512/resolve/$(SubjectRevision)/onnx/model.onnx</SubjectUrl>
+    <SubjectFile>birefnet-lite-512.onnx</SubjectFile>
+    <SubjectSha256>1cb0fb360dadd15af77c639085d77a9df67db0c64315560c3de005f676345ac2</SubjectSha256>
+  </PropertyGroup>
+
+  <!-- `dotnet build` restores first; there is nothing to restore. -->
+  <Target Name="Restore" />
+
+  <Target Name="Build" DependsOnTargets="FetchObjectModel;FetchSubjectModel">
+    <Message Importance="high" Text="Models are ready in $(ModelsDir)" />
+  </Target>
+
+  <Target Name="FetchObjectModel">
+    <GetFileHash Files="$(ModelsDir)$(SamEncoderFile)" Algorithm="SHA256" Condition="Exists('$(ModelsDir)$(SamEncoderFile)')">
+      <Output TaskParameter="Hash" PropertyName="_EncoderHash" />
+    </GetFileHash>
+    <GetFileHash Files="$(ModelsDir)$(SamDecoderFile)" Algorithm="SHA256" Condition="Exists('$(ModelsDir)$(SamDecoderFile)')">
+      <Output TaskParameter="Hash" PropertyName="_DecoderHash" />
+    </GetFileHash>
+    <PropertyGroup>
+      <_SamReady Condition="'$(_EncoderHash)' == '$(SamEncoderSha256)' and '$(_DecoderHash)' == '$(SamDecoderSha256)'">true</_SamReady>
+    </PropertyGroup>
+    <Message Importance="high" Text="SAM 2.1 (Hiera-S) is up to date." Condition="'$(_SamReady)' == 'true'" />
+
+    <Message Importance="high" Text="Downloading SAM 2.1 (Hiera-S), 143 MB..." Condition="'$(_SamReady)' != 'true'" />
+    <DownloadFile SourceUrl="$(SamZipUrl)" DestinationFolder="$(ModelsDownloadDir)" DestinationFileName="$(SamZipName)" Retries="3"
+                  Condition="'$(_SamReady)' != 'true'" />
+    <GetFileHash Files="$(ModelsDownloadDir)$(SamZipName)" Algorithm="SHA256" Condition="'$(_SamReady)' != 'true'">
+      <Output TaskParameter="Hash" PropertyName="_ZipHash" />
+    </GetFileHash>
+    <Error Condition="'$(_SamReady)' != 'true' and '$(_ZipHash)' != '$(SamZipSha256)'"
+           Text="$(SamZipName) has SHA-256 $(_ZipHash), expected $(SamZipSha256). The download is corrupt or the file changed upstream." />
+    <Unzip SourceFiles="$(ModelsDownloadDir)$(SamZipName)" DestinationFolder="$(ModelsDownloadDir)sam" Condition="'$(_SamReady)' != 'true'" />
+    <Copy SourceFiles="$(ModelsDownloadDir)sam/$(SamEncoderFile);$(ModelsDownloadDir)sam/$(SamDecoderFile)" DestinationFolder="$(ModelsDir)"
+          Condition="'$(_SamReady)' != 'true'" />
+    <RemoveDir Directories="$(ModelsDownloadDir)" Condition="'$(_SamReady)' != 'true'" />
+
+    <GetFileHash Files="$(ModelsDir)$(SamEncoderFile)" Algorithm="SHA256" Condition="'$(_SamReady)' != 'true'">
+      <Output TaskParameter="Hash" PropertyName="_EncoderHash2" />
+    </GetFileHash>
+    <GetFileHash Files="$(ModelsDir)$(SamDecoderFile)" Algorithm="SHA256" Condition="'$(_SamReady)' != 'true'">
+      <Output TaskParameter="Hash" PropertyName="_DecoderHash2" />
+    </GetFileHash>
+    <Error Condition="'$(_SamReady)' != 'true' and ('$(_EncoderHash2)' != '$(SamEncoderSha256)' or '$(_DecoderHash2)' != '$(SamDecoderSha256)')"
+           Text="The extracted SAM 2.1 files do not match their pinned SHA-256." />
+  </Target>
+
+  <Target Name="FetchSubjectModel">
+    <GetFileHash Files="$(ModelsDir)$(SubjectFile)" Algorithm="SHA256" Condition="Exists('$(ModelsDir)$(SubjectFile)')">
+      <Output TaskParameter="Hash" PropertyName="_SubjectHash" />
+    </GetFileHash>
+    <Message Importance="high" Text="BiRefNet-lite (512) is up to date." Condition="'$(_SubjectHash)' == '$(SubjectSha256)'" />
+
+    <Message Importance="high" Text="Downloading BiRefNet-lite (512), 192 MB..." Condition="'$(_SubjectHash)' != '$(SubjectSha256)'" />
+    <DownloadFile SourceUrl="$(SubjectUrl)" DestinationFolder="$(ModelsDownloadDir)" DestinationFileName="$(SubjectFile)" Retries="3"
+                  Condition="'$(_SubjectHash)' != '$(SubjectSha256)'" />
+    <GetFileHash Files="$(ModelsDownloadDir)$(SubjectFile)" Algorithm="SHA256" Condition="'$(_SubjectHash)' != '$(SubjectSha256)'">
+      <Output TaskParameter="Hash" PropertyName="_DownloadedHash" />
+    </GetFileHash>
+    <Error Condition="'$(_SubjectHash)' != '$(SubjectSha256)' and '$(_DownloadedHash)' != '$(SubjectSha256)'"
+           Text="$(SubjectFile) has SHA-256 $(_DownloadedHash), expected $(SubjectSha256). The download is corrupt or the file changed upstream." />
+    <Copy SourceFiles="$(ModelsDownloadDir)$(SubjectFile)" DestinationFolder="$(ModelsDir)" Condition="'$(_SubjectHash)' != '$(SubjectSha256)'" />
+    <RemoveDir Directories="$(ModelsDownloadDir)" Condition="'$(_SubjectHash)' != '$(SubjectSha256)'" />
+  </Target>
+</Project>
