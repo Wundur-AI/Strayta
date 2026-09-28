@@ -24,6 +24,9 @@ public enum CanvasTool
     Gradient,
     Zoom,
     Crop,
+    CloneStamp,
+    SpotHealing,
+    Healing,
 }
 
 /// <summary>
@@ -105,7 +108,7 @@ public sealed partial class ImageCanvas : Control
     private Point? _hover;
     private bool _stroking;
 
-    private bool IsPaintTool => Tool is CanvasTool.Brush or CanvasTool.Eraser;
+    private bool IsPaintTool => Tool is CanvasTool.Brush or CanvasTool.Eraser || IsRetouchTool; // ImageCanvas.Retouch.cs
 
     private Point ToImage(Point screen) => new((screen.X - _offset.X) / Zoom, (screen.Y - _offset.Y) / Zoom);
 
@@ -178,6 +181,7 @@ public sealed partial class ImageCanvas : Control
         DrawTransformBox(context);
         RenderEverydayTools(context); // ImageCanvas.Everyday.cs
         DrawCropOverlay(context);
+        RenderRetouch(context); // clone source overlay and crosshair (ImageCanvas.Retouch.cs)
 
         // Brush outline: a dark and a light ring so it stays visible over any colors.
         if ((IsPaintTool || Tool == CanvasTool.QuickSelect) && !_spaceHeld && FreeTransform is null && !EyedropperActive && _hover is { } h)
@@ -214,6 +218,12 @@ public sealed partial class ImageCanvas : Control
         }
         if (!_panning && EverydayPressed(e, props)) // Eyedropper, Paint Bucket, Gradient, Zoom (ImageCanvas.Everyday.cs)
         {
+            e.Pointer.Capture(this);
+            return;
+        }
+        if (!_panning && RetouchPressed(e, props)) // Option-click sets the clone source (ImageCanvas.Retouch.cs)
+        {
+            _dragStart = null;
             e.Pointer.Capture(this);
             return;
         }

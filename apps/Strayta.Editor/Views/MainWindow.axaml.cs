@@ -56,6 +56,8 @@ public partial class MainWindow : Window, IEditorDialogs
             Opened += async (_, _) => await SelfTest.RunSyntheticWandBenchmarkAsync(Editor);
         if (Environment.GetEnvironmentVariable("STRAYTA_TOOLBENCH") == "new")
             Opened += async (_, _) => await SelfTest.RunSyntheticToolsBenchmarkAsync(Editor); // SelfTest.Everyday.cs
+        if (Environment.GetEnvironmentVariable("STRAYTA_RETOUCHBENCH") == "new")
+            Opened += async (_, _) => await SelfTest.RunSyntheticRetouchBenchmarkAsync(Editor); // SelfTest.Retouch.cs
     }
 
     public EditorViewModel Editor { get; }

@@ -34,6 +34,19 @@ public sealed class StrokeOverlay
     public float CoverageAt(int x, int y) =>
         _factor == 1 ? _stroke.CoverageAt(x, y) : _stroke.CoverageAt(x * _factor + _factor / 2, y * _factor + _factor / 2);
 
+    /// <summary>True for cloning strokes, whose color comes from <see cref="ReadSource"/> pixel by pixel.</summary>
+    public bool HasSource => _stroke.Source is not null;
+
+    /// <summary>
+    /// A cloning stroke's color at a (preview) pixel into <paramref name="color"/> (<paramref name="channels"/> entries),
+    /// sampled at the same full-resolution point as <see cref="CoverageAt"/>; returns the source's alpha (0 while the
+    /// source is not ready, so nothing shows yet).
+    /// </summary>
+    public float ReadSource(int x, int y, Span<float> color, int channels) =>
+        _stroke.Source is not { } source ? 0f
+        : _factor == 1 ? source.Read(x, y, color, channels)
+        : source.Read(x * _factor + _factor / 2, y * _factor + _factor / 2, color, channels);
+
     /// <summary>
     /// The mask stroke painting <paramref name="node"/>'s mask, if any. Pixel strokes return null, so callers can
     /// pass the render's active stroke through unconditionally.

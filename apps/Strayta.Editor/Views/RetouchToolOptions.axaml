@@ -1,0 +1,67 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Strayta.Editor.ViewModels"
+             x:Class="Strayta.Editor.Views.RetouchToolOptions"
+             x:DataType="vm:EditorViewModel"
+             VerticalAlignment="Center"
+             IsVisible="{Binding IsRetouchTool}">
+  <UserControl.Styles>
+    <Style Selector="ComboBox">
+      <Setter Property="FontSize" Value="11" />
+      <Setter Property="MinHeight" Value="0" />
+      <Setter Property="Padding" Value="8,2" />
+    </Style>
+  </UserControl.Styles>
+
+  <!-- Options-bar settings for the Clone Stamp, Healing Brush and Spot Healing Brush (EditorViewModel.Retouch.cs).
+       Size and hardness are the Brush's, so `[` and `]` resize them the same way. -->
+  <StackPanel Orientation="Horizontal" Spacing="14">
+    <StackPanel Orientation="Horizontal" Spacing="8">
+      <TextBlock Classes="label" Text="Size" VerticalAlignment="Center" />
+      <Slider Width="110" Minimum="1" Maximum="500" Value="{Binding BrushSize}" VerticalAlignment="Center" />
+      <TextBlock Text="{Binding BrushSize, StringFormat='{}{0:0} px'}" VerticalAlignment="Center" MinWidth="44" />
+    </StackPanel>
+    <StackPanel Orientation="Horizontal" Spacing="8">
+      <TextBlock Classes="label" Text="Hardness" VerticalAlignment="Center" />
+      <Slider Width="80" Minimum="0" Maximum="100" Value="{Binding BrushHardness}" VerticalAlignment="Center" />
+      <TextBlock Text="{Binding BrushHardness, StringFormat='{}{0:0}%'}" VerticalAlignment="Center" MinWidth="34" />
+    </StackPanel>
+
+    <!-- Clone Stamp -->
+    <StackPanel Orientation="Horizontal" Spacing="14" IsVisible="{Binding IsCloneStampTool}">
+      <StackPanel Orientation="Horizontal" Spacing="8">
+        <TextBlock Classes="label" Text="Opacity" VerticalAlignment="Center" />
+        <Slider Width="80" Minimum="1" Maximum="100" Value="{Binding BrushOpacity}" VerticalAlignment="Center" />
+        <TextBlock Text="{Binding BrushOpacity, StringFormat='{}{0:0}%'}" VerticalAlignment="Center" MinWidth="34" />
+      </StackPanel>
+      <CheckBox Content="Aligned" IsChecked="{Binding CloneAligned}" FontSize="11"
+                ToolTip.Tip="Keep the distance to the source between strokes; off starts every stroke at the source point" />
+      <StackPanel Orientation="Horizontal" Spacing="6">
+        <TextBlock Classes="label" Text="Sample" VerticalAlignment="Center" />
+        <ComboBox ItemsSource="{Binding RetouchSampleNames}" SelectedIndex="{Binding CloneSampleIndex}" Width="130" />
+      </StackPanel>
+      <TextBlock Classes="label" VerticalAlignment="Center" Text="Option-click to set the source · paint to copy it" />
+    </StackPanel>
+
+    <!-- Healing Brush -->
+    <StackPanel Orientation="Horizontal" Spacing="14" IsVisible="{Binding IsHealingTool}">
+      <CheckBox Content="Aligned" IsChecked="{Binding HealAligned}" FontSize="11"
+                ToolTip.Tip="Keep the distance to the source between strokes; off starts every stroke at the source point" />
+      <StackPanel Orientation="Horizontal" Spacing="6">
+        <TextBlock Classes="label" Text="Sample" VerticalAlignment="Center" />
+        <ComboBox ItemsSource="{Binding RetouchSampleNames}" SelectedIndex="{Binding HealSampleIndex}" Width="130" />
+      </StackPanel>
+      <TextBlock Classes="label" VerticalAlignment="Center"
+                 Text="Option-click to set the source · paint over a flaw; on release its texture blends into the surrounding colors" />
+    </StackPanel>
+
+    <!-- Spot Healing Brush -->
+    <StackPanel Orientation="Horizontal" Spacing="14" IsVisible="{Binding IsSpotHealingTool}">
+      <TextBlock Classes="label" Text="Type: Proximity Match" VerticalAlignment="Center"
+                 ToolTip.Tip="Heals from the nearby area whose surroundings match the spot's best" />
+      <CheckBox Content="Sample All Layers" IsChecked="{Binding SpotSampleAllLayers}" FontSize="11"
+                ToolTip.Tip="Look at the whole image instead of the selected layer (paint on an empty layer to keep the fix separate)" />
+      <TextBlock Classes="label" VerticalAlignment="Center" Text="Paint over a spot; it is healed from its surroundings on release" />
+    </StackPanel>
+  </StackPanel>
+</UserControl>

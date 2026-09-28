@@ -10,6 +10,7 @@ public static class MaskBaker
     /// Paints a mask stroke: each sample moves toward the stroke's gray by coverage × opacity, the same
     /// source-over a brush does on an opaque grayscale channel. The mask grows to cover the stroke; area it
     /// did not cover before starts at its default color, so the result looks the same outside the stroke.
+    /// A cloning stroke (<see cref="PaintStroke.Source"/>, a mask source) moves each sample toward the source's gray there.
     /// </summary>
     public static LayerMask Bake(LayerMask mask, PaintStroke stroke, int bitDepth)
     {
@@ -40,13 +41,20 @@ public static class MaskBaker
             }
             if (y < sb.Top || y >= sb.Bottom) return;
 
+            Span<float> sample = stackalloc float[1];
             for (int x = sb.Left; x < sb.Right; x++)
             {
                 float cov = stroke.CoverageAt(x, y) * opacity;
                 if (cov <= 0f) continue;
+                float target = gray;
+                if (stroke.Source is { } source)
+                {
+                    cov *= source.Read(x, y, sample, 1);
+                    target = sample[0];
+                }
                 int i = dst + x - bounds.Left;
                 float m = plane.GetNormalized(i);
-                Set(plane, i, m + (gray - m) * cov);
+                Set(plane, i, m + (target - m) * cov);
             }
         });
 
