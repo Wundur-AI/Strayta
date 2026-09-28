@@ -1,0 +1,59 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:Strayta.Editor.ViewModels"
+        xmlns:c="using:Strayta.Editor.Controls"
+        x:Class="Strayta.Editor.Views.FilterWindow"
+        x:DataType="vm:FilterSessionViewModel"
+        Title="{Binding Title}"
+        SizeToContent="WidthAndHeight" CanResize="False"
+        WindowStartupLocation="CenterOwner"
+        Background="{DynamicResource St.Panel}">
+  <!-- Photoshop's filter dialog: the preview square with its zoom buttons on the left, OK / Cancel / Preview on the
+       right, the settings below. Dragging in the preview moves it around the image. -->
+  <StackPanel Margin="18,16" Spacing="14">
+    <Grid ColumnDefinitions="Auto,18,Auto">
+      <StackPanel Spacing="6">
+        <Border x:Name="PreviewBox" Width="280" Height="280" ClipToBounds="True" Cursor="Hand"
+                Background="{DynamicResource St.Canvas}" BorderBrush="{DynamicResource St.Border}" BorderThickness="1"
+                ToolTip.Tip="Drag to see another part of the image">
+          <Image Source="{Binding PreviewImage}" Width="{Binding PreviewWidth}" Height="{Binding PreviewHeight}"
+                 Stretch="Fill" RenderOptions.BitmapInterpolationMode="None"
+                 HorizontalAlignment="Center" VerticalAlignment="Center" />
+        </Border>
+        <Grid ColumnDefinitions="Auto,*,Auto">
+          <Button Classes="icon" Content="−" FontSize="15" Width="26" Command="{Binding ZoomOutCommand}"
+                  IsEnabled="{Binding CanZoomOut}" ToolTip.Tip="Zoom out" />
+          <TextBlock Grid.Column="1" Text="{Binding ZoomText}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+          <Button Grid.Column="2" Classes="icon" Content="+" FontSize="15" Width="26" Command="{Binding ZoomInCommand}"
+                  IsEnabled="{Binding CanZoomIn}" ToolTip.Tip="Zoom in" />
+        </Grid>
+      </StackPanel>
+
+      <StackPanel Grid.Column="2" Spacing="8" Width="96">
+        <Button x:Name="OkButton" Content="OK" IsDefault="True" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" />
+        <Button x:Name="CancelButton" Content="Cancel" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                ToolTip.Tip="Option: Reset" />
+        <CheckBox Content="Preview" IsChecked="{Binding Preview}" Margin="0,4,0,0" ToolTip.Tip="Show the filter on the canvas" />
+      </StackPanel>
+    </Grid>
+
+    <StackPanel Spacing="10" Width="394" HorizontalAlignment="Left">
+      <c:SliderField Label="Amount (%)" IsVisible="{Binding HasAmount}" Value="{Binding Amount}"
+                     Minimum="{Binding AmountMinimum}" Maximum="{Binding AmountMaximum}" Format="{Binding AmountFormat}" />
+      <c:SliderField Label="Angle (°)" IsVisible="{Binding HasAngle}" Value="{Binding Angle}" Minimum="-360" Maximum="360" />
+      <c:SliderField Label="Distance (Pixels)" IsVisible="{Binding HasDistance}" Value="{Binding Distance}"
+                     Minimum="1" Maximum="2000" Logarithmic="True" />
+      <c:SliderField Label="Radius (Pixels)" IsVisible="{Binding HasRadius}" Value="{Binding Radius}"
+                     Minimum="{Binding RadiusMinimum}" Maximum="{Binding RadiusMaximum}" Format="{Binding RadiusFormat}" Logarithmic="True" />
+      <c:SliderField Label="Threshold (Levels)" IsVisible="{Binding HasThreshold}" Value="{Binding Threshold}" Minimum="0" Maximum="255" />
+      <StackPanel Spacing="6" IsVisible="{Binding HasNoiseOptions}">
+        <TextBlock Classes="label" Text="Distribution" />
+        <StackPanel Orientation="Horizontal" Spacing="16">
+          <RadioButton GroupName="Distribution" Content="Uniform" IsChecked="{Binding UniformNoise}" />
+          <RadioButton GroupName="Distribution" Content="Gaussian" IsChecked="{Binding GaussianNoise}" />
+        </StackPanel>
+        <CheckBox Content="Monochromatic" IsChecked="{Binding Monochromatic}" Margin="0,4,0,0" />
+      </StackPanel>
+    </StackPanel>
+  </StackPanel>
+</Window>

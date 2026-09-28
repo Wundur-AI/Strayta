@@ -156,6 +156,7 @@ internal static partial class SelfTest
         await RunRefineSelectionStepsAsync(editor, Check); // SelfTest.RefineSelection.cs
         await RunCropStepsAsync(editor, Check); // SelfTest.Crop.cs
         await RunRetouchStepsAsync(editor, Check); // SelfTest.Retouch.cs
+        await RunFilterStepsAsync(editor, Check); // SelfTest.Filters.cs
         try
         {
             await RunObjectSelectionStepsAsync(editor, Check); // SelfTest.ObjectSelection.cs

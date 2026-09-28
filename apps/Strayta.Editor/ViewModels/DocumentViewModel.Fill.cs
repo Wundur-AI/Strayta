@@ -164,7 +164,7 @@ public sealed partial class DocumentViewModel
     /// Free Transform and the gradient being dragged, to run on the render thread before rendering (null when neither).
     /// </summary>
     private Action<CancellationToken>? PrepareOverlays(PreviewDocument proxy, bool full) =>
-        PrepareTransform(proxy, full) + PrepareGradient(proxy);
+        PrepareTransform(proxy, full) + PrepareGradient(proxy) + PrepareFilter(proxy, full); // Filters: DocumentViewModel.Filters.cs
 
     // ---- Benchmark -------------------------------------------------------------------------------------
 
