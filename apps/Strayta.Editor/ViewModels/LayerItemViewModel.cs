@@ -12,7 +12,7 @@ namespace Strayta.Editor.ViewModels;
 /// A layer as shown in the Layers and Properties panels. Setting a property records an undoable edit on
 /// the owning document instead of changing the model directly.
 /// </summary>
-public sealed class LayerItemViewModel : ObservableObject
+public sealed partial class LayerItemViewModel : ObservableObject
 {
     private readonly DocumentViewModel _document;
     private bool _isExpanded;

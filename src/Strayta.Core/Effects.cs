@@ -12,6 +12,15 @@ public readonly record struct GradientOpacityStop(float Location, float Midpoint
 /// <summary>A multi-stop gradient. Locations and midpoints are 0..1; a midpoint is where the blend reaches 50%.</summary>
 public sealed record Gradient(IReadOnlyList<GradientColorStop> Colors, IReadOnlyList<GradientOpacityStop> Opacities)
 {
+    /// <summary>Photoshop's name for the gradient (e.g. "Black, White"), kept so a saved style shows it again.</summary>
+    public string Name { get; init; } = "Custom";
+
+    /// <summary>Stops compare by value, so an unchanged gradient is recognised after a round trip.</summary>
+    public bool Equals(Gradient? other) =>
+        other is not null && Name == other.Name && Colors.SequenceEqual(other.Colors) && Opacities.SequenceEqual(other.Opacities);
+
+    public override int GetHashCode() => HashCode.Combine(Name, Colors.Count, Opacities.Count);
+
     /// <summary>Samples the gradient at <paramref name="t"/> (0..1).</summary>
     public (RgbColor Color, float Opacity) Sample(float t)
     {
@@ -55,14 +64,56 @@ public sealed record Gradient(IReadOnlyList<GradientColorStop> Colors, IReadOnly
 
 public enum GradientStyle { Linear, Radial, Angle, Reflected, Diamond }
 
-/// <summary>Layer styles attached to a layer. Sizes and distances are in document pixels, already scaled.</summary>
-public sealed record LayerEffects(IReadOnlyList<LayerEffect> Items);
+/// <summary>
+/// Layer styles attached to a layer. Sizes and distances are in document pixels, already scaled.
+/// Equality is by value: the master switch and the items, where only the order among effects of the same kind
+/// matters (each kind has its fixed place in the stack, so files list the kinds in their own order).
+/// <see cref="SourceData"/> is not compared.
+/// </summary>
+public sealed record LayerEffects(IReadOnlyList<LayerEffect> Items)
+{
+    /// <summary>Photoshop's master switch (the "Effects" eye): off hides every effect but keeps them on the layer.</summary>
+    public bool Enabled { get; init; } = true;
 
+    /// <summary>Opaque data a format reader attaches so its writer can keep settings this model does not represent.</summary>
+    public object? SourceData { get; init; }
+
+    public bool Equals(LayerEffects? other) =>
+        other is not null && Enabled == other.Enabled && Items.Count == other.Items.Count
+        && ByKind(Items).SequenceEqual(ByKind(other.Items));
+
+    /// <summary>A stable sort by kind: keeps the order within a kind.</summary>
+    private static IEnumerable<LayerEffect> ByKind(IEnumerable<LayerEffect> items) =>
+        items.OrderBy(e => e.GetType().Name, StringComparer.Ordinal);
+
+    public override int GetHashCode() => HashCode.Combine(Enabled, Items.Count);
+
+    /// <summary>The effects that draw something: the master switch is on and the effect's own eye is open.</summary>
+    public IEnumerable<LayerEffect> Visible => Enabled ? Items.Where(e => e.Enabled) : [];
+}
+
+/// <summary>
+/// One layer effect. Records compare by value, except <see cref="SourceData"/>: two effects with the same settings
+/// are equal whether they came from a file or from the editor.
+/// </summary>
 public abstract record LayerEffect
 {
+    /// <summary>The effect's eye in the Layers panel (Photoshop's "enab"); a hidden effect stays on the layer.</summary>
     public bool Enabled { get; init; } = true;
     public BlendMode BlendMode { get; init; } = BlendMode.Normal;
     public float Opacity { get; init; } = 1f;
+
+    /// <summary>
+    /// Opaque data a format reader attaches (for PSD, the effect's own descriptor), so settings this model does not
+    /// represent (contour, noise, anti-aliasing, ...) survive editing the ones it does. <c>with</c> copies it along.
+    /// </summary>
+    public object? SourceData { get; init; }
+
+    public virtual bool Equals(LayerEffect? other) =>
+        other is not null && EqualityContract == other.EqualityContract
+        && Enabled == other.Enabled && BlendMode == other.BlendMode && Opacity == other.Opacity;
+
+    public override int GetHashCode() => HashCode.Combine(EqualityContract, Enabled, BlendMode, Opacity);
 }
 
 public sealed record DropShadowEffect : LayerEffect
@@ -70,6 +121,11 @@ public sealed record DropShadowEffect : LayerEffect
     public RgbColor Color { get; init; }
     /// <summary>Light angle in degrees, counterclockwise from the right; the shadow falls opposite.</summary>
     public float Angle { get; init; } = 120f;
+    /// <summary>
+    /// The angle follows the document's global light (<see cref="Document.GlobalLightAngle"/>). <see cref="Angle"/>
+    /// then holds that angle, so renderers need not look it up.
+    /// </summary>
+    public bool UseGlobalLight { get; init; } = true;
     public float Distance { get; init; }
     /// <summary>0..1 fraction of <see cref="Size"/> that is solid before the blur starts.</summary>
     public float Spread { get; init; }
@@ -78,11 +134,36 @@ public sealed record DropShadowEffect : LayerEffect
     public bool Knockout { get; init; } = true;
 }
 
+/// <summary>A shadow cast inside the layer's edges, as if the layer were a hole: the outside, offset and blurred.</summary>
+public sealed record InnerShadowEffect : LayerEffect
+{
+    public RgbColor Color { get; init; }
+    /// <inheritdoc cref="DropShadowEffect.Angle"/>
+    public float Angle { get; init; } = 120f;
+    /// <inheritdoc cref="DropShadowEffect.UseGlobalLight"/>
+    public bool UseGlobalLight { get; init; } = true;
+    public float Distance { get; init; }
+    /// <summary>0..1 fraction of <see cref="Size"/> that is solid before the blur starts.</summary>
+    public float Choke { get; init; }
+    public float Size { get; init; }
+}
+
 public sealed record OuterGlowEffect : LayerEffect
 {
     public RgbColor Color { get; init; }
     public float Spread { get; init; }
     public float Size { get; init; }
+}
+
+/// <summary>A glow inside the layer, from its edges inwards or from its center outwards.</summary>
+public sealed record InnerGlowEffect : LayerEffect
+{
+    public RgbColor Color { get; init; }
+    /// <summary>0..1 fraction of <see cref="Size"/> that is solid before the blur starts.</summary>
+    public float Choke { get; init; }
+    public float Size { get; init; }
+    /// <summary>Photoshop's "Center" source: the glow fills the middle and fades towards the edges.</summary>
+    public bool FromCenter { get; init; }
 }
 
 public sealed record ColorOverlayEffect : LayerEffect
@@ -113,5 +194,9 @@ public sealed record StrokeEffect : LayerEffect
     public StrokePosition Position { get; init; }
 }
 
-/// <summary>An effect that was read but cannot be rendered yet (bevel, satin, inner glow, ...).</summary>
+/// <summary>
+/// An effect that was read but cannot be rendered or edited yet (bevel, satin, pattern overlay, gradient strokes and
+/// glows). It stays on the layer, and in the saved file, as it was; only its visibility can change.
+/// </summary>
 public sealed record UnsupportedEffect(string Name) : LayerEffect;
+

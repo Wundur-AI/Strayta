@@ -171,13 +171,18 @@ public sealed class PreviewDocument
         {
             if (byFactor.TryGetValue(Factor, out var scaled)) return scaled;
             float s = 1f / Factor;
-            scaled = new LayerEffects(fx.Items.Select(e => e switch
+            scaled = fx with
             {
-                DropShadowEffect d => d with { Distance = d.Distance * s, Size = d.Size * s },
-                OuterGlowEffect g => g with { Size = g.Size * s },
-                StrokeEffect k => k with { Size = k.Size * s },
-                _ => e,
-            }).ToList());
+                Items = fx.Items.Select(e => e switch
+                {
+                    DropShadowEffect d => d with { Distance = d.Distance * s, Size = d.Size * s },
+                    InnerShadowEffect d => d with { Distance = d.Distance * s, Size = d.Size * s },
+                    OuterGlowEffect g => g with { Size = g.Size * s },
+                    InnerGlowEffect g => g with { Size = g.Size * s },
+                    StrokeEffect k => k with { Size = k.Size * s },
+                    _ => e,
+                }).ToList(),
+            };
             byFactor[Factor] = scaled;
             return scaled;
         }

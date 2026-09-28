@@ -60,7 +60,7 @@ public class EffectParsingTests
     }
 
     [Fact]
-    public void Reads_drop_shadow_and_stroke_and_skips_disabled_effects()
+    public void Reads_drop_shadow_and_stroke_and_keeps_hidden_effects_but_not_absent_ones()
     {
         var d = new DescriptorWriter().Descriptor("null", w => w
             .Bool("masterFXSwitch", true)
@@ -71,25 +71,32 @@ public class EffectParsingTests
             .Object("FrFX", "FrFX", 5, s => s
                 .Bool("enab", true).Enum("Styl", "FStl", "InsF").Enum("PntT", "FrFl", "SClr")
                 .Unit("Sz  ", "#Pxl", 3).Rgb("Clr ", 0, 0, 255))
-            .Object("SoFi", "SoFi", 2, s => s.Bool("enab", false).Rgb("Clr ", 0, 255, 0)), count: 4).ToArray();
+            .Object("SoFi", "SoFi", 2, s => s.Bool("enab", false).Rgb("Clr ", 0, 255, 0))
+            .Object("OrGl", "OrGl", 3, s => s.Bool("enab", false).Bool("present", false).Rgb("Clr ", 0, 255, 0)), count: 5).ToArray();
 
         var fx = ReadLayer(DescriptorWriter.EffectsBlock(d)).Effects!.Items;
 
-        Assert.Equal(2, fx.Count);
+        Assert.Equal(3, fx.Count); // the glow is only remembered by the dialog
         var shadow = Assert.IsType<DropShadowEffect>(fx[0]);
         Assert.Equal((BlendMode.Multiply, 0.5f, 90f, 4f, 6f), (shadow.BlendMode, shadow.Opacity, shadow.Angle, shadow.Distance, shadow.Size));
         Assert.Equal(new RgbColor(1, 0, 0), shadow.Color);
+        Assert.False(shadow.UseGlobalLight);
         var stroke = Assert.IsType<StrokeEffect>(fx[1]);
         Assert.Equal((StrokePosition.Inside, 3f), (stroke.Position, stroke.Size));
+        var hidden = Assert.IsType<ColorOverlayEffect>(fx[2]);
+        Assert.False(hidden.Enabled); // its eye is closed, but it stays on the layer
     }
 
     [Fact]
-    public void Master_switch_off_means_no_effects()
+    public void Master_switch_off_keeps_the_effects_but_hides_them()
     {
         var d = new DescriptorWriter().Descriptor("null", w => w
             .Bool("masterFXSwitch", false)
             .Object("SoFi", "SoFi", 2, s => s.Bool("enab", true).Rgb("Clr ", 0, 255, 0)), count: 2).ToArray();
-        Assert.Null(ReadLayer(DescriptorWriter.EffectsBlock(d)).Effects);
+        var effects = ReadLayer(DescriptorWriter.EffectsBlock(d)).Effects!;
+        Assert.False(effects.Enabled);
+        Assert.Single(effects.Items);
+        Assert.Empty(effects.Visible);
     }
 
     [Fact]

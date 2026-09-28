@@ -1,0 +1,237 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:Strayta.Editor.ViewModels"
+        xmlns:c="using:Strayta.Editor.Controls"
+        xmlns:core="using:Strayta.Core"
+        x:Class="Strayta.Editor.Views.LayerStyleWindow"
+        x:DataType="vm:LayerStyleViewModel"
+        Title="{Binding Title}"
+        Width="760" Height="560" MinWidth="640" MinHeight="460"
+        WindowStartupLocation="CenterOwner"
+        Background="{DynamicResource St.Panel}"
+        FontSize="12">
+  <!-- Photoshop's Layer Style dialog: the styles on the left (the checkbox turns one on or off, the name shows its
+       page), the selected style's settings in the middle, OK / Cancel / Preview on the right. -->
+  <Window.Styles>
+    <Style Selector="TextBlock.section">
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="Margin" Value="0,4,0,0" />
+    </Style>
+    <Style Selector="TextBlock.rowlabel">
+      <Setter Property="Width" Value="92" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+    <Style Selector="ComboBox">
+      <Setter Property="MinHeight" Value="24" />
+      <Setter Property="Height" Value="24" />
+      <Setter Property="Padding" Value="8,0" />
+      <Setter Property="FontSize" Value="12" />
+    </Style>
+    <Style Selector="ListBox#StyleList ListBoxItem">
+      <Setter Property="Padding" Value="8,3" />
+      <Setter Property="MinHeight" Value="0" />
+    </Style>
+  </Window.Styles>
+
+  <DockPanel Margin="12">
+    <!-- Buttons -->
+    <StackPanel DockPanel.Dock="Right" Width="110" Spacing="8" Margin="12,0,0,0">
+      <Button x:Name="OkButton" Content="OK" IsDefault="True" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" />
+      <Button x:Name="CancelButton" Content="Cancel" IsCancel="True" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" />
+      <CheckBox Content="Preview" IsChecked="{Binding Preview}" Margin="0,6,0,0" />
+    </StackPanel>
+
+    <!-- Styles -->
+    <Border DockPanel.Dock="Left" Width="190" BorderBrush="{DynamicResource St.Border}" BorderThickness="1" Margin="0,0,12,0">
+      <ListBox x:Name="StyleList" ItemsSource="{Binding Entries}" SelectedItem="{Binding SelectedEntry}" Background="Transparent">
+        <ListBox.ItemTemplate>
+          <DataTemplate x:DataType="vm:StyleEntry">
+            <DockPanel>
+              <Panel DockPanel.Dock="Left" Width="24">
+                <CheckBox IsVisible="{Binding HasCheckBox}" IsEnabled="{Binding CanToggle}" MinWidth="0" Padding="0"
+                          IsChecked="{Binding IsChecked}" />
+              </Panel>
+              <TextBlock Text="{Binding Name}" Opacity="{Binding NameOpacity}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+            </DockPanel>
+          </DataTemplate>
+        </ListBox.ItemTemplate>
+      </ListBox>
+    </Border>
+
+    <!-- The selected style's settings -->
+    <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+      <ContentControl Content="{Binding SelectedEntry}" Margin="0,0,6,0">
+        <ContentControl.DataTemplates>
+
+          <DataTemplate DataType="vm:BlendingEntry">
+            <StackPanel Spacing="10">
+              <TextBlock Classes="section" Text="Blending Options" />
+              <TextBlock Classes="muted" Text="General Blending" />
+              <DockPanel>
+                <TextBlock Classes="rowlabel" Text="Blend Mode:" />
+                <ComboBox ItemsSource="{x:Static vm:LayerStyleViewModel.EffectBlendModes}" SelectedItem="{Binding BlendMode}" Width="180">
+                  <ComboBox.ItemTemplate>
+                    <DataTemplate x:DataType="core:BlendMode">
+                      <TextBlock Text="{Binding Converter={x:Static c:BlendModeNames.Instance}}" />
+                    </DataTemplate>
+                  </ComboBox.ItemTemplate>
+                </ComboBox>
+              </DockPanel>
+              <c:SliderField Label="Opacity (%)" Minimum="0" Maximum="100" Value="{Binding Opacity}" />
+              <TextBlock Classes="muted" Text="Advanced Blending" />
+              <c:SliderField Label="Fill Opacity (%)" Minimum="0" Maximum="100" Value="{Binding Fill}" />
+            </StackPanel>
+          </DataTemplate>
+
+          <DataTemplate DataType="vm:ShadowEntry">
+            <StackPanel Spacing="10">
+              <TextBlock Classes="section" Text="{Binding Name}" />
+              <DockPanel>
+                <TextBlock Classes="rowlabel" Text="Blend Mode:" />
+                <ColorPicker DockPanel.Dock="Right" Color="{Binding Color}" Margin="8,0,0,0" ToolTip.Tip="Shadow color" />
+                <ComboBox ItemsSource="{x:Static vm:LayerStyleViewModel.EffectBlendModes}" SelectedItem="{Binding BlendMode}" HorizontalAlignment="Stretch">
+                  <ComboBox.ItemTemplate>
+                    <DataTemplate x:DataType="core:BlendMode">
+                      <TextBlock Text="{Binding Converter={x:Static c:BlendModeNames.Instance}}" />
+                    </DataTemplate>
+                  </ComboBox.ItemTemplate>
+                </ComboBox>
+              </DockPanel>
+              <c:SliderField Label="Opacity (%)" Minimum="0" Maximum="100" Value="{Binding Opacity}" />
+              <c:SliderField Label="Angle (°)" Minimum="-180" Maximum="180" Value="{Binding Angle}" />
+              <CheckBox Content="Use Global Light" IsChecked="{Binding UseGlobalLight}"
+                        ToolTip.Tip="Share the document's light angle with every shadow that uses it" />
+              <c:SliderField Label="Distance (px)" Minimum="0" Maximum="1000" Value="{Binding Distance}" />
+              <c:SliderField Label="{Binding SpreadLabel}" Minimum="0" Maximum="100" Value="{Binding Spread}" />
+              <c:SliderField Label="Size (px)" Minimum="0" Maximum="250" Value="{Binding Size}" />
+              <CheckBox Content="Layer Knocks Out Drop Shadow" IsChecked="{Binding Knockout}" IsVisible="{Binding IsDropShadow}" />
+            </StackPanel>
+          </DataTemplate>
+
+          <DataTemplate DataType="vm:GlowEntry">
+            <StackPanel Spacing="10">
+              <TextBlock Classes="section" Text="{Binding Name}" />
+              <DockPanel>
+                <TextBlock Classes="rowlabel" Text="Blend Mode:" />
+                <ColorPicker DockPanel.Dock="Right" Color="{Binding Color}" Margin="8,0,0,0" ToolTip.Tip="Glow color" />
+                <ComboBox ItemsSource="{x:Static vm:LayerStyleViewModel.EffectBlendModes}" SelectedItem="{Binding BlendMode}" HorizontalAlignment="Stretch">
+                  <ComboBox.ItemTemplate>
+                    <DataTemplate x:DataType="core:BlendMode">
+                      <TextBlock Text="{Binding Converter={x:Static c:BlendModeNames.Instance}}" />
+                    </DataTemplate>
+                  </ComboBox.ItemTemplate>
+                </ComboBox>
+              </DockPanel>
+              <c:SliderField Label="Opacity (%)" Minimum="0" Maximum="100" Value="{Binding Opacity}" />
+              <DockPanel IsVisible="{Binding IsInnerGlow}">
+                <TextBlock Classes="rowlabel" Text="Source:" />
+                <ComboBox ItemsSource="{x:Static vm:LayerStyleViewModel.GlowSources}" SelectedIndex="{Binding SourceIndex}" Width="120" />
+              </DockPanel>
+              <c:SliderField Label="{Binding SpreadLabel}" Minimum="0" Maximum="100" Value="{Binding Spread}" />
+              <c:SliderField Label="Size (px)" Minimum="0" Maximum="250" Value="{Binding Size}" />
+            </StackPanel>
+          </DataTemplate>
+
+          <DataTemplate DataType="vm:ColorOverlayEntry">
+            <StackPanel Spacing="10">
+              <TextBlock Classes="section" Text="{Binding Name}" />
+              <DockPanel>
+                <TextBlock Classes="rowlabel" Text="Blend Mode:" />
+                <ColorPicker DockPanel.Dock="Right" Color="{Binding Color}" Margin="8,0,0,0" ToolTip.Tip="Overlay color" />
+                <ComboBox ItemsSource="{x:Static vm:LayerStyleViewModel.EffectBlendModes}" SelectedItem="{Binding BlendMode}" HorizontalAlignment="Stretch">
+                  <ComboBox.ItemTemplate>
+                    <DataTemplate x:DataType="core:BlendMode">
+                      <TextBlock Text="{Binding Converter={x:Static c:BlendModeNames.Instance}}" />
+                    </DataTemplate>
+                  </ComboBox.ItemTemplate>
+                </ComboBox>
+              </DockPanel>
+              <c:SliderField Label="Opacity (%)" Minimum="0" Maximum="100" Value="{Binding Opacity}" />
+            </StackPanel>
+          </DataTemplate>
+
+          <DataTemplate DataType="vm:GradientOverlayEntry">
+            <StackPanel Spacing="10">
+              <TextBlock Classes="section" Text="{Binding Name}" />
+              <DockPanel>
+                <TextBlock Classes="rowlabel" Text="Blend Mode:" />
+                <ComboBox ItemsSource="{x:Static vm:LayerStyleViewModel.EffectBlendModes}" SelectedItem="{Binding BlendMode}" HorizontalAlignment="Stretch">
+                  <ComboBox.ItemTemplate>
+                    <DataTemplate x:DataType="core:BlendMode">
+                      <TextBlock Text="{Binding Converter={x:Static c:BlendModeNames.Instance}}" />
+                    </DataTemplate>
+                  </ComboBox.ItemTemplate>
+                </ComboBox>
+              </DockPanel>
+              <c:SliderField Label="Opacity (%)" Minimum="0" Maximum="100" Value="{Binding Opacity}" />
+              <DockPanel>
+                <TextBlock Classes="rowlabel" Text="Gradient:" />
+                <CheckBox DockPanel.Dock="Right" Content="Reverse" IsChecked="{Binding Reverse}" Margin="8,0,0,0" />
+                <StackPanel Spacing="4">
+                  <Border Height="18" CornerRadius="2" BorderBrush="{DynamicResource St.Border}" BorderThickness="1" Background="{Binding GradientBrush}" />
+                  <ComboBox ItemsSource="{Binding GradientNames}" SelectedIndex="{Binding GradientIndex}" HorizontalAlignment="Stretch" />
+                </StackPanel>
+              </DockPanel>
+              <DockPanel>
+                <TextBlock Classes="rowlabel" Text="Style:" />
+                <CheckBox DockPanel.Dock="Right" Content="Align with Layer" IsChecked="{Binding Align}" Margin="8,0,0,0" />
+                <ComboBox ItemsSource="{x:Static vm:LayerStyleViewModel.GradientStyles}" SelectedIndex="{Binding StyleIndex}" HorizontalAlignment="Stretch" />
+              </DockPanel>
+              <c:SliderField Label="Angle (°)" Minimum="-180" Maximum="180" Value="{Binding Angle}" />
+              <c:SliderField Label="Scale (%)" Minimum="10" Maximum="150" Value="{Binding Scale}" />
+            </StackPanel>
+          </DataTemplate>
+
+          <DataTemplate DataType="vm:StrokeEntry">
+            <StackPanel Spacing="10">
+              <TextBlock Classes="section" Text="{Binding Name}" />
+              <c:SliderField Label="Size (px)" Minimum="1" Maximum="250" Value="{Binding Size}" />
+              <DockPanel>
+                <TextBlock Classes="rowlabel" Text="Position:" />
+                <ComboBox ItemsSource="{x:Static vm:LayerStyleViewModel.StrokePositions}" SelectedIndex="{Binding PositionIndex}" Width="120" />
+              </DockPanel>
+              <DockPanel>
+                <TextBlock Classes="rowlabel" Text="Blend Mode:" />
+                <ComboBox ItemsSource="{x:Static vm:LayerStyleViewModel.EffectBlendModes}" SelectedItem="{Binding BlendMode}" HorizontalAlignment="Stretch">
+                  <ComboBox.ItemTemplate>
+                    <DataTemplate x:DataType="core:BlendMode">
+                      <TextBlock Text="{Binding Converter={x:Static c:BlendModeNames.Instance}}" />
+                    </DataTemplate>
+                  </ComboBox.ItemTemplate>
+                </ComboBox>
+              </DockPanel>
+              <c:SliderField Label="Opacity (%)" Minimum="0" Maximum="100" Value="{Binding Opacity}" />
+              <DockPanel>
+                <TextBlock Classes="rowlabel" Text="Fill Type:" />
+                <ComboBox SelectedIndex="0" Width="120" ToolTip.Tip="Gradient and pattern strokes are not available yet">
+                  <ComboBoxItem Content="Color" />
+                  <ComboBoxItem Content="Gradient" IsEnabled="False" />
+                  <ComboBoxItem Content="Pattern" IsEnabled="False" />
+                </ComboBox>
+              </DockPanel>
+              <DockPanel>
+                <TextBlock Classes="rowlabel" Text="Color:" />
+                <ColorPicker Color="{Binding Color}" HorizontalAlignment="Left" ToolTip.Tip="Stroke color" />
+              </DockPanel>
+            </StackPanel>
+          </DataTemplate>
+
+          <DataTemplate DataType="vm:UnsupportedEntry">
+            <StackPanel Spacing="10">
+              <TextBlock Classes="section" Text="{Binding Name}" />
+              <TextBlock Classes="muted" Text="{Binding Message}" TextWrapping="Wrap" />
+            </StackPanel>
+          </DataTemplate>
+
+          <DataTemplate DataType="vm:UnavailableEntry">
+            <StackPanel Spacing="10">
+              <TextBlock Classes="section" Text="{Binding Name}" />
+              <TextBlock Classes="muted" Text="{Binding Message}" TextWrapping="Wrap" />
+            </StackPanel>
+          </DataTemplate>
+
+        </ContentControl.DataTemplates>
+      </ContentControl>
+    </ScrollViewer>
+  </DockPanel>
+</Window>

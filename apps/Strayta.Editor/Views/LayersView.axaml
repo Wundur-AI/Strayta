@@ -108,6 +108,22 @@
     <Border DockPanel.Dock="Bottom" Padding="6,3" BorderBrush="{DynamicResource St.Border}" BorderThickness="0,1,0,0">
       <DockPanel>
         <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="0">
+          <Button Classes="icon" ToolTip.Tip="Add a layer style">
+            <TextBlock Text="fx" FontStyle="Italic" FontWeight="SemiBold" FontSize="12" Margin="0,-2,0,0" />
+            <Button.Flyout>
+              <MenuFlyout Placement="TopEdgeAlignedLeft">
+                <MenuItem Header="Blending Options…" Tag="BlendingOptions" Click="OnLayerStyleMenu" />
+                <Separator />
+                <MenuItem Header="Stroke…" Tag="Stroke" Click="OnLayerStyleMenu" />
+                <MenuItem Header="Inner Shadow…" Tag="InnerShadow" Click="OnLayerStyleMenu" />
+                <MenuItem Header="Inner Glow…" Tag="InnerGlow" Click="OnLayerStyleMenu" />
+                <MenuItem Header="Color Overlay…" Tag="ColorOverlay" Click="OnLayerStyleMenu" />
+                <MenuItem Header="Gradient Overlay…" Tag="GradientOverlay" Click="OnLayerStyleMenu" />
+                <MenuItem Header="Outer Glow…" Tag="OuterGlow" Click="OnLayerStyleMenu" />
+                <MenuItem Header="Drop Shadow…" Tag="DropShadow" Click="OnLayerStyleMenu" />
+              </MenuFlyout>
+            </Button.Flyout>
+          </Button>
           <Button Classes="icon" ToolTip.Tip="Add layer mask (reveals the selection, if any)" Command="{Binding Editor.AddLayerMaskCommand}"><Path Classes="icon small" Data="{StaticResource IconMask}" /></Button>
           <Button Classes="icon" ToolTip.Tip="New adjustment layer">
             <Panel>
@@ -148,7 +164,8 @@
                ScrollViewer.HorizontalScrollBarVisibility="Disabled">
         <ListBox.ItemTemplate>
           <DataTemplate x:DataType="vm:LayerItemViewModel">
-            <Grid ColumnDefinitions="30,*" Height="34">
+            <StackPanel>
+            <Grid ColumnDefinitions="30,*" Height="34" Background="Transparent" DoubleTapped="OnRowDoubleTapped">
               <!-- Eye column: its own button-like cell, fixed at the left edge like Photoshop -->
               <Border Classes="hit eye" PointerPressed="OnEyePressed" ToolTip.Tip="Show or hide">
                 <Path Classes="icon small" Data="{StaticResource IconEye}" Opacity="{Binding EyeOpacity}"
@@ -194,7 +211,15 @@
 
                 <!-- Markers on the right -->
                 <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center" Margin="0,0,8,0">
-                  <TextBlock Text="fx" FontStyle="Italic" FontWeight="SemiBold" Classes="muted" IsVisible="{Binding HasEffects}" ToolTip.Tip="Has layer styles" />
+                  <!-- fx badge: click shows or hides the effect rows, double-click opens Layer Style (LayersView.LayerStyle.cs) -->
+                  <Border Classes="hit" Background="Transparent" IsVisible="{Binding HasEffects}" PointerPressed="OnFxPressed"
+                          DoubleTapped="OnFxDoubleTapped" ToolTip.Tip="Layer style: click to list the effects, double-click to edit">
+                    <StackPanel Orientation="Horizontal" Spacing="2">
+                      <TextBlock Text="fx" FontStyle="Italic" FontWeight="SemiBold" Classes="muted" VerticalAlignment="Center" />
+                      <Path Classes="icon small" Width="8" Height="8" VerticalAlignment="Center"
+                            Data="{Binding EffectsExpanded, Converter={x:Static vm:Disclosure.Instance}}" />
+                    </StackPanel>
+                  </Border>
                   <Path Classes="icon small" Data="{StaticResource IconWarning}" IsVisible="{Binding HasUnsupported}" Stroke="{DynamicResource St.Warning}"
                         ToolTip.Tip="Uses effects or adjustments that are not rendered yet" />
                   <Path Classes="icon small" Data="{StaticResource IconLock}" IsVisible="{Binding IsLocked}" Stroke="{DynamicResource St.TextMuted}"
@@ -210,6 +235,22 @@
                 </Panel>
               </DockPanel>
             </Grid>
+            <!-- The layer's effects, each with its eye, as in Photoshop -->
+            <ItemsControl ItemsSource="{Binding EffectRows}" IsVisible="{Binding ShowEffectRows}">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="vm:EffectRowViewModel">
+                  <Grid ColumnDefinitions="30,*" Height="20">
+                    <Border Classes="hit eye" PointerPressed="OnEffectEyePressed" ToolTip.Tip="Show or hide">
+                      <Path Classes="icon small" Width="11" Height="11" Data="{StaticResource IconEye}" Opacity="{Binding EyeOpacity}"
+                            HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                    <TextBlock Grid.Column="1" Text="{Binding Name}" Margin="{Binding Indent}" VerticalAlignment="Center"
+                               Classes="muted" TextTrimming="CharacterEllipsis" Background="Transparent" DoubleTapped="OnFxDoubleTapped" />
+                  </Grid>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+            </StackPanel>
           </DataTemplate>
         </ListBox.ItemTemplate>
       </ListBox>

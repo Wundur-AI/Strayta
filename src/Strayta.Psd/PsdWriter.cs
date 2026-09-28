@@ -16,7 +16,8 @@ public sealed class PsdWriteOptions
 
 /// <summary>
 /// Writes a <see cref="Document"/> as PSD or PSB. Layers read from a PSD keep every block this library
-/// does not model (text, smart objects, effects, ...) byte for byte; only the modeled properties are rewritten.
+/// does not model (text, smart objects, ...) byte for byte; only the modeled properties are rewritten, and layer
+/// styles and adjustment settings only on layers where they changed.
 /// </summary>
 public static class PsdWriter
 {
@@ -105,13 +106,28 @@ public static class PsdWriter
         // Resolution is modeled (Image Size can change it): the stored block is rewritten, keeping its display units.
         var resolution = source?.FindResource(PsdResolution.ResourceId);
         bool writeResolution = resolution is not null || source is null || doc.Resolution != 72;
+        // The global light (angle 1037, altitude 1049) is modeled too: stored as whole degrees, rewritten only when
+        // it changed, and added when the document has layer styles that may use it.
+        var globalLight = new Dictionary<int, int>
+        {
+            [GlobalAngleResource] = (int)MathF.Round(doc.GlobalLightAngle),
+            [GlobalAltitudeResource] = (int)MathF.Round(doc.GlobalLightAltitude),
+        };
         foreach (var r in source?.Resources ?? [])
         {
             if (DroppedResources.Contains(r.Id) || r.Id == PsdVersionInfo.ResourceId) continue;
+            if (globalLight.Remove(r.Id, out int degrees))
+            {
+                Write(r.Data.Length == 4 && BinaryPrimitives.ReadInt32BigEndian(r.Data) == degrees ? r : r with { Data = Int32(degrees) });
+                continue;
+            }
             Write(r.Id == PsdResolution.ResourceId ? r with { Data = PsdResolution.Write(doc.Resolution, r.Data) } : r);
         }
         if (writeResolution && resolution is null)
             Write(new ImageResource("8BIM", PsdResolution.ResourceId, "", PsdResolution.Write(doc.Resolution, null)));
+        if (doc.Root.Descendants().Any(n => n.Effects is not null))
+            foreach (var (id, degrees) in globalLight)
+                Write(new ImageResource("8BIM", id, "", Int32(degrees)));
 
         // Record that Strayta wrote this file, so its composite is not mistaken for a Photoshop render.
         var info = PsdVersionInfo.Read(source?.FindResource(PsdVersionInfo.ResourceId)?.Data);
@@ -240,7 +256,7 @@ public static class PsdWriter
                 // Photoshop keeps "pass" only in the section block; the record itself says "norm".
                 string groupKey = PsdBlocks.BlendKeyOf(group.BlendMode);
                 string recordKey = group.BlendMode == BlendMode.PassThrough ? "norm" : groupKey;
-                var blocks = Blocks(group, src);
+                var blocks = Blocks(group, src, doc);
                 blocks.Insert(0, ("lsct", SectionBlock(group.Expanded ? PsdSectionType.OpenFolder : PsdSectionType.ClosedFolder, groupKey)));
                 records.Add(new Record(PixelRect.Empty, folderChannels, recordKey, Opacity(group.Opacity), group.Clipped,
                     GroupFlags(group, src), maskData, src?.BlendingRanges ?? DefaultRanges(doc), group.Name, blocks));
@@ -262,7 +278,7 @@ public static class PsdWriter
                 var (maskData, maskChannels) = Mask(layer.Mask, src, psb);
                 channels.AddRange(maskChannels);
                 records.Add(new Record(rect, channels, PsdBlocks.BlendKeyOf(layer.BlendMode), Opacity(layer.Opacity), layer.Clipped,
-                    Flags(layer, src, layer.TransparencyLocked), maskData, src?.BlendingRanges ?? DefaultRanges(doc), layer.Name, Blocks(layer, src)));
+                    Flags(layer, src, layer.TransparencyLocked), maskData, src?.BlendingRanges ?? DefaultRanges(doc), layer.Name, Blocks(layer, src, doc)));
                 break;
             }
 
@@ -271,7 +287,7 @@ public static class PsdWriter
                 var (maskData, maskChannels) = Mask(adj.Mask, src, psb);
                 var channels = EmptyChannels(doc, psb);
                 channels.AddRange(maskChannels);
-                var blocks = Blocks(adj, src);
+                var blocks = Blocks(adj, src, doc);
                 PsdAdjustmentWriter.Refresh(adj, src, blocks); // edited settings replace the stored block
                 records.Add(new Record(PixelRect.Empty, channels, PsdBlocks.BlendKeyOf(adj.BlendMode), Opacity(adj.Opacity), adj.Clipped,
                     Flags(adj, src), maskData, src.BlendingRanges, adj.Name, blocks));
@@ -284,7 +300,7 @@ public static class PsdWriter
                 var (maskData, maskChannels) = Mask(adj.Mask, null, psb);
                 var channels = EmptyChannels(doc, psb);
                 channels.AddRange(maskChannels);
-                var blocks = Blocks(adj, null);
+                var blocks = Blocks(adj, null, doc);
                 blocks.Add((PsdAdjustmentWriter.KeyOf(adjustment), PsdAdjustmentWriter.Encode(adjustment)));
                 // Like Photoshop, flag the (empty) pixel data as irrelevant to the image.
                 records.Add(new Record(PixelRect.Empty, channels, PsdBlocks.BlendKeyOf(adj.BlendMode), Opacity(adj.Opacity), adj.Clipped,
@@ -298,7 +314,7 @@ public static class PsdWriter
     }
 
     /// <summary>The source record's blocks with the ones the model owns regenerated.</summary>
-    private static List<(string, byte[])> Blocks(LayerNode node, PsdLayerRecord? src)
+    private static List<(string, byte[])> Blocks(LayerNode node, PsdLayerRecord? src, Document doc)
     {
         var blocks = new List<(string, byte[])>();
         blocks.Add(("luni", UnicodeName(node.Name)));
@@ -309,6 +325,9 @@ public static class PsdWriter
             if (ManagedBlocks.Contains(b.Key)) continue;
             blocks.Add((b.Key, RequireData(b, $"layer \"{node.Name}\"")));
         }
+        // Edited layer styles replace the stored effect blocks; unedited ones keep their bytes.
+        float sourceAngle = doc.SourceData is PsdFile file ? PsdEffects.GlobalAngleOf(file) : 120f;
+        PsdEffectsWriter.Refresh(node, src, sourceAngle, blocks);
         return blocks;
     }
 
@@ -362,6 +381,15 @@ public static class PsdWriter
         (byte)((src?.Flags ?? 0x18) & ~0x03 | (g.Visible ? 0 : 0x02));
 
     private static byte Opacity(float v) => (byte)Math.Clamp(MathF.Round(v * 255f), 0f, 255f);
+
+    private const int GlobalAngleResource = 1037, GlobalAltitudeResource = 1049;
+
+    private static byte[] Int32(int v)
+    {
+        var b = new byte[4];
+        BinaryPrimitives.WriteInt32BigEndian(b, v);
+        return b;
+    }
 
     private static byte[] UnicodeName(string name)
     {

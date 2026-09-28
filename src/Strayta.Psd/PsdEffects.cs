@@ -3,6 +3,18 @@ using Strayta.Psd.Descriptors;
 
 namespace Strayta.Psd;
 
+/// <summary>
+/// What <see cref="PsdEffects"/> attaches to <see cref="LayerEffects.SourceData"/>: the block's top-level descriptor,
+/// so a rewrite keeps its scale, its other keys and the settings of effects that are not on the layer.
+/// </summary>
+public sealed record PsdEffectsSource(Descriptor Descriptor);
+
+/// <summary>
+/// What <see cref="PsdEffects"/> attaches to <see cref="LayerEffect.SourceData"/>: the effect's own descriptor and
+/// its effect type ("DrSh", "IrSh", "OrGl", "IrGl", "ebbl", "ChFX", "SoFi", "GrFl", "patternFill", "FrFX").
+/// </summary>
+public sealed record PsdEffectSource(string Type, Descriptor Descriptor);
+
 /// <summary>Reads layer styles from the 'lfx2' / 'lmfx' descriptor blocks.</summary>
 public static class PsdEffects
 {
@@ -10,15 +22,31 @@ public static class PsdEffects
     {
         ["IrSh"] = "Inner Shadow", ["IrGl"] = "Inner Glow", ["ebbl"] = "Bevel & Emboss", ["ChFX"] = "Satin",
         ["patternFill"] = "Pattern Overlay",
-        ["innerShadowMulti"] = "Inner Shadow",
     };
 
-    private static readonly Dictionary<string, string> MultiKeys = new()
+    /// <summary>
+    /// Photoshop CC stores the effects that can be added several times as lists under these keys; one of each can
+    /// also appear under the effect's own key (older files, or files from other applications).
+    /// </summary>
+    internal static readonly Dictionary<string, string> MultiKeys = new()
     {
         ["dropShadowMulti"] = "DrSh", ["frameFXMulti"] = "FrFX", ["solidFillMulti"] = "SoFi",
         ["gradientFillMulti"] = "GrFl", ["innerShadowMulti"] = "IrSh",
     };
 
+    /// <summary>The document's global light angle (image resource 1037), or Photoshop's default of 120°.</summary>
+    public static float GlobalAngleOf(PsdFile file) =>
+        file.FindResource(1037)?.Data is { Length: >= 4 } angle ? System.Buffers.Binary.BinaryPrimitives.ReadInt32BigEndian(angle) : 120f;
+
+    /// <summary>The document's global light altitude (image resource 1049), or Photoshop's default of 30°.</summary>
+    public static float GlobalAltitudeOf(PsdFile file) =>
+        file.FindResource(1049)?.Data is { Length: >= 4 } altitude ? System.Buffers.Binary.BinaryPrimitives.ReadInt32BigEndian(altitude) : 30f;
+
+    /// <summary>
+    /// Reads the effects shown in the Layers panel: those marked "present", whether their eye is open
+    /// (<see cref="LayerEffect.Enabled"/>) or not. Effects that are only remembered by the dialog are left out, and a
+    /// layer without any present effect has none (null). The master switch becomes <see cref="LayerEffects.Enabled"/>.
+    /// </summary>
     /// <param name="globalAngle">Document light angle (image resource 1037), used when an effect says "use global light".</param>
     public static LayerEffects? Read(PsdLayerRecord record, float globalAngle)
     {
@@ -35,7 +63,6 @@ public static class PsdEffects
             return new LayerEffects([new UnsupportedEffect("Layer style (unreadable)")]);
         }
 
-        if (d.Bool("masterFXSwitch") == false) return null;
         // 'Scl ' records the "Scale Effects" ratio; stored sizes already include it (verified against real files).
         const float scale = 1f;
 
@@ -51,17 +78,25 @@ public static class PsdEffects
             };
             foreach (var fx in descriptors)
             {
-                if (fx.Bool("enab") != true) continue;
-                if (Parse(type, fx, scale, globalAngle) is { } effect) items.Add(effect);
+                // Files from before 'present' existed list only the effects on the layer.
+                if (fx.Bool("present") == false) continue;
+                if (Parse(type, fx, scale, globalAngle) is { } effect)
+                    items.Add(effect with { Enabled = fx.Bool("enab") == true, SourceData = new PsdEffectSource(type, fx) });
             }
         }
-        return items.Count == 0 ? null : new LayerEffects(items);
+        return items.Count == 0 ? null : new LayerEffects(items)
+        {
+            Enabled = d.Bool("masterFXSwitch") != false,
+            SourceData = new PsdEffectsSource(d),
+        };
     }
 
     private static LayerEffect? Parse(string type, Descriptor fx, float scale, float globalAngle)
     {
         var mode = BlendModeOf(fx.Enum("Md  "));
         float opacity = (float)(fx.Number("Opct") ?? 100) / 100f;
+        bool global = fx.Bool("uglg") == true;
+        float angle = global ? globalAngle : (float)(fx.Number("lagl") ?? 120);
 
         switch (type)
         {
@@ -70,11 +105,22 @@ public static class PsdEffects
                 {
                     BlendMode = mode, Opacity = opacity,
                     Color = ColorOf(fx.Object("Clr ")),
-                    Angle = fx.Bool("uglg") == true ? globalAngle : (float)(fx.Number("lagl") ?? 120),
+                    Angle = angle, UseGlobalLight = global,
                     Distance = (float)(fx.Number("Dstn") ?? 0) * scale,
                     Spread = (float)(fx.Number("Ckmt") ?? 0) / 100f,
                     Size = (float)(fx.Number("blur") ?? 0) * scale,
                     Knockout = fx.Bool("layerConceals") ?? true,
+                };
+
+            case "IrSh":
+                return new InnerShadowEffect
+                {
+                    BlendMode = mode, Opacity = opacity,
+                    Color = ColorOf(fx.Object("Clr ")),
+                    Angle = angle, UseGlobalLight = global,
+                    Distance = (float)(fx.Number("Dstn") ?? 0) * scale,
+                    Choke = (float)(fx.Number("Ckmt") ?? 0) / 100f,
+                    Size = (float)(fx.Number("blur") ?? 0) * scale,
                 };
 
             case "OrGl" when fx.Has("Clr "):
@@ -84,6 +130,16 @@ public static class PsdEffects
                     Color = ColorOf(fx.Object("Clr ")),
                     Spread = (float)(fx.Number("Ckmt") ?? 0) / 100f,
                     Size = (float)(fx.Number("blur") ?? 0) * scale,
+                };
+
+            case "IrGl" when fx.Has("Clr "):
+                return new InnerGlowEffect
+                {
+                    BlendMode = mode, Opacity = opacity,
+                    Color = ColorOf(fx.Object("Clr ")),
+                    Choke = (float)(fx.Number("Ckmt") ?? 0) / 100f,
+                    Size = (float)(fx.Number("blur") ?? 0) * scale,
+                    FromCenter = fx.Enum("glwS") == "SrcC",
                 };
 
             case "SoFi":
@@ -128,6 +184,8 @@ public static class PsdEffects
                 return new UnsupportedEffect("Gradient or pattern stroke");
             case "OrGl":
                 return new UnsupportedEffect("Gradient outer glow");
+            case "IrGl":
+                return new UnsupportedEffect("Gradient inner glow");
             case "GrFl":
                 return new UnsupportedEffect("Gradient Overlay (unreadable gradient)");
             default:
@@ -185,7 +243,7 @@ public static class PsdEffects
             (float)(o.Value.Number("Lctn") ?? 0) / 4096f,
             (float)(o.Value.Number("Mdpn") ?? 50) / 100f,
             (float)(o.Value.Number("Opct") ?? 100) / 100f)).OrderBy(s => s.Location).ToList();
-        return colorStops.Count == 0 ? null : new Gradient(colorStops, opacityStops);
+        return colorStops.Count == 0 ? null : new Gradient(colorStops, opacityStops) { Name = g.Text("Nm  ") ?? "Custom" };
     }
 
     private static readonly Dictionary<string, BlendMode> Modes = new()
@@ -202,4 +260,8 @@ public static class PsdEffects
     };
 
     public static BlendMode BlendModeOf(string? key) => key is not null && Modes.TryGetValue(key, out var m) ? m : BlendMode.Normal;
+
+    /// <summary>The descriptor enum value ('BlnM' type) for a blend mode; the inverse of <see cref="BlendModeOf"/>.</summary>
+    public static string DescriptorKeyOf(BlendMode mode) =>
+        Modes.FirstOrDefault(kv => kv.Value == mode).Key ?? "Nrml";
 }
