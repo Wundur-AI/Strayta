@@ -39,9 +39,10 @@ internal sealed class FieldSource : Source
 }
 
 /// <summary>
-/// Renders a layer together with its layer styles, in Photoshop's stacking order:
-/// drop shadow and outer glow below the layer; gradient overlay, color overlay and stroke above it.
-/// Effects follow the layer's shape (pixel transparency × layer mask) and are not affected by fill opacity.
+/// Renders a layer together with its layer styles, in Photoshop's stacking order (the order of its Layer Style
+/// dialog, read bottom up): drop shadow and outer glow below the layer; gradient overlay, color overlay, inner glow,
+/// inner shadow and stroke above it. Effects follow the layer's shape (pixel transparency × layer mask) and are not
+/// affected by fill opacity. Hidden effects, and all of them when the master switch is off, are skipped.
 /// </summary>
 internal static class EffectRenderer
 {
@@ -50,7 +51,7 @@ internal static class EffectRenderer
     {
         if (effects is null) return 0;
         float reach = 0;
-        foreach (var e in effects.Items)
+        foreach (var e in effects.Visible)
         {
             reach = MathF.Max(reach, e switch
             {
@@ -64,7 +65,7 @@ internal static class EffectRenderer
     }
 
     public static bool HasRenderable(LayerEffects? effects) =>
-        effects?.Items.Any(e => e is not UnsupportedEffect) == true;
+        effects?.Visible.Any(e => e is not UnsupportedEffect) == true;
 
     /// <param name="composite">
     /// Composites a source with (blend mode, opacity, fill). An effect's own opacity acts as fill, which
@@ -73,7 +74,7 @@ internal static class EffectRenderer
     public static void Render(PixelLayer layer, LayerSource content, PixelRect targetBounds,
         Action<Source, BlendMode, float, float> composite)
     {
-        var effects = layer.Effects!.Items;
+        var effects = layer.Effects!.Visible.ToList();
         int reach = Reach(layer.Effects);
         var area = new PixelRect(content.Bounds.Left - reach, content.Bounds.Top - reach,
             content.Bounds.Right + reach, content.Bounds.Bottom + reach).Intersect(targetBounds);
@@ -116,6 +117,22 @@ internal static class EffectRenderer
         foreach (var overlay in effects.OfType<ColorOverlayEffect>())
             composite(new FieldSource(area, shape, overlay.Color), overlay.BlendMode, layerOpacity, overlay.Opacity);
 
+        foreach (var glow in effects.OfType<InnerGlowEffect>())
+        {
+            var outside = Outside(shape, w, h, glow.Choke * glow.Size, glow.Size * (1f - glow.Choke), 0, 0);
+            var alpha = new float[shape.Length];
+            for (int i = 0; i < alpha.Length; i++) alpha[i] = shape[i] * (glow.FromCenter ? 1f - outside[i] : outside[i]);
+            composite(new FieldSource(area, alpha, glow.Color), glow.BlendMode, layerOpacity, glow.Opacity);
+        }
+
+        foreach (var shadow in effects.OfType<InnerShadowEffect>())
+        {
+            var (dx, dy) = Offset(shadow.Angle, shadow.Distance);
+            var outside = Outside(shape, w, h, shadow.Choke * shadow.Size, shadow.Size * (1f - shadow.Choke), dx, dy);
+            for (int i = 0; i < outside.Length; i++) outside[i] *= shape[i];
+            composite(new FieldSource(area, outside, shadow.Color), shadow.BlendMode, layerOpacity, shadow.Opacity);
+        }
+
         foreach (var stroke in effects.OfType<StrokeEffect>())
             composite(new FieldSource(area, Stroke(shape, w, h, stroke), stroke.Color), stroke.BlendMode, layerOpacity, stroke.Opacity);
     }
@@ -125,9 +142,7 @@ internal static class EffectRenderer
     {
         var grown = FieldOps.Dilate(shape, w, h, s.Spread * s.Size);
         var blurred = FieldOps.Blur(grown, w, h, s.Size * (1f - s.Spread));
-        double a = s.Angle * Math.PI / 180.0;
-        int dx = (int)Math.Round(-Math.Cos(a) * s.Distance);
-        int dy = (int)Math.Round(Math.Sin(a) * s.Distance);
+        var (dx, dy) = Offset(s.Angle, s.Distance);
 
         var shifted = new float[shape.Length];
         for (int y = 0; y < h; y++)
@@ -141,6 +156,46 @@ internal static class EffectRenderer
             }
         }
         return shifted;
+    }
+
+    /// <summary>Shadows fall away from the light: the offset for a light at <paramref name="angle"/> degrees.</summary>
+    private static (int Dx, int Dy) Offset(float angle, float distance)
+    {
+        double a = angle * Math.PI / 180.0;
+        return ((int)Math.Round(-Math.Cos(a) * distance), (int)Math.Round(Math.Sin(a) * distance));
+    }
+
+    /// <summary>
+    /// The area outside the layer's shape, grown inwards by <paramref name="choke"/> pixels, blurred by
+    /// <paramref name="blur"/> and shifted by (<paramref name="dx"/>, <paramref name="dy"/>): what inner shadows and
+    /// glows are made of. Beyond the field counts as outside, so it is computed as the complement of the blurred
+    /// (choked) shape, whose zero padding is exactly that.
+    /// </summary>
+    private static float[] Outside(float[] shape, int w, int h, float choke, float blur, int dx, int dy)
+    {
+        var inside = shape;
+        if (choke > 0f)
+        {
+            var outside = new float[shape.Length];
+            for (int i = 0; i < outside.Length; i++) outside[i] = 1f - shape[i];
+            var grown = FieldOps.Dilate(outside, w, h, choke);
+            inside = new float[shape.Length];
+            for (int i = 0; i < inside.Length; i++) inside[i] = 1f - grown[i];
+        }
+        var blurred = FieldOps.Blur(inside, w, h, blur);
+
+        var result = new float[shape.Length];
+        for (int y = 0; y < h; y++)
+        {
+            int sy = y - dy;
+            for (int x = 0; x < w; x++)
+            {
+                int sx = x - dx;
+                float v = sx >= 0 && sx < w && sy >= 0 && sy < h ? blurred[sy * w + sx] : 0f;
+                result[y * w + x] = 1f - v;
+            }
+        }
+        return result;
     }
 
     /// <summary>

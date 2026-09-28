@@ -86,8 +86,14 @@ dotnet test
   Selection / Hide Selection (and the panel's button while something is selected) make the mask from the selection.
 - Adjustment layers (Layer > New Adjustment Layer): Levels, Curves, Hue/Saturation, Brightness/Contrast, Invert,
   Threshold, Posterize, edited live in the Properties panel.
+- Layer styles (Layer > Layer Style, the panel's fx button, or double-click a layer row): Blending Options, Drop
+  Shadow, Inner Shadow, Outer Glow, Inner Glow, Color Overlay, Gradient Overlay and Stroke, previewed live on the
+  canvas; Cancel restores, OK is one undo step. Use Global Light moves every shadow that shares it. Copy / Paste /
+  Clear Layer Style; the fx badge lists a layer's effects with an eye each. Styles are saved as Photoshop's `lfx2`
+  block, patched so settings Strayta does not edit (contour, noise, ...) are kept. Bevel & Emboss, Satin, Pattern
+  Overlay and gradient strokes and glows are kept and can be shown or hidden, not edited or rendered.
 - Full undo/redo. Save / Save As write PSD, keeping everything Strayta does not edit (text, smart objects,
-  effects, ...) exactly as it was.
+  unedited layer styles, ...) exactly as it was.
 - Edit > Free Transform (⌘T) on a layer or group: drag corners to scale (proportional; Shift frees it, Option
   scales from the center), sides to stretch, outside to rotate (Shift snaps to 15°), inside to move; or type
   X/Y/W/H/angle in the options bar. Enter or double-click applies (bicubic, area-filtered when shrinking,
@@ -120,6 +126,8 @@ document).
 Eyedropper samples on a generated 4000×3000 document.
 `STRAYTA_CROPBENCH=1` times Image Size, a crop box drag and turned and straight crops (`=new` on a generated
 4000×3000 layered document).
+`STRAYTA_STYLEBENCH=1` drags the Layer Style dialog's drop shadow Size and Distance sliders on the selected layer
+(`=new` on a generated 4000×3000 document with a 3200×2400 layer).
 `STRAYTA_SEGBENCH=1` times Object Selection and Select Subject (encoder, per-prompt latency, memory) on the
 first opened file; `STRAYTA_THEME=Light|Dark` sets the starting appearance.
 

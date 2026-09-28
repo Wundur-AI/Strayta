@@ -656,7 +656,7 @@ public sealed class Compositor
             else if (transform.Approximate || adj.Adjustment is HueSaturationAdjustment { HasColorRangeEdits: true })
                 warnings.Add($"{adj.Kind} adjustment \"{node.Name}\" is approximated.");
         }
-        foreach (var fx in node.Effects?.Items.OfType<UnsupportedEffect>() ?? [])
+        foreach (var fx in node.Effects?.Visible.OfType<UnsupportedEffect>() ?? [])
             warnings.Add($"{fx.Name} on \"{node.Name}\" is not rendered yet.");
         if (node is LayerGroup && EffectRenderer.HasRenderable(node.Effects))
             warnings.Add($"Layer styles on group \"{node.Name}\" are not rendered yet.");

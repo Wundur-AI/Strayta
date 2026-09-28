@@ -163,6 +163,7 @@ public partial class MainWindow : Window, IEditorDialogs
                 Item("Reset Layout", Editor.ResetLayoutCommand)),
         };
         AddImageMenu(menu, Item); // MainWindow.Crop.cs
+        AddLayerStyleMenus(menu, Item); // MainWindow.LayerStyle.cs
         AddSelectionMenus(menu, Item);
         AddObjectSelectionMenus(menu, Item); // MainWindow.ObjectSelection.cs
         AddRefineSelectionMenus(menu, Item); // MainWindow.RefineSelection.cs

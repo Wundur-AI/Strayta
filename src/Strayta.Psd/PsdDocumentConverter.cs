@@ -8,12 +8,12 @@ internal static class PsdDocumentConverter
 
     public static Document Convert(PsdFile file)
     {
-        float globalAngle = file.FindResource(1037)?.Data is { Length: >= 4 } angle
-            ? System.Buffers.Binary.BinaryPrimitives.ReadInt32BigEndian(angle)
-            : 120f;
+        float globalAngle = PsdEffects.GlobalAngleOf(file);
         var h = file.Header;
         var doc = new Document(h.Width, h.Height, h.ColorMode, h.BitDepth)
         {
+            GlobalLightAngle = globalAngle,
+            GlobalLightAltitude = PsdEffects.GlobalAltitudeOf(file),
             IccProfile = file.FindResource(1039)?.Data,
             SourceData = file,
             Palette = h.ColorMode == ColorMode.Indexed && file.ColorModeData.Length >= 768

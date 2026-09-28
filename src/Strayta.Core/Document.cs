@@ -58,5 +58,14 @@ public sealed class Document
     /// <summary>Embedded ICC color profile, if any.</summary>
     public byte[]? IccProfile { get; set; }
 
+    /// <summary>
+    /// The document's global light (PSD image resources 1037 and 1049): the angle, in degrees counterclockwise from
+    /// the right, that shadows marked "Use Global Light" share, so changing it moves them all together.
+    /// </summary>
+    public float GlobalLightAngle { get; set; } = 120f;
+
+    /// <summary>Global light altitude in degrees (used by Bevel &amp; Emboss).</summary>
+    public float GlobalLightAltitude { get; set; } = 30f;
+
     public PixelRect Bounds => PixelRect.FromSize(Width, Height);
 }
