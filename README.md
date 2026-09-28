@@ -101,6 +101,13 @@ dotnet test
   Canvas Size (⌥⌘C: absolute or relative, 9-way anchor, extension color for the Background), Crop (to the
   selection) and Trim (transparent or corner-colored edges). Masks, the stored composite, saved selections,
   guides, paths, vector masks and type positions follow the canvas.
+- Filter menu: Blur › Box Blur, Gaussian Blur (radius 0.1–1000 px as the Gaussian's σ), Motion Blur (angle, distance);
+  Noise › Add Noise (uniform or Gaussian, monochromatic); Other › High Pass; Sharpen › Unsharp Mask (amount, radius,
+  threshold). Each dialog has a zoomable, draggable preview, sliders with number fields, and Preview for the canvas,
+  which follows every slider step at screen resolution and settles at full resolution; Option turns Cancel into
+  Reset. Filters apply to the selected layer (limited to the selection, soft edges blended) or its targeted mask, as
+  one undo step; type, shape and smart-object layers are rasterized first after a prompt. Last Filter (⌃⌘F) repeats
+  the last one. The filters live in `Strayta.Rendering.Filters` (`FilterEngine`) for use without the editor.
 - File > Export As writes PNG (with transparency) or JPEG (quality, flattened on a matte) with Strayta's own
   encoders.
 - Interaction renders a screen-resolution preview; full resolution follows when you pause.
@@ -118,6 +125,8 @@ measure frame rates (layer drag, brush stroke, free transform, Properties slider
 document).
 `STRAYTA_TOOLBENCH=new` times a Gradient drag (preview frame rate, release to edit), Paint Bucket clicks and
 Eyedropper samples on a generated 4000×3000 document.
+`STRAYTA_FILTERBENCH=new` times every filter at full resolution and the slider-to-preview latency on a generated
+4000×3000 document.
 `STRAYTA_CROPBENCH=1` times Image Size, a crop box drag and turned and straight crops (`=new` on a generated
 4000×3000 layered document).
 `STRAYTA_SEGBENCH=1` times Object Selection and Select Subject (encoder, per-prompt latency, memory) on the
