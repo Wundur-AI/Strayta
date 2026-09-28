@@ -5,6 +5,10 @@
   <StreamGeometry x:Key="IconHand">M8 12V5.5a1.5 1.5 0 0 1 3 0V11 M11 10V4a1.5 1.5 0 0 1 3 0v6 M14 10.5V5.5a1.5 1.5 0 0 1 3 0V12 M17 11a1.5 1.5 0 0 1 3 0v3.5c0 4-3 7.5-7 7.5h-1.5c-2.6 0-4.3-1.2-5.8-3.3L3.4 15a1.5 1.5 0 0 1 2.3-1.9L8 15.5</StreamGeometry>
   <StreamGeometry x:Key="IconBrush">M19.5 3.5a2.1 2.1 0 0 1 3 3L12 17l-3-3Z M8 15c-2 0-3.5 1.5-3.5 3.5 0 1.2-.8 2-2 2.5 1.2.7 2.5 1 3.7 1 2.6 0 4.8-2.1 4.8-4.8</StreamGeometry>
   <StreamGeometry x:Key="IconEraser">M7 21l-4-4a2 2 0 0 1 0-2.8L13.2 4a2 2 0 0 1 2.8 0l4 4a2 2 0 0 1 0 2.8L10.8 21Z M21 21H7 M6.5 11l6.5 6.5</StreamGeometry>
+  <!-- Retouching tools: a stamp, and a bandage (with a sparkle for the Spot Healing Brush). -->
+  <StreamGeometry x:Key="IconCloneStamp">M12 2.5a2.5 2.5 0 1 0 0 5a2.5 2.5 0 1 0 0-5Z M10.5 7.5v3.5 M13.5 7.5v3.5 M5 11h14v4H5Z M5 19h14</StreamGeometry>
+  <StreamGeometry x:Key="IconHealing">M3.8 14.2l10.4-10.4a2.8 2.8 0 0 1 4 0l2 2a2.8 2.8 0 0 1 0 4L9.8 20.2a2.8 2.8 0 0 1-4 0l-2-2a2.8 2.8 0 0 1 0-4Z M9.5 9.5l5 5 M11 13h.01 M13 11h.01</StreamGeometry>
+  <StreamGeometry x:Key="IconSpotHealing">M3.8 14.2l8.4-8.4a2.8 2.8 0 0 1 4 0l2 2a2.8 2.8 0 0 1 0 4l-8.4 8.4a2.8 2.8 0 0 1-4 0l-2-2a2.8 2.8 0 0 1 0-4Z M8.5 10.5l5 5 M10 14h.01 M12 12h.01 M19 2v4 M17 4h4</StreamGeometry>
   <StreamGeometry x:Key="IconEye">M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7Z M12 9a3 3 0 1 0 0 6a3 3 0 1 0 0-6Z</StreamGeometry>
   <StreamGeometry x:Key="IconFolder">M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z</StreamGeometry>
   <StreamGeometry x:Key="IconNewLayer">M4 6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2Z M12 8v8 M8 12h8</StreamGeometry>

@@ -7,7 +7,7 @@ public sealed partial class EditorViewModel
 {
     public IReadOnlyList<ToolGroup> ToolGroups { get; private set; } = [];
 
-    private ToolGroup _marqueeGroup = null!, _selectionGroup = null!, _fillGroup = null!;
+    private ToolGroup _marqueeGroup = null!, _selectionGroup = null!, _fillGroup = null!, _healingGroup = null!;
 
     private void CreateToolGroups()
     {
@@ -24,6 +24,10 @@ public sealed partial class EditorViewModel
         _fillGroup = new ToolGroup(this, "G",
             new(CanvasTool.Gradient, "Gradient", "IconGradient"),
             new(CanvasTool.PaintBucket, "Paint Bucket", "IconBucket"));
+        // Photoshop's J slot: Spot Healing first, Healing Brush behind it (EditorViewModel.Retouch.cs).
+        _healingGroup = new ToolGroup(this, "J",
+            new(CanvasTool.SpotHealing, "Spot Healing Brush", "IconSpotHealing"),
+            new(CanvasTool.Healing, "Healing Brush", "IconHealing"));
         // Photoshop's tool-strip order.
         ToolGroups =
         [
@@ -33,7 +37,9 @@ public sealed partial class EditorViewModel
             _selectionGroup,
             new ToolGroup(this, "C", new ToolInfo(CanvasTool.Crop, "Crop", "IconCrop")),
             new ToolGroup(this, "I", new ToolInfo(CanvasTool.Eyedropper, "Eyedropper", "IconEyedropper")),
+            _healingGroup,
             new ToolGroup(this, "B", new ToolInfo(CanvasTool.Brush, "Brush", "IconBrush")),
+            new ToolGroup(this, "S", new ToolInfo(CanvasTool.CloneStamp, "Clone Stamp", "IconCloneStamp")),
             new ToolGroup(this, "E", new ToolInfo(CanvasTool.Eraser, "Eraser", "IconEraser")),
             _fillGroup,
             new ToolGroup(this, "H", new ToolInfo(CanvasTool.Hand, "Hand", "IconHand")),
@@ -45,6 +51,7 @@ public sealed partial class EditorViewModel
     {
         foreach (var group in ToolGroups) group.OnToolChanged(value);
         NotifyEverydayTools(); // EditorViewModel.Everyday.cs
+        NotifyRetouchTools(); // EditorViewModel.Retouch.cs
         SyncCropTool(); // EditorViewModel.Crop.cs
     }
 

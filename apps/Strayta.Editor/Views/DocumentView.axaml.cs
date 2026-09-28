@@ -21,6 +21,7 @@ public partial class DocumentView : UserControl
         WireWandTools();
         WireEverydayTools(); // DocumentView.Everyday.cs
         WireCrop(); // DocumentView.Crop.cs
+        WireRetouch(); // DocumentView.Retouch.cs
         DataContextChanged += (_, _) =>
         {
             if (_vm is not null) _vm.ZoomRequested -= OnZoom;

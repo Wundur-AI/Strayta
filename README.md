@@ -47,6 +47,13 @@ dotnet test
   live at screen resolution and paints the layer, or its mask when the mask is targeted. Paint Bucket fills similar
   colors (tolerance, anti-alias, contiguous, all layers) with the foreground color. Both stay inside the selection
   and are one undo step each.
+- Retouching: Clone Stamp (S) and, in the J slot, Spot Healing Brush and Healing Brush. Option-click sets the
+  source (a crosshair marks it, and the brush previews the source under it); the Clone Stamp copies it with the brush's
+  size, hardness and opacity, Aligned or restarting at the source each stroke, sampling the current layer, current and
+  below, or all layers (as they were when the stroke started). The Healing Brush shows the clone while you paint and on
+  release blends the source's texture into the surrounding colors (a Poisson heal); the Spot Healing Brush needs no
+  source: it finds a nearby area whose surroundings match (Proximity Match) and heals from it. All respect the
+  selection, paint a targeted layer mask (cloning mask values), keep a Background opaque and are one undo step each.
 - Zoom (Z): click zooms in, Option-click out, drag left/right zooms smoothly; double-click the tool for 100%.
   View > Zoom In / Zoom Out (⌘+ / ⌘−), Fit on Screen (⌘0), Actual Size (⌘1).
 - History panel (Window > History): every step of the active document from Open on, with its tool's icon; click a
@@ -118,6 +125,8 @@ measure frame rates (layer drag, brush stroke, free transform, Properties slider
 document).
 `STRAYTA_TOOLBENCH=new` times a Gradient drag (preview frame rate, release to edit), Paint Bucket clicks and
 Eyedropper samples on a generated 4000×3000 document.
+`STRAYTA_RETOUCHBENCH=new` measures Clone Stamp stroke frame rates and commit times and Healing / Spot Healing
+release-to-edit times on a generated 4000×3000 document.
 `STRAYTA_CROPBENCH=1` times Image Size, a crop box drag and turned and straight crops (`=new` on a generated
 4000×3000 layered document).
 `STRAYTA_SEGBENCH=1` times Object Selection and Select Subject (encoder, per-prompt latency, memory) on the

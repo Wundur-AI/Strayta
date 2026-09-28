@@ -69,11 +69,21 @@ internal abstract class Source
         ApplyMask(mask, y, x0, coverage[..s0]);
         ApplyMask(mask, y, x0 + s1, coverage[s1..]);
         float gray = stroke.Color.R, opacity = stroke.Opacity;
+        Span<float> sample = stackalloc float[1];
         for (int i = s0; i < s1; i++)
         {
             float m = SampleMask(mask, x0 + i, y);
             float cov = stroke.CoverageAt(x0 + i, y) * opacity;
-            if (cov > 0f) m += (gray - m) * cov;
+            if (cov > 0f)
+            {
+                float target = gray;
+                if (stroke.HasSource)
+                {
+                    cov *= stroke.ReadSource(x0 + i, y, sample, 1); // Clone Stamp on a mask: the source's gray
+                    target = sample[0];
+                }
+                m += (target - m) * cov;
+            }
             coverage[i] *= m;
         }
     }
@@ -165,10 +175,18 @@ internal sealed class LayerSource : Source
     private void ApplyStroke(StrokeOverlay s, int y, int x0, int n, Span<float> rgb, Span<float> coverage)
     {
         int from = Math.Max(x0, s.Bounds.Left), to = Math.Min(x0 + n, s.Bounds.Right);
+        bool gray = _raster?.ColorMode == ColorMode.Grayscale;
+        Span<float> cloned = stackalloc float[3];
         for (int x = from; x < to; x++)
         {
             float cov = s.CoverageAt(x, y) * s.Opacity;
             if (cov <= 0f) continue;
+            if (s.HasSource)
+            {
+                // Clone Stamp: each pixel's color comes from the source, weighted by its alpha (as StrokeBaker).
+                cov *= s.ReadSource(x, y, cloned, 3);
+                if (cov <= 0f) continue;
+            }
             int i = x - x0;
             float a = coverage[i];
             if (s.Erase)
@@ -179,10 +197,9 @@ internal sealed class LayerSource : Source
             float na = cov + a * (1f - cov);
             if (!rgb.IsEmpty)
             {
-                bool gray = _raster?.ColorMode == ColorMode.Grayscale;
                 for (int k = 0; k < 3; k++)
                 {
-                    float brush = gray ? _strokeColor[0] : _strokeColor[k];
+                    float brush = s.HasSource ? cloned[k] : gray ? _strokeColor[0] : _strokeColor[k];
                     rgb[i * 3 + k] = (brush * cov + rgb[i * 3 + k] * a * (1f - cov)) / na;
                 }
             }

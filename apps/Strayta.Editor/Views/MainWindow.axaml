@@ -106,6 +106,7 @@
 
         <v:EverydayToolOptions /> <!-- Eyedropper, Paint Bucket, Gradient, Zoom -->
         <v:CropOptionsBar IsVisible="{Binding IsCropTool}" />
+        <v:RetouchToolOptions /> <!-- Clone Stamp, Healing Brush, Spot Healing Brush -->
 
         <StackPanel Orientation="Horizontal" Spacing="18" IsVisible="{Binding IsPaintTool}">
           <StackPanel Orientation="Horizontal" Spacing="8">

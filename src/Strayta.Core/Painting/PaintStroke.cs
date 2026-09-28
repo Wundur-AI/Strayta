@@ -30,7 +30,8 @@ public sealed class PaintStroke
     {
     }
 
-    private PaintStroke(LayerNode owner, BrushSettings brush, RgbColor color, bool erase, PixelRect limit, SelectionMask? clip, bool targetsMask)
+    private PaintStroke(LayerNode owner, BrushSettings brush, RgbColor color, bool erase, PixelRect limit, SelectionMask? clip, bool targetsMask,
+        CloneSource? source = null)
     {
         Owner = owner;
         Brush = brush;
@@ -39,7 +40,37 @@ public sealed class PaintStroke
         Clip = clip;
         _limit = clip is null ? limit : limit.Intersect(clip.Bounds);
         TargetsMask = targetsMask;
+        Source = source;
     }
+
+    /// <summary>
+    /// A cloning stroke (Clone Stamp, and the healing tools' results): paints each pixel with <paramref name="source"/>'s
+    /// color there instead of a single color, into <paramref name="owner"/>'s pixels, or its layer mask when
+    /// <paramref name="targetsMask"/> (the source is then a mask too).
+    /// </summary>
+    public static PaintStroke Cloning(LayerNode owner, bool targetsMask, BrushSettings brush, CloneSource source, PixelRect limit, SelectionMask? clip = null) =>
+        new(owner, brush, default, erase: false, limit, clip, targetsMask, source);
+
+    /// <summary>
+    /// The same painted area (coverage, bounds) with a different color source and opacity: the healing tools paint
+    /// their healed patch through the stroke the user drew. The coverage is shared, so the stroke must be finished.
+    /// </summary>
+    public PaintStroke WithSource(CloneSource source, float opacity)
+    {
+        var copy = new PaintStroke(Owner, Brush with { Opacity = opacity }, Color, erase: false, _limit, Clip, TargetsMask, source)
+        {
+            Bounds = Bounds,
+            Version = Version,
+        };
+        foreach (var (key, tile) in _tiles) copy._tiles[key] = tile;
+        return copy;
+    }
+
+    /// <summary>
+    /// Where a cloning stroke takes its colors (see <see cref="Cloning"/>); null for strokes that paint <see cref="Color"/>.
+    /// Transparent source pixels paint nothing, as with Photoshop's Clone Stamp.
+    /// </summary>
+    public CloneSource? Source { get; }
 
     /// <summary>
     /// A stroke that paints <paramref name="gray"/> (0 black hides, 1 white reveals) into the layer mask of
