@@ -34,6 +34,16 @@
                      QuickSelectDefaultMode="{Binding Editor.QuickSelectDefaultMode}" ObjectLassoMode="{Binding Editor.IsObjectLassoMode}"
                      HoverOutline="{Binding ObjectHoverOutline}" AnimatedZoom="{Binding Editor.AnimatedZoom}" ScrubbyZoom="{Binding Editor.ScrubbyZoom}" />
 
+      <!-- The Photoshop view shows the image saved in the file; say so, since edits never appear in it -->
+      <Border IsVisible="{Binding IsShowingStoredImage}" HorizontalAlignment="Center" VerticalAlignment="Bottom" Margin="0,0,0,16"
+              Padding="12,6" CornerRadius="14" Background="{DynamicResource St.PanelRaised}"
+              BorderBrush="{DynamicResource St.Border}" BorderThickness="1" BoxShadow="0 4 16 0 #60000000">
+        <StackPanel Orientation="Horizontal" Spacing="10">
+          <TextBlock VerticalAlignment="Center" Text="Photoshop's saved image — edits aren't shown here" />
+          <Button Content="Show Strayta" Padding="8,2" Click="OnShowStrayta" />
+        </StackPanel>
+      </Border>
+
       <!-- Why the brush can't paint here, with the fixes that apply -->
       <Border IsVisible="{Binding HasPaintBlock}" HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,14,0,0"
               MaxWidth="520" Padding="14,10" CornerRadius="8" Background="{DynamicResource St.PanelRaised}"

@@ -58,6 +58,13 @@ internal static partial class SelfTest
         editor.ActiveDocument = doc;
         await doc.RenderAsync();
         doc.SelectedLayer = doc.Layers[0];
+        // The Photoshop view shows the stored image, which edits can't change: an edit switches back to Strayta's render.
+        doc.Mode = ViewMode.Photoshop;
+        check(doc.IsShowingStoredImage && editor.IsPhotoshopView, "the Photoshop view is labelled as the stored image");
+        doc.Layers[0].IsVisible = false;
+        check(doc.Mode == ViewMode.Strayta && !doc.IsShowingStoredImage && editor.IsStraytaView,
+            "hiding a layer while viewing Photoshop's image switches to Strayta's render");
+        doc.Undo();
         doc.NewLayer();
         var layer = (PixelLayer)doc.SelectedLayer!.Node;
 

@@ -50,4 +50,6 @@ public partial class DocumentView : UserControl
             default: Canvas.ActualSize(); break;
         }
     }
+
+    private void OnShowStrayta(object? sender, Avalonia.Interactivity.RoutedEventArgs e) => (DataContext as DocumentViewModel)?.ShowStraytaView();
 }

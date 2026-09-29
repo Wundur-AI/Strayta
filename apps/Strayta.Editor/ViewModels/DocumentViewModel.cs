@@ -151,8 +151,12 @@ public sealed partial class DocumentViewModel : Dock.Model.Mvvm.Controls.Documen
     /// <summary>True for formats and modes the PSD writer supports.</summary>
     public bool CanSave => Model.ColorMode is ColorMode.Rgb or ColorMode.Grayscale;
 
+    /// <summary>The canvas shows the image stored in the file, which edits never change (the badge on the canvas says so).</summary>
+    public bool IsShowingStoredImage => Mode == ViewMode.Photoshop;
+
     partial void OnModeChanged(ViewMode value)
     {
+        OnPropertyChanged(nameof(IsShowingStoredImage));
         if (value == ViewMode.Difference && _diffBitmap is null && _displayedIsFull) _ = BuildDiffAsync();
         UpdateDisplay();
     }
@@ -355,6 +359,9 @@ public sealed partial class DocumentViewModel : Dock.Model.Mvvm.Controls.Documen
         if (SelectedLayer?.Node is { Parent: not null } node) Apply(new DeleteEdit(node));
     }
 
+    /// <summary>The canvas badge's "Show Strayta" button.</summary>
+    public void ShowStraytaView() => Mode = ViewMode.Strayta;
+
     /// <summary>The self-test's stand-in for saving: makes the current state the saved one.</summary>
     internal void MarkSavedForTest()
     {
@@ -365,6 +372,8 @@ public sealed partial class DocumentViewModel : Dock.Model.Mvvm.Controls.Documen
     private void AfterChange(IEdit edit)
     {
         IsModified = _undo.IsModified;
+        // The stored Photoshop image can't show an edit, so a change brings back Strayta's render.
+        if (Mode == ViewMode.Photoshop) Mode = ViewMode.Strayta;
         if (edit is CanvasEdit) OnCanvasChanged(); // Crop, Image Size, Canvas Size: DocumentViewModel.Crop.cs
         switch (edit)
         {
