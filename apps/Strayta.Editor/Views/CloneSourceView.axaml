@@ -1,0 +1,88 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Strayta.Editor.ViewModels"
+             xmlns:c="using:Strayta.Editor.Controls"
+             x:Class="Strayta.Editor.Views.CloneSourceView"
+             x:DataType="vm:CloneSourceToolViewModel"
+             Background="{DynamicResource St.Panel}"
+             FontSize="11">
+  <UserControl.Styles>
+    <Style Selector="ListBox#Slots">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="Padding" Value="0" />
+    </Style>
+    <Style Selector="ListBox#Slots ListBoxItem">
+      <Setter Property="Padding" Value="0" />
+      <Setter Property="MinHeight" Value="0" />
+      <Setter Property="Margin" Value="0,0,4,0" />
+      <Setter Property="CornerRadius" Value="4" />
+    </Style>
+    <Style Selector="ListBox#Slots ListBoxItem:selected /template/ ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource St.RowSelected}" />
+    </Style>
+    <Style Selector="c|NumberField">
+      <Setter Property="Width" Value="58" />
+    </Style>
+  </UserControl.Styles>
+  <Panel>
+    <TextBlock Classes="muted" Text="Open a document to set clone sources" IsVisible="{Binding !Editor.HasDocument}"
+               HorizontalAlignment="Center" VerticalAlignment="Center" />
+    <!-- Photoshop's Clone Source panel: five sources per document; the active one is where the Clone Stamp and
+         Healing Brush sample, placed with its offset, scale and angle (CloneSources.cs). -->
+    <ScrollViewer IsVisible="{Binding Editor.HasDocument}">
+      <StackPanel Margin="10,8" Spacing="10">
+        <ListBox x:Name="Slots" ItemsSource="{Binding Editor.ActiveDocument.CloneSources, FallbackValue={x:Null}}"
+                 SelectedIndex="{Binding Editor.ActiveDocument.ActiveCloneSourceIndex, FallbackValue=0}" SelectionMode="Single">
+          <ListBox.ItemsPanel>
+            <ItemsPanelTemplate><StackPanel Orientation="Horizontal" /></ItemsPanelTemplate>
+          </ListBox.ItemsPanel>
+          <ListBox.ItemTemplate>
+            <DataTemplate x:DataType="vm:CloneSourceSlot">
+              <Border Width="30" Height="26" ToolTip.Tip="{Binding SourceText}">
+                <Panel>
+                  <Path Classes="icon" Data="{StaticResource IconCloneStamp}" HorizontalAlignment="Center" VerticalAlignment="Center"
+                        Opacity="{Binding IconOpacity}" />
+                  <TextBlock Text="{Binding Number}" FontSize="8" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,2,0" />
+                </Panel>
+              </Border>
+            </DataTemplate>
+          </ListBox.ItemTemplate>
+        </ListBox>
+
+        <StackPanel Spacing="8" DataContext="{Binding Editor.ActiveDocument.ActiveCloneSource, FallbackValue={x:Null}}" x:DataType="vm:CloneSourceSlot">
+          <TextBlock Classes="label" Text="{Binding SourceText}" />
+          <Grid ColumnDefinitions="Auto,Auto,12,Auto,Auto" RowDefinitions="Auto,Auto,Auto" RowSpacing="6" ColumnSpacing="6">
+            <TextBlock Classes="label" Text="Offset X" VerticalAlignment="Center" />
+            <c:NumberField Grid.Column="1" Unit=" px" Value="{Binding OffsetX}" ToolTip.Tip="Distance from the source to where the brush paints (Aligned)" />
+            <TextBlock Grid.Column="3" Classes="label" Text="W" VerticalAlignment="Center" />
+            <c:NumberField Grid.Column="4" Unit="%" Value="{Binding WidthPercent}" ToolTip.Tip="Width of the source where it is painted (negative flips)" />
+            <TextBlock Grid.Row="1" Classes="label" Text="Offset Y" VerticalAlignment="Center" />
+            <c:NumberField Grid.Row="1" Grid.Column="1" Unit=" px" Value="{Binding OffsetY}" />
+            <TextBlock Grid.Row="1" Grid.Column="3" Classes="label" Text="H" VerticalAlignment="Center" />
+            <c:NumberField Grid.Row="1" Grid.Column="4" Unit="%" Value="{Binding HeightPercent}" />
+            <TextBlock Grid.Row="2" Classes="label" Text="Angle" VerticalAlignment="Center" />
+            <c:NumberField Grid.Row="2" Grid.Column="1" Unit="°" Value="{Binding Angle}" ToolTip.Tip="Rotation of the source, counter-clockwise" />
+            <CheckBox Grid.Row="2" Grid.Column="3" Grid.ColumnSpan="2" Content="Link W/H" IsChecked="{Binding LinkSize}" FontSize="11" />
+          </Grid>
+          <StackPanel Orientation="Horizontal" Spacing="6">
+            <Button Content="Flip H" Command="{Binding FlipCommand}" CommandParameter="H" FontSize="11" />
+            <Button Content="Flip V" Command="{Binding FlipCommand}" CommandParameter="V" FontSize="11" />
+            <Button Content="Reset" Command="{Binding ResetTransformCommand}" FontSize="11" ToolTip.Tip="100%, 0°" />
+          </StackPanel>
+        </StackPanel>
+
+        <Border Height="1" Background="{DynamicResource St.Border}" />
+        <CheckBox Content="Show Overlay" IsChecked="{Binding Editor.CloneOverlayShow}" FontSize="11" />
+        <StackPanel Orientation="Horizontal" Spacing="8" IsEnabled="{Binding Editor.CloneOverlayShow}">
+          <TextBlock Classes="label" Text="Opacity" VerticalAlignment="Center" />
+          <Slider Width="100" Minimum="1" Maximum="100" Value="{Binding Editor.CloneOverlayOpacity}" VerticalAlignment="Center" />
+          <TextBlock Text="{Binding Editor.CloneOverlayOpacity, StringFormat='{}{0:0}%'}" VerticalAlignment="Center" />
+        </StackPanel>
+        <StackPanel Orientation="Horizontal" Spacing="12" IsEnabled="{Binding Editor.CloneOverlayShow}">
+          <CheckBox Content="Clipped" IsChecked="{Binding Editor.CloneOverlayClipped}" FontSize="11" ToolTip.Tip="Show the overlay only inside the brush" />
+          <CheckBox Content="Auto Hide" IsChecked="{Binding Editor.CloneOverlayAutoHide}" FontSize="11" ToolTip.Tip="Hide the overlay while painting" />
+        </StackPanel>
+      </StackPanel>
+    </ScrollViewer>
+  </Panel>
+</UserControl>

@@ -185,7 +185,7 @@ public sealed partial class DocumentViewModel
             (GradientType.Linear, Editing.GradientPresets.ForegroundToBackground, GradientMethod.Classic, PaintMode.Normal),
             (GradientType.Radial, Editing.GradientPresets.ForegroundToBackground, GradientMethod.Classic, PaintMode.Normal),
             (GradientType.Linear, Editing.GradientPresets.BuiltIn.First(g => g.Name == "Spectrum"), GradientMethod.Perceptual, PaintMode.Normal),
-            (GradientType.Radial, Editing.GradientPresets.BuiltIn.First(g => g.Name == "Spectrum"), GradientMethod.Perceptual, new PaintMode(BlendMode.Multiply)),
+            (GradientType.Radial, Editing.GradientPresets.BuiltIn.First(g => g.Name == "Spectrum"), GradientMethod.Perceptual, PaintMode.Multiply),
         };
         var (savedGradient, savedMethod, savedMode) = (Editor.ToolGradient, Editor.GradientMethod, Editor.GradientMode);
         foreach (var (type, gradient, method, mode) in runs)

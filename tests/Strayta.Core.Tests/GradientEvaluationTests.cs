@@ -163,7 +163,7 @@ public class GradientEvaluationTests
     {
         var canvas = PixelRect.FromSize(4, 1);
         var gray = new Raster(ColorMode.Rgb, Enumerable.Range(0, 3).Select(_ => Filled(4, 128)).ToArray(), null);
-        var spec = new GradientSpec(GradientType.Linear, new(0, 0), new(4, 0), Red, 1, Red, 1) { Mode = new PaintMode(BlendMode.Multiply) };
+        var spec = new GradientSpec(GradientType.Linear, new(0, 0), new(4, 0), Red, 1, Red, 1) { Mode = PaintMode.Multiply };
         var (px, _) = GradientPainter.Apply(gray, canvas, spec, null, canvas, ColorMode.Rgb, 8);
         Assert.Equal(128, px!.ColorPlanes[0].Data[1]);
         Assert.Equal(0, px.ColorPlanes[1].Data[1]);
@@ -190,12 +190,12 @@ public class GradientEvaluationTests
         c[0] = 0.5f; c[1] = 0.5f; c[2] = 0.5f;
         float a = 0f;
         // Over a transparent pixel every mode shows the paint as is.
-        PaintBlender.Paint(new PaintMode(BlendMode.Multiply), c, ref a, [1f, 0f, 0f], 1f, 0, 0);
+        a = PaintBlender.Paint(PaintMode.Multiply, c, a, [1f, 0f, 0f], 1f, 3, 0, 0);
         Assert.Equal((1f, 0f, 1f), (c[0], c[1], a));
         // Screen at half coverage over opaque gray.
         c[0] = 0.5f; c[1] = 0.5f; c[2] = 0.5f;
         a = 1f;
-        PaintBlender.Paint(new PaintMode(BlendMode.Screen), c, ref a, [1f, 1f, 1f], 0.5f, 0, 0);
+        a = PaintBlender.Paint(PaintMode.Screen, c, a, [1f, 1f, 1f], 0.5f, 3, 0, 0);
         Assert.Equal(0.75f, c[0], 4);
         Assert.Equal(1f, a);
     }

@@ -21,7 +21,7 @@ public sealed partial class DocumentViewModel
         Editor.BrushHardness = 50;
         Editor.BrushOpacity = 100;
 
-        foreach (int sample in new[] { 0, 2 })
+        foreach (var (sample, scaled) in new[] { (0, false), (2, false), (0, true) })
         {
             SelectedLayer = Layers.SelectMany(l => l.SelfAndDescendants()).FirstOrDefault(i => i.Node == photo?.Node);
             if (sample == 2) NewLayer(); // the usual way: clone onto an empty layer, sampling all layers
@@ -29,6 +29,8 @@ public sealed partial class DocumentViewModel
             Editor.CloneSampleIndex = sample;
             Editor.BrushSize = 80;
             SetCloneSource(w / 4, h / 3);
+            // The Clone Source panel's transform: resampled (bilinear, reduced when shrunk) instead of copied.
+            if (scaled) (ActiveCloneSource.WidthPercent, ActiveCloneSource.Angle) = (70, 30);
             var prep = Stopwatch.StartNew();
             if (sample != 0) await CompositeSampleAsync(null);
             double prepMs = prep.Elapsed.TotalMilliseconds;
@@ -55,16 +57,19 @@ public sealed partial class DocumentViewModel
             double inputMs = clock.Elapsed.TotalMilliseconds;
             FrameDisplayed -= OnFrame;
             await EndStrokeAsync();
-            Console.WriteLine($"RETOUCHBENCH clone stamp, sample {Editor.RetouchSampleNames[sample]}: frames={frames} fps={frames / (inputMs / 1000):F1} " +
+            if (scaled) ActiveCloneSource.ResetTransformCommand.Execute(null);
+            Console.WriteLine($"RETOUCHBENCH clone stamp, sample {Editor.RetouchSampleNames[sample]}{(scaled ? ", 70% turned 30°" : "")}: frames={frames} fps={frames / (inputMs / 1000):F1} " +
                               $"median-frame={Median(times):F0}ms p90={P90(times):F0}ms commit={LastRetouchTimings.TotalMs:F0}ms " +
                               $"(source prepared ahead in {prepMs:F0} ms) factor={PreviewDocument.FactorForZoom(_viewZoom)} on {w}x{h}");
         }
 
         SelectedLayer = Layers.SelectMany(l => l.SelfAndDescendants()).FirstOrDefault(i => i.Node == photo?.Node);
-        foreach (var tool in new[] { CanvasTool.Healing, CanvasTool.SpotHealing })
+        foreach (var (tool, type) in new[] { (CanvasTool.Healing, SpotHealType.ProximityMatch), (CanvasTool.SpotHealing, SpotHealType.ProximityMatch),
+                     (CanvasTool.SpotHealing, SpotHealType.ContentAware), (CanvasTool.SpotHealing, SpotHealType.CreateTexture) })
         {
             Editor.Tool = tool;
             Editor.HealSampleIndex = 0;
+            Editor.SpotTypeIndex = (int)type;
             foreach (var (size, length) in new[] { (30, 50), (60, 100), (60, 150), (150, 0) })
             {
                 Editor.BrushSize = size;
@@ -84,10 +89,22 @@ public sealed partial class DocumentViewModel
                     totals.Add(LastRetouchTimings.TotalMs);
                     heals.Add(LastRetouchTimings.HealMs);
                 }
-                string name = tool == CanvasTool.Healing ? "healing brush" : "spot healing";
+                string name = tool == CanvasTool.Healing ? "healing brush" : $"spot healing {Editor.SpotTypeNames[(int)type]}";
                 Console.WriteLine($"RETOUCHBENCH {name} brush {size} px, stroke {length} px: release to edit median {Median(totals):F0} ms " +
                                   $"(max {totals.Max():F0}), heal {Median(heals):F0} ms{(tool == CanvasTool.SpotHealing ? " incl. search" : "")}");
             }
+        }
+        Editor.SpotTypeIndex = 0;
+
+        // Edit > Content-Aware Fill of elliptical selections, into the layer (sampling everything outside).
+        foreach (int size in new[] { 100, 300, 600 })
+        {
+            var box = new Strayta.Core.PixelRect(w / 2 - size / 2, h / 2 - size / 2, w / 2 + size / 2, h / 2 + size / 2);
+            SetSelection(Strayta.Core.Selection.SelectionMask.Ellipse(box, Model.Bounds), "Elliptical Marquee");
+            await ContentAwareFillAsync(new ContentAwareFillSettings());
+            Console.WriteLine($"RETOUCHBENCH content-aware fill {size}x{size} ellipse: {LastContentAwareFillTimings.TotalMs:F0} ms " +
+                              $"(synthesis and heal {LastContentAwareFillTimings.SynthesisMs:F0} ms)");
+            Deselect();
         }
         while (CanUndo) Undo();
     }

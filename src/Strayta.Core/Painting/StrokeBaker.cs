@@ -4,7 +4,8 @@ namespace Strayta.Core.Painting;
 public static class StrokeBaker
 {
     /// <summary>
-    /// Brush strokes blend the color over the layer (source-over); the eraser reduces alpha. Brush strokes may
+    /// Brush strokes blend the color over the layer in the stroke's <see cref="PaintMode"/> (see <see cref="PaintBlender"/>;
+    /// Normal is source-over, Clear erases); the eraser reduces alpha. Brush strokes may
     /// grow the layer. Layers without transparency gain an alpha channel when erased or grown.
     /// Cloning strokes (<see cref="PaintStroke.Source"/>) blend each pixel's source color, weighted by the source's
     /// alpha; they keep a layer without transparency (a Background) opaque when they stay inside it, as in Photoshop.
@@ -16,14 +17,15 @@ public static class StrokeBaker
 
         var old = layer.Pixels;
         var oldBounds = old is null ? PixelRect.Empty : layer.Bounds;
-        var bounds = stroke.Erase ? oldBounds : Union(oldBounds, stroke.Bounds);
+        var bounds = stroke.Erase || stroke.Mode == PaintMode.Clear ? oldBounds : Union(oldBounds, stroke.Bounds);
         if (bounds.IsEmpty) return (old, oldBounds);
 
         int w = bounds.Width, h = bounds.Height;
         int colors = mode.ColorChannelCount();
         var planes = Enumerable.Range(0, colors).Select(_ => Plane.Create(w, h, bitDepth)).ToArray();
         var source = stroke.Source;
-        bool keepOpaque = source is not null && old is not null && old.Alpha is null && bounds == oldBounds;
+        var paintMode = stroke.Mode;
+        bool keepOpaque = source is not null && old is not null && old.Alpha is null && bounds == oldBounds && paintMode != PaintMode.Clear;
         var alpha = keepOpaque ? null : Plane.Create(w, h, bitDepth);
         float opacity = stroke.Brush.Opacity;
         float[] brush = mode == ColorMode.Grayscale
@@ -68,13 +70,7 @@ public static class StrokeBaker
                     else paint = brush;
                     if (cov <= 0f) { }
                     else if (stroke.Erase) a *= 1f - cov;
-                    else
-                    {
-                        float na = cov + a * (1f - cov);
-                        for (int k = 0; k < colors; k++)
-                            c[k] = na > 0f ? (paint[k] * cov + c[k] * a * (1f - cov)) / na : paint[k];
-                        a = na;
-                    }
+                    else a = PaintBlender.Paint(paintMode, c, a, paint, cov, colors, x, y);
                 }
 
                 for (int k = 0; k < colors; k++) Set(planes[k], i, c[k]);

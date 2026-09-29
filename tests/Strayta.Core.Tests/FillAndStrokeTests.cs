@@ -59,7 +59,7 @@ public class FillAndStrokeTests
         Assert.Equal((100, 100, 100, 255), Pixel(half!, b, 5, 5));
         Assert.Null(half!.Alpha); // a Background stays opaque
 
-        var (mult, _) = FillPainter.Fill(layer, all, new FillOptions(new FillSource.Color(new RgbColor(0.5f, 1, 1))) { Mode = new PaintMode(BlendMode.Multiply) }, ColorMode.Rgb, 8);
+        var (mult, _) = FillPainter.Fill(layer, all, new FillOptions(new FillSource.Color(new RgbColor(0.5f, 1, 1))) { Mode = PaintMode.Multiply }, ColorMode.Rgb, 8);
         Assert.Equal((100, 200, 200, 255), Pixel(mult!, b, 5, 5));
     }
 

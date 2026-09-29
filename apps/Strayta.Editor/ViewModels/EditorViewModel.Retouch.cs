@@ -1,4 +1,5 @@
 using CommunityToolkit.Mvvm.ComponentModel;
+using Strayta.Core.Painting;
 using Strayta.Editor.Controls;
 
 namespace Strayta.Editor.ViewModels;
@@ -25,7 +26,12 @@ public sealed partial class EditorViewModel
         OnPropertyChanged(nameof(IsSpotHealingTool));
         OnPropertyChanged(nameof(IsRetouchTool));
         OnPropertyChanged(nameof(UsesSourcePoint));
+        OnPropertyChanged(nameof(ShowsBrushOptions));
+        ActiveDocument?.ActiveCloneSource.Refresh(); // the Clone Stamp and Healing Brush keep separate sources
     }
+
+    /// <summary>Tools with Flow, Airbrush, Smoothing and the Brush Settings popover: Brush, Eraser, Clone Stamp.</summary>
+    public bool ShowsBrushOptions => Tool is CanvasTool.Brush or CanvasTool.Eraser or CanvasTool.CloneStamp;
 
     public IReadOnlyList<string> RetouchSampleNames { get; } = ["Current Layer", "Current & Below", "All Layers"];
 
@@ -43,6 +49,54 @@ public sealed partial class EditorViewModel
 
     /// <summary>Spot Healing Brush: look at the whole image instead of the selected layer.</summary>
     [ObservableProperty] public partial bool SpotSampleAllLayers { get; set; }
+
+    // ---- Healing options ---------------------------------------------------------------------------------
+
+    /// <summary>The healing tools' Mode menu (index = <see cref="HealMode"/> value).</summary>
+    public IReadOnlyList<string> HealModeNames { get; } = ["Normal", "Replace", "Multiply", "Screen", "Darken", "Lighten", "Color", "Luminosity"];
+
+    /// <summary>Healing Brush's Mode.</summary>
+    [ObservableProperty] public partial int HealModeIndex { get; set; }
+
+    /// <summary>Spot Healing Brush's Mode.</summary>
+    [ObservableProperty] public partial int SpotModeIndex { get; set; }
+
+    /// <summary>Diffusion, 1..7 (Photoshop's default 5): how far the surrounding colors reach into a heal (HealOptions).</summary>
+    [ObservableProperty] public partial double HealDiffusion { get; set; } = 5;
+
+    /// <summary>Heal with a gain instead of an offset (log domain), for strong shading changes between source and destination.</summary>
+    [ObservableProperty] public partial bool HealMultiplicative { get; set; }
+
+    /// <summary>Spot Healing's Type menu, in Photoshop's order.</summary>
+    public IReadOnlyList<string> SpotTypeNames { get; } = ["Content-Aware", "Create Texture", "Proximity Match"];
+
+    /// <summary>Spot Healing's Type (index into <see cref="SpotTypeNames"/>); Content-Aware by default, as in Photoshop.</summary>
+    [ObservableProperty] public partial int SpotTypeIndex { get; set; }
+
+    /// <summary>The current healing tool's mode.</summary>
+    public HealMode CurrentHealMode => (HealMode)Math.Clamp(Tool == CanvasTool.SpotHealing ? SpotModeIndex : HealModeIndex, 0, HealModeNames.Count - 1);
+
+    /// <summary>The heal settings for a brush of <paramref name="size"/> pixels.</summary>
+    public HealOptions CurrentHealOptions(float size) => new()
+    {
+        Diffusion = (int)Math.Clamp(Math.Round(HealDiffusion), 1, 7),
+        Multiplicative = HealMultiplicative,
+        BrushSize = size,
+    };
+
+    // ---- Clone Source overlay (Window › Clone Source) ---------------------------------------------------
+
+    /// <summary>Show the source under the brush before painting (and while painting unless Auto Hide).</summary>
+    [ObservableProperty] public partial bool CloneOverlayShow { get; set; } = true;
+
+    /// <summary>The overlay's opacity in percent.</summary>
+    [ObservableProperty] public partial double CloneOverlayOpacity { get; set; } = 100;
+
+    /// <summary>Clip the overlay to the brush tip; off shows the whole sampled image moved into place.</summary>
+    [ObservableProperty] public partial bool CloneOverlayClipped { get; set; } = true;
+
+    /// <summary>Hide the overlay while painting (the stroke itself shows the clone).</summary>
+    [ObservableProperty] public partial bool CloneOverlayAutoHide { get; set; } = true;
 
     /// <summary>The current tool's Aligned option.</summary>
     public bool RetouchAligned => Tool == CanvasTool.Healing ? HealAligned : CloneAligned;

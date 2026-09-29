@@ -42,7 +42,7 @@ public static class GradientPainter
         var lut = spec.Lut;
         float opacity = spec.Opacity;
         var paintMode = spec.Mode;
-        bool normal = paintMode.IsNormal;
+        bool normal = paintMode == PaintMode.Normal;
 
         var options = new ParallelOptions { CancellationToken = cancel };
         Parallel.For(0, h, options, () => new RowBuffers(w, colors), (row, _, buf) =>
@@ -79,7 +79,7 @@ public static class GradientPainter
                         for (int k = 0; k < colors; k++) pixel[k] = buf.Color[k][i];
                         if (gray) paint[0] = 0.299f * r + 0.587f * g + 0.114f * b;
                         else (paint[0], paint[1], paint[2]) = (r, g, b);
-                        PaintBlender.Paint(paintMode, pixel, ref pa, paint, cov, x, y);
+                        pa = PaintBlender.Paint(paintMode, pixel, pa, paint, cov, pixel.Length, x, y);
                         for (int k = 0; k < colors; k++) buf.Color[k][i] = pixel[k] + n;
                         buf.Alpha[i] = withAlpha ? pa : 1f;
                         continue;

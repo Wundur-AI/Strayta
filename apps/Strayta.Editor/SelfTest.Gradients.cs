@@ -208,7 +208,7 @@ internal static partial class SelfTest
         editor.ForegroundColor = Color.FromRgb(128, 128, 128);
         editor.BackgroundColor = Color.FromRgb(128, 128, 128);
         await Drag(0, 200); // flat gray layer
-        editor.GradientModeIndex = PaintModeNames.IndexOf(new PaintMode(BlendMode.Multiply));
+        editor.GradientModeIndex = PaintModeNames.IndexOf(PaintMode.Multiply);
         await Drag(0, 200);
         check(Rgba(layer, 100, 30).R is >= 62 and <= 66 && doc.UndoText == "Undo Gradient", $"Mode Multiply multiplies with the layer ({Rgba(layer, 100, 30).R})");
         editor.GradientMode = PaintMode.Normal;
@@ -252,16 +252,15 @@ internal static partial class SelfTest
         dialogs.Fill = f =>
         {
             seen = f;
-            f.ContentsIndex = (int)FillContents.ContentAware; // disabled: ignored
             f.ContentsIndex = (int)FillContents.Gray50;
             f.Opacity = 100;
             return true;
         };
         doc.SetSelection(SelectionMask.Rectangle(new PixelRect(10, 10, 50, 40), doc.Model.Bounds), "Rectangular Marquee");
         await Click(MenuItem("Edit", "Fill…"));
-        check(seen is { ContentAwareAvailable: false } && !seen.ContentOptions[(int)FillContents.ContentAware].IsEnabled
+        check(seen is { ContentAwareAvailable: true } && seen.ContentOptions[(int)FillContents.ContentAware].IsEnabled
               && Rgba(layer, 20, 20) is { R: 128, A: 255 } && Rgba(layer, 60, 20).A == 0 && doc.UndoText == "Undo Fill",
-            $"Edit › Fill… with 50% Gray fills the selection (Content-Aware disabled) ({Rgba(layer, 20, 20)})");
+            $"Edit › Fill… with 50% Gray fills the selection (Content-Aware offered with a selection) ({Rgba(layer, 20, 20)})");
 
         dialogs.Fill = f =>
         {

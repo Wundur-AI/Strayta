@@ -197,7 +197,7 @@ public sealed partial class DocumentViewModel : Dock.Model.Mvvm.Controls.Documen
             return BeginMaskStroke(maskOwner, x, y, brush, color, erase); // see DocumentViewModel.Masks.cs
         if (PaintableLayer() is not { } target) return false;
         _stroke = new PaintStroke(target, brush, color, erase, Model.Bounds, Selection);
-        _stroke.StrokeTo(x, y);
+        StartStrokeInput(_stroke, x, y); // pressure, smoothing, airbrush (DocumentViewModel.Brush.cs)
         RequestRender();
         return true;
     }
@@ -241,7 +241,7 @@ public sealed partial class DocumentViewModel : Dock.Model.Mvvm.Controls.Documen
     public void ContinueStroke(float x, float y)
     {
         if (_stroke is null) return;
-        _stroke.StrokeTo(x, y);
+        FeedStroke(_stroke, x, y); // DocumentViewModel.Brush.cs
         RequestRender();
     }
 
@@ -251,6 +251,7 @@ public sealed partial class DocumentViewModel : Dock.Model.Mvvm.Controls.Documen
     /// </summary>
     public async Task EndStrokeAsync()
     {
+        StopStrokeInput();
         if (_retouch is not null)
         {
             await EndRetouchStrokeAsync(); // Clone Stamp and healing tools (DocumentViewModel.Retouch.cs)
