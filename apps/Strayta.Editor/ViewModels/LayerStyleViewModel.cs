@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using Avalonia.Media;
 using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
 using Strayta.Core;
 using Strayta.Editor.Editing;
 using DropShadowEffect = Strayta.Core.DropShadowEffect;
@@ -24,16 +25,19 @@ public enum LayerStylePage
 }
 
 /// <summary>
-/// One Layer Style dialog session on one layer. Every change is shown on the canvas right away by writing the
-/// settings into the layer (and, when the global light moves, into every layer whose shadows follow it) without
+/// One Layer Style dialog session on one layer (or group). Every change is shown on the canvas right away by writing
+/// the settings into the layer (and, when the global light moves, into every layer whose effects follow it) without
 /// recording anything; <see cref="Commit"/> puts the original state back and applies the result as one "Layer Style"
 /// undo step, <see cref="Cancel"/> just puts it back. The document renders a screen-resolution preview after each
 /// change and full resolution once changes pause, so dragging a slider stays interactive on large layers.
 /// </summary>
 public sealed partial class LayerStyleViewModel : ObservableObject
 {
+    /// <summary>Photoshop CC allows up to ten of each effect that can be added several times.</summary>
+    public const int MaxInstances = 10;
+
     private readonly LayerStyleState _original;
-    private readonly float _originalAngle;
+    private readonly float _originalAngle, _originalAltitude;
     private readonly Dictionary<LayerNode, LayerEffects> _globalLightLayers = new(ReferenceEqualityComparer.Instance);
     private bool _loading = true, _closed;
 
@@ -43,16 +47,18 @@ public sealed partial class LayerStyleViewModel : ObservableObject
         Layer = layer;
         _original = LayerStyleState.Of(layer);
         _originalAngle = document.Model.GlobalLightAngle;
+        _originalAltitude = document.Model.GlobalLightAltitude;
         GlobalAngle = _originalAngle;
+        GlobalAltitude = _originalAltitude;
         foreach (var node in document.Model.Root.Descendants())
-            if (!ReferenceEquals(node, layer) && node.Effects is { } fx && fx.Items.Any(UsesGlobalLight))
+            if (!ReferenceEquals(node, layer) && node.Effects is { } fx && fx.Items.Any(e => e.UsesGlobalLight()))
                 _globalLightLayers[node] = fx;
 
         Blending = new BlendingEntry(this, layer);
         Entries.Add(Blending);
         BuildEntries(layer.Effects);
         foreach (var entry in Entries) entry.Loaded();
-        SelectedEntry = Entries.FirstOrDefault(e => e.Page == page && e.IsEditable) ?? Blending;
+        SelectedEntry = Entries.FirstOrDefault(e => e.Page == page && e.IsEditable && e is EffectEntry) ?? Blending;
         if (SelectedEntry is EffectEntry { IsChecked: false } chosen) chosen.IsChecked = true; // choosing a style from the menu turns it on
         _loading = false;
         Changed();
@@ -72,8 +78,18 @@ public sealed partial class LayerStyleViewModel : ObservableObject
     /// <summary>Photoshop's Preview checkbox: off shows the layer as it was while the dialog stays open.</summary>
     [ObservableProperty] public partial bool Preview { get; set; } = true;
 
-    /// <summary>The document's global light while the dialog is open; shadows with "Use Global Light" follow it.</summary>
+    /// <summary>The document's global light while the dialog is open; effects with "Use Global Light" follow it.</summary>
     [ObservableProperty] public partial double GlobalAngle { get; set; }
+
+    /// <summary>The global light's altitude (Bevel &amp; Emboss uses it).</summary>
+    [ObservableProperty] public partial double GlobalAltitude { get; set; }
+
+    /// <summary>Foreground and background colors, for gradients whose stops follow them.</summary>
+    public RgbColor Foreground => Document.Editor.ForegroundRgb;
+    public RgbColor Background => Document.Editor.BackgroundRgb;
+
+    /// <summary>The document's patterns, listed in the pattern pickers after the built-in ones.</summary>
+    public IEnumerable<Core.Painting.Pattern> DocumentPatterns => Document.Model.Patterns;
 
     partial void OnPreviewChanged(bool value) => Changed();
 
@@ -83,13 +99,14 @@ public sealed partial class LayerStyleViewModel : ObservableObject
         if (!_loading && value is EffectEntry { IsEditable: true, IsChecked: false } e) e.IsChecked = true;
     }
 
-    partial void OnGlobalAngleChanged(double value)
+    partial void OnGlobalAngleChanged(double value) => GlobalLightMoved();
+    partial void OnGlobalAltitudeChanged(double value) => GlobalLightMoved();
+
+    private void GlobalLightMoved()
     {
-        foreach (var shadow in Entries.OfType<ShadowEntry>().Where(s => s.UseGlobalLight)) shadow.ShowGlobalAngle(value);
+        foreach (var entry in Entries.OfType<IGlobalLightEntry>().Where(e => e.UseGlobalLight)) entry.ShowGlobalLight(GlobalAngle, GlobalAltitude);
         Changed();
     }
-
-    private static bool UsesGlobalLight(LayerEffect e) => e is DropShadowEffect { UseGlobalLight: true } or InnerShadowEffect { UseGlobalLight: true };
 
     // ---- Entries ------------------------------------------------------------------------------------
 
@@ -98,21 +115,76 @@ public sealed partial class LayerStyleViewModel : ObservableObject
         var items = effects?.Items ?? [];
         foreach (var page in Enum.GetValues<LayerStylePage>().Skip(1))
         {
-            var existing = items.Where(e => PageOf(e) == page).ToList();
-            foreach (var effect in existing) Entries.Add(EntryFor(page, effect));
-            if (existing.Count == 0) Entries.Add(EntryFor(page, null));
+            // Several of a kind are listed top of the stack first; the model lists them bottom up.
+            var existing = items.Where(e => PageOf(e) == page).Reverse().ToList();
+            foreach (var effect in existing) AddEntry(EntryFor(page, effect));
+            if (existing.Count == 0) AddEntry(EntryFor(page, null));
         }
+    }
 
-        StyleEntry EntryFor(LayerStylePage page, LayerEffect? effect) => (page, effect) switch
+    private void AddEntry(StyleEntry entry, int at = -1)
+    {
+        var rows = entry is BevelEntry bevel ? new StyleEntry[] { bevel, bevel.ContourPage, bevel.TexturePage } : [entry];
+        foreach (var row in rows)
         {
-            (_, UnsupportedEffect u) => new UnsupportedEntry(this, page, u),
-            (LayerStylePage.DropShadow or LayerStylePage.InnerShadow, _) => new ShadowEntry(this, page, effect),
-            (LayerStylePage.OuterGlow or LayerStylePage.InnerGlow, _) => new GlowEntry(this, page, effect),
-            (LayerStylePage.ColorOverlay, _) => new ColorOverlayEntry(this, effect as ColorOverlayEffect),
-            (LayerStylePage.GradientOverlay, _) => new GradientOverlayEntry(this, effect as GradientOverlayEffect),
-            (LayerStylePage.Stroke, _) => new StrokeEntry(this, effect as StrokeEffect),
-            _ => new UnavailableEntry(this, page),
-        };
+            if (at < 0) Entries.Add(row);
+            else Entries.Insert(at++, row);
+        }
+        UpdateInstanceButtons();
+    }
+
+    private StyleEntry EntryFor(LayerStylePage page, LayerEffect? effect) => (page, effect) switch
+    {
+        (_, UnsupportedEffect u) => new UnsupportedEntry(this, page, u),
+        (LayerStylePage.DropShadow or LayerStylePage.InnerShadow, _) => new ShadowEntry(this, page, effect),
+        (LayerStylePage.OuterGlow or LayerStylePage.InnerGlow, _) => new GlowEntry(this, page, effect),
+        (LayerStylePage.ColorOverlay, _) => new ColorOverlayEntry(this, effect as ColorOverlayEffect),
+        (LayerStylePage.GradientOverlay, _) => new GradientOverlayEntry(this, effect as GradientOverlayEffect),
+        (LayerStylePage.Stroke, _) => new StrokeEntry(this, effect as StrokeEffect),
+        (LayerStylePage.BevelEmboss, _) => new BevelEntry(this, effect as BevelEffect),
+        (LayerStylePage.Satin, _) => new SatinEntry(this, effect as SatinEffect),
+        (LayerStylePage.PatternOverlay, _) => new PatternOverlayEntry(this, effect as PatternOverlayEffect),
+        _ => new UnavailableEntry(this, page),
+    };
+
+    /// <summary>Drop Shadow, Inner Shadow, Color Overlay, Gradient Overlay and Stroke can be added several times.</summary>
+    public static bool AllowsInstances(LayerStylePage page) => page is LayerStylePage.DropShadow or LayerStylePage.InnerShadow
+        or LayerStylePage.ColorOverlay or LayerStylePage.GradientOverlay or LayerStylePage.Stroke;
+
+    /// <summary>
+    /// The row's "+": another effect of the same kind, above it (on top of it in the stack), with the same settings,
+    /// turned on and selected, as Photoshop CC does.
+    /// </summary>
+    public void AddInstance(EffectEntry entry)
+    {
+        if (!AllowsInstances(entry.Page) || Entries.Count(e => e.Page == entry.Page && e is EffectEntry) >= MaxInstances) return;
+        var copy = EntryFor(entry.Page, entry.IsChecked ? entry.Snapshot() : null);
+        copy.Loaded();
+        AddEntry(copy, Entries.IndexOf(entry));
+        SelectedEntry = copy;
+        if (copy is EffectEntry { IsChecked: false } e) e.IsChecked = true;
+        Changed();
+    }
+
+    /// <summary>Removes one of several effects of a kind (Photoshop's trash can); the last one is only turned off.</summary>
+    public void RemoveInstance(EffectEntry entry)
+    {
+        if (Entries.Count(e => e.Page == entry.Page && e is EffectEntry) <= 1)
+        {
+            entry.IsChecked = false;
+            return;
+        }
+        int at = Entries.IndexOf(entry);
+        Entries.Remove(entry);
+        if (ReferenceEquals(SelectedEntry, entry)) SelectedEntry = Entries[Math.Min(at, Entries.Count - 1)];
+        UpdateInstanceButtons();
+        Changed();
+    }
+
+    private void UpdateInstanceButtons()
+    {
+        foreach (var e in Entries.OfType<EffectEntry>())
+            e.InstanceCount = Entries.Count(x => x.Page == e.Page && x is EffectEntry);
     }
 
     /// <summary>Which page shows an effect; unsupported ones by the kind they were read as.</summary>
@@ -125,6 +197,9 @@ public sealed partial class LayerStyleViewModel : ObservableObject
         ColorOverlayEffect => LayerStylePage.ColorOverlay,
         GradientOverlayEffect => LayerStylePage.GradientOverlay,
         StrokeEffect => LayerStylePage.Stroke,
+        BevelEffect => LayerStylePage.BevelEmboss,
+        SatinEffect => LayerStylePage.Satin,
+        PatternOverlayEffect => LayerStylePage.PatternOverlay,
         _ => Psd.PsdEffectsWriter.TypeOf(effect) switch
         {
             "DrSh" => LayerStylePage.DropShadow,
@@ -173,7 +248,7 @@ public sealed partial class LayerStyleViewModel : ObservableObject
 
     /// <summary>Other layers' effects with the dialog's global light.</summary>
     private IEnumerable<(LayerNode Node, LayerEffects Before, LayerEffects? After)> GlobalLightChanges() =>
-        _globalLightLayers.Select(kv => (kv.Key, kv.Value, LayerStyleEdit.WithGlobalAngle(kv.Value, (float)GlobalAngle)));
+        _globalLightLayers.Select(kv => (kv.Key, kv.Value, kv.Value.WithGlobalLight((float)GlobalAngle, (float)GlobalAltitude)));
 
     /// <summary>Shows the current settings on the canvas (or the original ones with Preview off).</summary>
     internal void Changed()
@@ -184,6 +259,7 @@ public sealed partial class LayerStyleViewModel : ObservableObject
             Current().ApplyTo(Layer);
             foreach (var (node, _, after) in GlobalLightChanges()) node.Effects = after;
             Document.Model.GlobalLightAngle = (float)GlobalAngle;
+            Document.Model.GlobalLightAltitude = (float)GlobalAltitude;
         }
         else Restore();
         Document.RequestRender();
@@ -194,6 +270,7 @@ public sealed partial class LayerStyleViewModel : ObservableObject
         _original.ApplyTo(Layer);
         foreach (var (node, effects) in _globalLightLayers) node.Effects = effects;
         Document.Model.GlobalLightAngle = _originalAngle;
+        Document.Model.GlobalLightAltitude = _originalAltitude;
     }
 
     /// <summary>OK: one "Layer Style" undo step, or nothing if the style is unchanged.</summary>
@@ -209,8 +286,9 @@ public sealed partial class LayerStyleViewModel : ObservableObject
         if (result != _original) changes.Add((Layer, _original, result)); // value equality: effects compare by their settings
         foreach (var (node, before, after) in others)
             changes.Add((node, LayerStyleState.Of(node), LayerStyleState.Of(node) with { Effects = after }));
-        if (changes.Count > 0 || (float)GlobalAngle != _originalAngle)
-            Document.Apply(new LayerStyleEdit("Layer Style", Document.Model, changes, (float)GlobalAngle));
+        bool lightMoved = (float)GlobalAngle != _originalAngle || (float)GlobalAltitude != _originalAltitude;
+        if (changes.Count > 0 || lightMoved)
+            Document.Apply(new LayerStyleEdit("Layer Style", Document.Model, changes, (float)GlobalAngle, (float)GlobalAltitude));
         else
             Document.RequestRender();
     }
@@ -231,11 +309,23 @@ public sealed partial class LayerStyleViewModel : ObservableObject
 
     public static IReadOnlyList<string> StrokePositions { get; } = ["Outside", "Inside", "Center"];
     public static IReadOnlyList<string> GradientStyles { get; } = ["Linear", "Radial", "Angle", "Reflected", "Diamond"];
+    public static IReadOnlyList<string> StrokeGradientStyles { get; } = ["Linear", "Radial", "Angle", "Reflected", "Diamond", "Shape Burst"];
     public static IReadOnlyList<string> GlowSources { get; } = ["Edge", "Center"];
+    public static IReadOnlyList<string> GlowTechniques { get; } = ["Softer", "Precise"];
+    public static IReadOnlyList<string> FillTypes { get; } = ["Color", "Gradient", "Pattern"];
 
     internal static Color ToColor(RgbColor c) => Color.FromRgb(Byte(c.R), Byte(c.G), Byte(c.B));
     internal static RgbColor ToRgb(Color c) => new(c.R / 255f, c.G / 255f, c.B / 255f);
     private static byte Byte(float v) => (byte)Math.Clamp(MathF.Round(v * 255f), 0f, 255f);
+}
+
+/// <summary>A row whose effect can follow the document's global light.</summary>
+internal interface IGlobalLightEntry
+{
+    bool UseGlobalLight { get; }
+
+    /// <summary>The global light moved: show it without counting it as an edit of this effect.</summary>
+    void ShowGlobalLight(double angle, double altitude);
 }
 
 // ---- Rows of the dialog's list ----------------------------------------------------------------------------
@@ -244,15 +334,40 @@ public sealed partial class LayerStyleViewModel : ObservableObject
 public abstract partial class StyleEntry(LayerStyleViewModel session, LayerStylePage page) : ObservableObject
 {
     protected LayerStyleViewModel Session { get; } = session;
+
+    /// <summary>The dialog session, for pages that bind to shared settings (colors, patterns).</summary>
+    public LayerStyleViewModel Owner => Session;
+
     public LayerStylePage Page { get; } = page;
     public virtual string Name => LayerStyleViewModel.NameOf(Page);
 
-    /// <summary>False for effects Strayta cannot edit yet: their row is shown, greyed.</summary>
+    /// <summary>False for effects Strayta cannot edit: their row is shown, greyed.</summary>
     public virtual bool IsEditable => true;
     public virtual bool HasCheckBox => true;
 
-    /// <summary>The checkbox can be used (styles Strayta does not have yet cannot be turned on).</summary>
+    /// <summary>The checkbox can be used (styles Strayta does not have cannot be turned on).</summary>
     public virtual bool CanToggle => true;
+
+    /// <summary>Sub-pages (Bevel &amp; Emboss's Contour and Texture) sit further in.</summary>
+    public virtual double Indent => 0;
+
+    public Avalonia.Thickness RowMargin => new(Indent, 0, 0, 0);
+
+    /// <summary>The row's "+" (another effect of this kind) and "−" (delete this one) buttons.</summary>
+    public virtual bool CanAddInstance => false;
+    public virtual bool CanRemoveInstance => false;
+
+    [RelayCommand]
+    private void AddInstance()
+    {
+        if (this is EffectEntry e) Session.AddInstance(e);
+    }
+
+    [RelayCommand]
+    private void RemoveInstance()
+    {
+        if (this is EffectEntry e) Session.RemoveInstance(e);
+    }
 
     /// <summary>Greyed text for rows that cannot be edited.</summary>
     public double NameOpacity => IsEditable ? 1 : 0.55;
@@ -288,9 +403,13 @@ public sealed partial class BlendingEntry : StyleEntry
         Opacity = layer.Opacity * 100.0;
         Fill = layer.FillOpacity * 100.0;
         BlendMode = layer.BlendMode;
+        // Groups also offer Pass Through, their default.
+        BlendModes = layer is LayerGroup ? Enum.GetValues<BlendMode>() : LayerStyleViewModel.EffectBlendModes;
     }
 
     public override bool HasCheckBox => false;
+
+    public IReadOnlyList<BlendMode> BlendModes { get; }
 
     [ObservableProperty] public partial double Opacity { get; set; }
     [ObservableProperty] public partial double Fill { get; set; }
@@ -335,8 +454,23 @@ public abstract partial class EffectEntry : StyleEntry
         return null;
     }
 
+    /// <summary>The page's settings as a new effect (without the file data), for "+" to copy.</summary>
+    internal LayerEffect Snapshot() => Build() with { SourceData = null, Enabled = true };
+
     /// <summary>The page's settings as an effect.</summary>
     protected abstract LayerEffect Build();
+
+    /// <summary>How many rows of this kind the list has; the "+" and trash buttons depend on it.</summary>
+    [ObservableProperty] public partial int InstanceCount { get; set; } = 1;
+
+    public override bool CanAddInstance => LayerStyleViewModel.AllowsInstances(Page) && IsEditable && InstanceCount < LayerStyleViewModel.MaxInstances;
+    public override bool CanRemoveInstance => LayerStyleViewModel.AllowsInstances(Page) && InstanceCount > 1;
+
+    partial void OnInstanceCountChanged(int value)
+    {
+        OnPropertyChanged(nameof(CanAddInstance));
+        OnPropertyChanged(nameof(CanRemoveInstance));
+    }
 
     // Shared settings.
     [ObservableProperty] public partial BlendMode BlendMode { get; set; }
@@ -370,25 +504,45 @@ public abstract partial class EffectEntry : StyleEntry
         Rgb = color;
     }
 
-    protected float Fraction(double percent) => (float)(percent / 100);
+    protected static float Fraction(double percent) => (float)(percent / 100);
+
+    /// <summary>
+    /// A gradient with its foreground and background stops showing today's colors, and its stops at the precision a
+    /// PSD stores them (locations in 4096ths, midpoints in whole percent), so the style reads back from the saved file
+    /// exactly as it was applied.
+    /// </summary>
+    protected Gradient Resolved(Gradient g)
+    {
+        static float Q(float v, float steps) => MathF.Round(Math.Clamp(v, 0f, 1f) * steps) / steps;
+        var r = g.Resolve(Session.Foreground, Session.Background);
+        return r with
+        {
+            Colors = r.Colors.Select(c => c with { Location = Q(c.Location, 4096), Midpoint = Q(c.Midpoint, 100) }).ToList(),
+            Opacities = r.Opacities.Select(o => o with { Location = Q(o.Location, 4096), Midpoint = Q(o.Midpoint, 100), Opacity = (float)Math.Round(o.Opacity * 100.0, 3) / 100f }).ToList(),
+        };
+    }
 }
 
 /// <summary>Drop Shadow and Inner Shadow.</summary>
-public sealed partial class ShadowEntry : EffectEntry
+public sealed partial class ShadowEntry : EffectEntry, IGlobalLightEntry
 {
     private bool _showingGlobal;
 
     public ShadowEntry(LayerStyleViewModel session, LayerStylePage page, LayerEffect? original) : base(session, page, original)
     {
+        Contour = new ContourSetting(Core.Contour.Linear, false, Edited);
         switch (original)
         {
             case DropShadowEffect d:
                 LoadCommon(d, d.BlendMode, d.Opacity, d.Color);
-                (Angle, UseGlobalLight, Distance, Spread, Size, Knockout) = (d.Angle, d.UseGlobalLight, d.Distance, d.Spread * 100.0, d.Size, d.Knockout);
+                (Angle, UseGlobalLight, Distance, Spread, Size, Knockout, Noise) =
+                    (d.Angle, d.UseGlobalLight, d.Distance, d.Spread * 100.0, d.Size, d.Knockout, d.Noise * 100.0);
+                Contour = new ContourSetting(d.Contour, d.AntiAliased, Edited);
                 break;
             case InnerShadowEffect s:
                 LoadCommon(s, s.BlendMode, s.Opacity, s.Color);
-                (Angle, UseGlobalLight, Distance, Spread, Size) = (s.Angle, s.UseGlobalLight, s.Distance, s.Choke * 100.0, s.Size);
+                (Angle, UseGlobalLight, Distance, Spread, Size, Noise) = (s.Angle, s.UseGlobalLight, s.Distance, s.Choke * 100.0, s.Size, s.Noise * 100.0);
+                Contour = new ContourSetting(s.Contour, s.AntiAliased, Edited);
                 break;
             default:
                 // Photoshop's defaults for a new shadow.
@@ -408,9 +562,12 @@ public sealed partial class ShadowEntry : EffectEntry
     [ObservableProperty] public partial double Spread { get; set; }
     [ObservableProperty] public partial double Size { get; set; }
     [ObservableProperty] public partial bool Knockout { get; set; }
+    [ObservableProperty] public partial double Noise { get; set; }
 
-    /// <summary>The global light moved (from this or another shadow): show its angle without counting it as an edit here.</summary>
-    internal void ShowGlobalAngle(double angle)
+    /// <summary>Quality › Contour and Anti-aliased.</summary>
+    public ContourSetting Contour { get; }
+
+    void IGlobalLightEntry.ShowGlobalLight(double angle, double altitude)
     {
         _showingGlobal = true;
         Angle = angle;
@@ -420,13 +577,13 @@ public sealed partial class ShadowEntry : EffectEntry
     partial void OnAngleChanged(double value)
     {
         if (_showingGlobal || Loading) return;
-        if (UseGlobalLight) Session.GlobalAngle = value; // moves every shadow that uses it, here and on other layers
+        if (UseGlobalLight) Session.GlobalAngle = value; // moves every effect that uses it, here and on other layers
         Edited();
     }
 
     partial void OnUseGlobalLightChanged(bool value)
     {
-        if (value && !Loading) ShowGlobalAngle(Session.GlobalAngle);
+        if (value && !Loading) ((IGlobalLightEntry)this).ShowGlobalLight(Session.GlobalAngle, Session.GlobalAltitude);
         Edited();
     }
 
@@ -434,40 +591,56 @@ public sealed partial class ShadowEntry : EffectEntry
     partial void OnSpreadChanged(double value) => Edited();
     partial void OnSizeChanged(double value) => Edited();
     partial void OnKnockoutChanged(bool value) => Edited();
+    partial void OnNoiseChanged(double value) => Edited();
 
     protected override LayerEffect Build() => IsDropShadow
         ? (Original as DropShadowEffect ?? new DropShadowEffect()) with
         {
             BlendMode = BlendMode, Opacity = Fraction(Opacity), Color = Rgb, Angle = (float)Angle, UseGlobalLight = UseGlobalLight,
             Distance = (float)Distance, Spread = Fraction(Spread), Size = (float)Size, Knockout = Knockout,
+            Contour = Contour.Contour, AntiAliased = Contour.AntiAliased, Noise = Fraction(Noise),
         }
         : (Original as InnerShadowEffect ?? new InnerShadowEffect()) with
         {
             BlendMode = BlendMode, Opacity = Fraction(Opacity), Color = Rgb, Angle = (float)Angle, UseGlobalLight = UseGlobalLight,
             Distance = (float)Distance, Choke = Fraction(Spread), Size = (float)Size,
+            Contour = Contour.Contour, AntiAliased = Contour.AntiAliased, Noise = Fraction(Noise),
         };
 }
 
-/// <summary>Outer Glow and Inner Glow (solid color; gradient glows are kept as they are but not edited).</summary>
+/// <summary>Outer Glow and Inner Glow: a solid color or a gradient, and the Elements and Quality settings.</summary>
 public sealed partial class GlowEntry : EffectEntry
 {
     public GlowEntry(LayerStyleViewModel session, LayerStylePage page, LayerEffect? original) : base(session, page, original)
     {
+        Gradient = Editing.GradientPresets.ForegroundToTransparent;
         switch (original)
         {
             case OuterGlowEffect g:
                 LoadCommon(g, g.BlendMode, g.Opacity, g.Color);
                 (Spread, Size) = (g.Spread * 100.0, g.Size);
+                Load(g.Gradient, g.Technique, g.Contour, g.AntiAliased, g.Noise, g.Range, g.Jitter);
                 break;
             case InnerGlowEffect g:
                 LoadCommon(g, g.BlendMode, g.Opacity, g.Color);
                 (Spread, Size, SourceIndex) = (g.Choke * 100.0, g.Size, g.FromCenter ? 1 : 0);
+                Load(g.Gradient, g.Technique, g.Contour, g.AntiAliased, g.Noise, g.Range, g.Jitter);
                 break;
             default:
                 LoadCommon(null, BlendMode.Screen, 0.75f, new RgbColor(1, 1, 190 / 255f));
-                (Spread, Size) = (0, 5);
+                (Spread, Size, Range) = (0, 5, 50);
+                Contour = new ContourSetting(Core.Contour.Linear, false, Edited);
                 break;
         }
+    }
+
+    private void Load(Gradient? gradient, GlowTechnique technique, Core.Contour contour, bool antiAliased, float noise, float range, float jitter)
+    {
+        UseGradient = gradient is not null;
+        if (gradient is not null) Gradient = gradient;
+        TechniqueIndex = (int)technique;
+        Contour = new ContourSetting(contour, antiAliased, Edited);
+        (Noise, Range, Jitter) = (noise * 100.0, range * 100.0, jitter * 100.0);
     }
 
     public bool IsInnerGlow => Page == LayerStylePage.InnerGlow;
@@ -479,19 +652,55 @@ public sealed partial class GlowEntry : EffectEntry
     /// <summary>Inner Glow's Source: 0 Edge, 1 Center.</summary>
     [ObservableProperty] public partial int SourceIndex { get; set; }
 
+    /// <summary>Photoshop's color or gradient radio buttons.</summary>
+    [ObservableProperty] public partial bool UseGradient { get; set; }
+
+    /// <summary>The glow's gradient (kept while the color is chosen, as Photoshop's dialog does).</summary>
+    [ObservableProperty] public partial Gradient Gradient { get; set; }
+
+    /// <summary>Technique: 0 Softer, 1 Precise.</summary>
+    [ObservableProperty] public partial int TechniqueIndex { get; set; }
+    [ObservableProperty] public partial double Noise { get; set; }
+    [ObservableProperty] public partial double Range { get; set; }
+    [ObservableProperty] public partial double Jitter { get; set; }
+
+    public bool UseColor
+    {
+        get => !UseGradient;
+        set => UseGradient = !value;
+    }
+
+    public ContourSetting Contour { get; private set; } = null!;
+
     partial void OnSpreadChanged(double value) => Edited();
     partial void OnSizeChanged(double value) => Edited();
     partial void OnSourceIndexChanged(int value) => Edited();
+    partial void OnUseGradientChanged(bool value) { OnPropertyChanged(nameof(UseColor)); Edited(); }
+    partial void OnGradientChanged(Gradient value) => Edited();
+    partial void OnTechniqueIndexChanged(int value) => Edited();
+    partial void OnNoiseChanged(double value) => Edited();
+    partial void OnRangeChanged(double value) => Edited();
+    partial void OnJitterChanged(double value) => Edited();
 
-    protected override LayerEffect Build() => IsInnerGlow
-        ? (Original as InnerGlowEffect ?? new InnerGlowEffect()) with
-        {
-            BlendMode = BlendMode, Opacity = Fraction(Opacity), Color = Rgb, Choke = Fraction(Spread), Size = (float)Size, FromCenter = SourceIndex == 1,
-        }
-        : (Original as OuterGlowEffect ?? new OuterGlowEffect()) with
-        {
-            BlendMode = BlendMode, Opacity = Fraction(Opacity), Color = Rgb, Spread = Fraction(Spread), Size = (float)Size,
-        };
+    protected override LayerEffect Build()
+    {
+        var gradient = UseGradient ? Resolved(Gradient) : null;
+        // A gradient glow stores no color in the file (the gradient replaces it), so it reads back as black.
+        var color = gradient is null ? Rgb : RgbColor.Black;
+        return IsInnerGlow
+            ? (Original as InnerGlowEffect ?? new InnerGlowEffect()) with
+            {
+                BlendMode = BlendMode, Opacity = Fraction(Opacity), Color = color, Choke = Fraction(Spread), Size = (float)Size, FromCenter = SourceIndex == 1,
+                Gradient = gradient, Technique = (GlowTechnique)TechniqueIndex, Contour = Contour.Contour, AntiAliased = Contour.AntiAliased,
+                Noise = Fraction(Noise), Range = Fraction(Range), Jitter = Fraction(Jitter),
+            }
+            : (Original as OuterGlowEffect ?? new OuterGlowEffect()) with
+            {
+                BlendMode = BlendMode, Opacity = Fraction(Opacity), Color = color, Spread = Fraction(Spread), Size = (float)Size,
+                Gradient = gradient, Technique = (GlowTechnique)TechniqueIndex, Contour = Contour.Contour, AntiAliased = Contour.AntiAliased,
+                Noise = Fraction(Noise), Range = Fraction(Range), Jitter = Fraction(Jitter),
+            };
+    }
 }
 
 public sealed partial class ColorOverlayEntry : EffectEntry
@@ -506,76 +715,36 @@ public sealed partial class ColorOverlayEntry : EffectEntry
     };
 }
 
+/// <summary>Gradient Overlay: the gradient comes from the Gradient Editor's picker (presets, or Edit…).</summary>
 public sealed partial class GradientOverlayEntry : EffectEntry
 {
-    private readonly List<Gradient> _gradients = [];
-
     public GradientOverlayEntry(LayerStyleViewModel session, GradientOverlayEffect? original) : base(session, LayerStylePage.GradientOverlay, original)
     {
         LoadCommon(original, BlendMode.Normal, 1f, default);
-        var fg = LayerStyleViewModel.ToRgb(session.Document.Editor.ForegroundColor);
-        var bg = LayerStyleViewModel.ToRgb(session.Document.Editor.BackgroundColor);
-        var names = new List<string>();
-        void Add(string name, Gradient g)
-        {
-            names.Add(name);
-            _gradients.Add(g);
-        }
-        if (original is not null) Add($"Current ({DisplayName(original.Gradient.Name)})", original.Gradient);
-        Add("Foreground to Background", Two(fg, 1, bg, 1, "Foreground to Background"));
-        Add("Foreground to Transparent", Two(fg, 1, fg, 0, "Foreground to Transparent"));
-        Add("Black, White", Two(RgbColor.Black, 1, new RgbColor(1, 1, 1), 1, "Black, White"));
-        Add("White, Black", Two(new RgbColor(1, 1, 1), 1, RgbColor.Black, 1, "White, Black"));
-        GradientNames = names;
-
         if (original is not null)
-            (StyleIndex, Angle, Scale, Reverse, Align) = ((int)original.Style, original.Angle, original.Scale * 100.0, original.Reverse, original.AlignWithLayer);
+            (Gradient, StyleIndex, Angle, Scale, Reverse, Align) =
+                (original.Gradient, (int)original.Style, original.Angle, original.Scale * 100.0, original.Reverse, original.AlignWithLayer);
         else
-            (GradientIndex, Angle, Scale, Align) = (2, 90, 100, true);
+            (Gradient, Angle, Scale, Align) = (Editing.GradientPresets.BlackToWhite, 90, 100, true);
     }
 
-    private static Gradient Two(RgbColor a, float aOpacity, RgbColor b, float bOpacity, string name) =>
-        new([new(0, 0.5f, a), new(1, 0.5f, b)], [new(0, 0.5f, aOpacity), new(1, 0.5f, bOpacity)]) { Name = name };
-
-    /// <summary>Photoshop stores preset names as "$$$/Key=Display Name".</summary>
-    private static string DisplayName(string name) => name.Contains('=') ? name[(name.IndexOf('=') + 1)..] : name;
-
-    public IReadOnlyList<string> GradientNames { get; }
-
-    [ObservableProperty] public partial int GradientIndex { get; set; }
+    [ObservableProperty] public partial Gradient Gradient { get; set; }
     [ObservableProperty] public partial int StyleIndex { get; set; }
     [ObservableProperty] public partial double Angle { get; set; }
     [ObservableProperty] public partial double Scale { get; set; }
     [ObservableProperty] public partial bool Reverse { get; set; }
     [ObservableProperty] public partial bool Align { get; set; }
 
-    /// <summary>A preview of the chosen gradient for the swatch.</summary>
-    public IBrush GradientBrush
-    {
-        get
-        {
-            var g = _gradients[Math.Clamp(GradientIndex, 0, _gradients.Count - 1)];
-            var brush = new LinearGradientBrush { StartPoint = new Avalonia.RelativePoint(0, 0.5, Avalonia.RelativeUnit.Relative), EndPoint = new Avalonia.RelativePoint(1, 0.5, Avalonia.RelativeUnit.Relative) };
-            for (int i = 0; i <= 16; i++)
-            {
-                float t = i / 16f;
-                var (c, a) = g.Sample(Reverse ? 1 - t : t);
-                brush.GradientStops.Add(new GradientStop(Color.FromArgb((byte)(a * 255), (byte)(c.R * 255), (byte)(c.G * 255), (byte)(c.B * 255)), t));
-            }
-            return brush;
-        }
-    }
-
-    partial void OnGradientIndexChanged(int value) { OnPropertyChanged(nameof(GradientBrush)); Edited(); }
+    partial void OnGradientChanged(Gradient value) => Edited();
     partial void OnStyleIndexChanged(int value) => Edited();
     partial void OnAngleChanged(double value) => Edited();
     partial void OnScaleChanged(double value) => Edited();
-    partial void OnReverseChanged(bool value) { OnPropertyChanged(nameof(GradientBrush)); Edited(); }
+    partial void OnReverseChanged(bool value) => Edited();
     partial void OnAlignChanged(bool value) => Edited();
 
     protected override LayerEffect Build()
     {
-        var gradient = _gradients[Math.Clamp(GradientIndex, 0, _gradients.Count - 1)];
+        var gradient = Resolved(Gradient);
         return Original is GradientOverlayEffect o
             ? o with
             {
@@ -590,35 +759,13 @@ public sealed partial class GradientOverlayEntry : EffectEntry
     }
 }
 
-public sealed partial class StrokeEntry : EffectEntry
-{
-    public StrokeEntry(LayerStyleViewModel session, StrokeEffect? original) : base(session, LayerStylePage.Stroke, original)
-    {
-        LoadCommon(original, BlendMode.Normal, 1f, original?.Color ?? new RgbColor(1, 0, 0));
-        (Size, PositionIndex) = original is null ? (3, 0) : (original.Size, (int)original.Position);
-    }
-
-    [ObservableProperty] public partial double Size { get; set; }
-
-    /// <summary>0 Outside, 1 Inside, 2 Center (the order of <see cref="StrokePosition"/>).</summary>
-    [ObservableProperty] public partial int PositionIndex { get; set; }
-
-    partial void OnSizeChanged(double value) => Edited();
-    partial void OnPositionIndexChanged(int value) => Edited();
-
-    protected override LayerEffect Build() => (Original as StrokeEffect ?? new StrokeEffect()) with
-    {
-        BlendMode = BlendMode, Opacity = Fraction(Opacity), Color = Rgb, Size = (float)Size, Position = (StrokePosition)PositionIndex,
-    };
-}
-
-/// <summary>An effect on the layer that Strayta cannot edit yet: it stays as it is, and its checkbox shows or hides it.</summary>
+/// <summary>An effect on the layer that Strayta cannot read: it stays as it is, and its checkbox shows or hides it.</summary>
 public sealed partial class UnsupportedEntry(LayerStyleViewModel session, LayerStylePage page, UnsupportedEffect effect)
     : EffectEntry(session, page, effect)
 {
     public override string Name => effect.Name;
     public override bool IsEditable => false;
-    public string Message => $"{effect.Name} is kept exactly as it is in the file and saved unchanged. Strayta cannot render or edit it yet; " +
+    public string Message => $"{effect.Name} is kept exactly as it is in the file and saved unchanged. Strayta cannot render or edit it; " +
                              "the checkbox shows or hides it.";
 
     internal override LayerEffect? Result() => Toggled ? effect with { Enabled = IsChecked } : effect;
@@ -626,7 +773,7 @@ public sealed partial class UnsupportedEntry(LayerStyleViewModel session, LayerS
     protected override LayerEffect Build() => effect;
 }
 
-/// <summary>A style Strayta does not have yet (Bevel &amp; Emboss, Satin, Pattern Overlay): listed, greyed, off.</summary>
+/// <summary>A style Strayta does not have: listed, greyed, off.</summary>
 public sealed partial class UnavailableEntry(LayerStyleViewModel session, LayerStylePage page) : EffectEntry(session, page, null)
 {
     public override bool IsEditable => false;

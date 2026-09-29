@@ -1,0 +1,31 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:Strayta.Editor.ViewModels"
+        xmlns:c="using:Strayta.Editor.Controls"
+        x:Class="Strayta.Editor.Views.GlobalLightWindow"
+        x:DataType="vm:GlobalLightViewModel"
+        Title="Global Light"
+        Width="420" SizeToContent="Height" CanResize="False"
+        WindowStartupLocation="CenterOwner"
+        Background="{DynamicResource St.Panel}"
+        FontSize="12">
+  <!-- Layer › Layer Style › Global Light…: the light every effect with "Use Global Light" shares. -->
+  <DockPanel Margin="14">
+    <StackPanel DockPanel.Dock="Right" Width="96" Spacing="8" Margin="14,0,0,0">
+      <Button x:Name="OkButton" Content="OK" IsDefault="True" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" />
+      <Button x:Name="CancelButton" Content="Cancel" IsCancel="True" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" />
+    </StackPanel>
+    <StackPanel Spacing="10">
+      <TextBlock FontWeight="SemiBold" Text="Light" />
+      <DockPanel>
+        <c:AngleDial DockPanel.Dock="Left" Width="72" Height="72" ShowAltitude="True" Angle="{Binding Angle}" Altitude="{Binding Altitude}" Margin="0,0,14,0" />
+        <StackPanel Spacing="8">
+          <c:SliderField Label="Angle (°)" Minimum="-180" Maximum="180" Value="{Binding Angle}" />
+          <c:SliderField Label="Altitude (°)" Minimum="0" Maximum="90" Value="{Binding Altitude}" />
+        </StackPanel>
+      </DockPanel>
+      <TextBlock Classes="muted" TextWrapping="Wrap"
+                 Text="{Binding Users, StringFormat='Shadows and bevels that use the global light follow it ({0} layers).'}" />
+    </StackPanel>
+  </DockPanel>
+</Window>

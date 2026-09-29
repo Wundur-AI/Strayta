@@ -1,0 +1,24 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:Strayta.Editor.ViewModels"
+        xmlns:c="using:Strayta.Editor.Controls"
+        x:Class="Strayta.Editor.Views.ScaleEffectsWindow"
+        x:DataType="vm:ScaleEffectsViewModel"
+        Title="Scale Layer Effects"
+        Width="380" SizeToContent="Height" CanResize="False"
+        WindowStartupLocation="CenterOwner"
+        Background="{DynamicResource St.Panel}"
+        FontSize="12">
+  <!-- Layer › Layer Style › Scale Effects…: every size and distance of the layer's effects by one factor. -->
+  <DockPanel Margin="14">
+    <StackPanel DockPanel.Dock="Right" Width="96" Spacing="8" Margin="14,0,0,0">
+      <Button x:Name="OkButton" Content="OK" IsDefault="True" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" />
+      <Button x:Name="CancelButton" Content="Cancel" IsCancel="True" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" />
+      <CheckBox Content="Preview" IsChecked="{Binding Preview}" />
+    </StackPanel>
+    <StackPanel Spacing="10">
+      <c:SliderField Label="Scale (%)" Minimum="1" Maximum="1000" Value="{Binding Scale}" />
+      <TextBlock Classes="muted" TextWrapping="Wrap" Text="{Binding LayerName, StringFormat='Sizes, distances and pattern scales of the effects on “{0}”.'}" />
+    </StackPanel>
+  </DockPanel>
+</Window>
