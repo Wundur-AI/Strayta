@@ -392,7 +392,7 @@ public static class PsdEffectsWriter
     /// A gradient ('Grdn'): custom gradients with color and opacity stops at 0..4096, midpoints in percent, each color
     /// stop's kind and the smoothness ('Intr'); noise gradients with their settings (see <see cref="PsdEffects.GradientOf"/>).
     /// </summary>
-    private static Descriptor GradientDescriptor(Gradient g)
+    internal static Descriptor GradientDescriptor(Gradient g)
     {
         static DescriptorValue Stop(string classId, float location, float midpoint, List<(string, DescriptorValue)> items)
         {
@@ -441,7 +441,7 @@ public static class PsdEffectsWriter
             ? Object("CrPt", ("Hrzn", new DoubleValue(p.X)), ("Vrtc", new DoubleValue(p.Y)), ("Cnty", new BoolValue(false)))
             : Object("CrPt", ("Hrzn", new DoubleValue(p.X)), ("Vrtc", new DoubleValue(p.Y))))).ToList())));
 
-    private static Descriptor Rgb(RgbColor c) => Object("RGBC",
+    internal static Descriptor Rgb(RgbColor c) => Object("RGBC",
         ("Rd  ", new DoubleValue(Channel(c.R))), ("Grn ", new DoubleValue(Channel(c.G))), ("Bl  ", new DoubleValue(Channel(c.B))));
 
     /// <summary>0..1 to Photoshop's 0..255 doubles, rounded to what 16-bit precision can tell apart.</summary>

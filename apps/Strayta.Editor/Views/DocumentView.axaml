@@ -28,7 +28,7 @@
       <c:ImageCanvas x:Name="Canvas" Source="{Binding Display}" DocumentSize="{Binding DocumentSize}"
                      Tool="{Binding Editor.Tool}" BrushSize="{Binding Editor.ToolBrushSize}"
                      Selection="{Binding Selection}" LiveSelectionOutline="{Binding QuickSelectionOutline}"
-                     FreeTransform="{Binding FreeTransform}" TypeSession="{Binding TypeSession}"
+                     FreeTransform="{Binding FreeTransform}" TypeSession="{Binding TypeSession}" PathOverlay="{Binding PathOverlay}"
                      CropBox="{Binding CropBox}" StraightenMode="{Binding Editor.CropStraighten}"
                      CropOverlay="{Binding Editor.CropOverlay}" CropOverlayOrientation="{Binding Editor.CropOverlayOrientation}"
                      PerspectiveCrop="{Binding PerspectiveCrop}"

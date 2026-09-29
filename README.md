@@ -92,6 +92,23 @@ dotnet test
   show blank. The Properties panel shows a type layer's font, size, color and alignment. Documents with missing fonts
   show a banner; editing such type asks for a replacement (Cancel leaves it and its font names alone). Free Transform,
   crops and Image Size redraw type sharply through its new transform when its fonts are installed.
+- Shapes (U: Rectangle, Ellipse, Triangle, Polygon, Line, Custom Shape) and paths (P: Pen, Add / Delete Anchor Point,
+  Convert Point; A: Path Selection, Direct Selection), in Photoshop's places. Drag to draw (Shift keeps proportions or
+  45°, Option draws from the centre, Space moves the shape while drawing; drags snap per View › Snap To). Options bar:
+  Shape or Path mode, fill and stroke (none, color, gradient, pattern; width, inside / center / outside, dashed or
+  dotted, caps, corners), W / H, path operations (new layer, combine, subtract, intersect, exclude), corner radius,
+  polygon sides and star ratio, line weight and arrowheads, and a few built-in custom shapes. With a shape layer
+  selected, fill and stroke changes restyle it. The Pen clicks corners, drags smooth points (Option breaks the handles,
+  Shift keeps 45°), shows the next segment as a rubber band and closes on the first anchor; in Shape mode it draws a
+  shape layer, in Path mode the Work Path. Path / Direct Selection select and drag whole components or anchors and
+  handles, marquee-select, nudge with the arrow keys, Option-drag copies, Delete removes. Window › Paths: the shape's
+  path, the Work Path and saved paths with thumbnails; Fill Path, Stroke Path (current brush), Make Selection (⌘Return;
+  feather), Make Work Path from the selection (tolerance), save, rename, duplicate, delete. Properties has a Live Shape
+  section (W / H / X / Y, per-corner radii with a link, fill and stroke). Shapes are drawn by Strayta's rasterizer
+  (`Strayta.Core.Paths`: exact-area coverage, Photoshop's path operations and component fill), read and written as
+  Photoshop CC stores them (`PsdShapeLayer`, `PsdPaths`, `PsdPathResources`; unedited data stays byte for byte), move
+  with the Move tool and are redrawn after Free Transform, crops and Image Size. Measured against the vector masks
+  Photoshop CC rasterized in the test corpus, coverage matches on 99.9% of pixels (`strayta-inspect shapefid`).
 - Zoom (Z): click zooms in, Option-click out, drag left/right zooms smoothly (Scrubby Zoom; off, the drag draws a
   rectangle to zoom into); double-click the tool for 100%. ⌘Space / ⌘⌥Space zoom in / out over any tool while held.
   Steps glide in a short ease (Animated Zoom, can be turned off). View > Zoom In / Zoom Out (⌘+ / ⌘−), Fit on
@@ -181,8 +198,8 @@ dotnet test
 - Type, smart objects, shapes and fill layers stay editable through Free Transform, turned crops and Image Size:
   the file's type transform, smart object corners (`SoLd`/`PlLd`), vector mask points and live shape boxes
   (`vogk`) move with them. Smart objects are redrawn from their embedded file (sharp when enlarged; warped ones and
-  ones with smart filters are resampled), solid color fills are filled again, and type and shapes show their
-  resampled pixels until Photoshop redraws them.
+  ones with smart filters are resampled), solid color fills are filled again, shapes are drawn again from their moved
+  outline, and type is redrawn when its fonts are installed.
 - Crop tool (C): a box around the whole canvas; drag its edges (Shift keeps the shape, Option from the center),
   drag inside to move the image under it, outside to turn it (the box shrinks so no empty corners appear), or use
   Straighten to draw a line to level. Ratio presets and W x H x Resolution (crops to exact pixels and sets the
@@ -236,6 +253,8 @@ document).
 `STRAYTA_TOOLBENCH=new` times Gradient drags (two-color Classic and a seven-stop Perceptual one, plain and in Multiply;
 preview frame rate, release to edit), Paint Bucket clicks and Eyedropper samples on a generated 4000×3000 document.
 `STRAYTA_SETTINGS_DIR` keeps user presets (gradients, patterns) in another folder.
+`STRAYTA_SELFTEST_ONLY=shapes` runs the shape and path steps (with SHAPEBENCH timings on 4000×3000); `STRAYTA_SHAPE_SAMPLES=dir`
+also writes shape files for checking in Photoshop.
 `STRAYTA_RETOUCHBENCH=new` measures Clone Stamp stroke frame rates and commit times (plain and transformed) and
 Healing / Spot Healing (each Type) release-to-edit times and Content-Aware Fill times on a generated 4000×3000 document.
 `STRAYTA_PAINTBENCH=new` runs the brush benchmarks (with Flow, a blend mode, Smoothing and Airbrush, pressure and an
@@ -284,6 +303,8 @@ dotnet run --project tools/Strayta.Inspect -- scan ~/psd-corpus             # pa
 dotnet run --project tools/Strayta.Inspect -- fidelity ~/psd-corpus         # render and score vs composite
 dotnet run --project tools/Strayta.Inspect -- text file.psd                 # type layers' text, styles, paragraphs
 dotnet run --project tools/Strayta.Inspect -- textfid ~/psd-corpus          # draw type layers, score vs Photoshop's pixels
+dotnet run --project tools/Strayta.Inspect -- shapes [-v] ~/psd-corpus      # vector masks, live shapes, strokes, path resources
+dotnet run --project tools/Strayta.Inspect -- shapefid [-v] ~/psd-corpus    # rasterize vector masks, score vs Photoshop's
 dotnet run --project tools/Strayta.Inspect -- adjustsamples out/            # one PSD per adjustment kind to check in Photoshop
 ```
 

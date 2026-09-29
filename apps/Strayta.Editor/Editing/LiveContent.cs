@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using System.Runtime.CompilerServices;
 using Strayta.Core;
+using Strayta.Core.Paths;
 using Strayta.Imaging;
 using Strayta.Psd;
 using Strayta.Psd.Descriptors;
@@ -23,8 +24,9 @@ namespace Strayta.Editor.Editing;
 /// <item>Type is drawn again by the text engine through its new transform (sharp at any scale, as Photoshop redraws
 /// it) when every font it uses is installed and it is neither warped nor vertical; otherwise the resampled pixels
 /// stand in.</item>
-/// <item>Shapes, gradient and pattern fills keep the resampled pixels as their preview; Photoshop redraws them from
-/// the updated data when they are edited.</item>
+/// <item>Shapes (fills with a vector mask) are drawn again from their moved outline, fill and stroke
+/// (<see cref="ShapeRenderer"/>). Gradient and pattern fills without an outline keep the resampled pixels; Photoshop
+/// redraws them from the updated data when they are edited.</item>
 /// </list>
 /// </summary>
 internal static class LiveContent
@@ -47,6 +49,14 @@ internal static class LiveContent
             if (layer.Tags.Contains("smart-object") && file is not null)
                 return RedrawSmartObject(record, file, doc, newCanvas, cancel);
             if (layer.Tags.Contains("text")) return RedrawType(record, doc);
+            // Shapes are drawn again from their moved outline, fill and stroke (ShapeLayers.cs).
+            if (PsdShapeLayer.Read(record, newCanvas.Width, newCanvas.Height, doc.Patterns, doc.Resolution) is { } shape)
+            {
+                int mx = Math.Max(64, newCanvas.Width / 4), my = Math.Max(64, newCanvas.Height / 4);
+                var clip = new PixelRect(newCanvas.Left - mx, newCanvas.Top - my, newCanvas.Right + mx, newCanvas.Bottom + my);
+                var render = ShapeRenderer.Render(shape, newCanvas, clip, doc.ColorMode, doc.BitDepth, cancel);
+                return (render.Pixels, render.Pixels is null ? PixelRect.Empty : render.Bounds);
+            }
             if (layer.Tags.Contains("fill") && record.FindBlock("SoCo") is { Data: { } soco }
                 && record.FindBlock("vmsk") is null && record.FindBlock("vsms") is null)
                 return RedrawSolidFill(soco, doc, oldBounds, oldCanvas, newCanvas, map);

@@ -355,7 +355,7 @@ public sealed partial class DocumentViewModel : Dock.Model.Mvvm.Controls.Documen
 
     public void MoveSelected(int dx, int dy)
     {
-        if (SelectedLayer?.Node is { } node && node.Visible) Apply(new MoveEdit(node, dx, dy));
+        if (SelectedLayer?.Node is { } node && node.Visible) Apply(new MoveEdit(node, dx, dy, Model.Width, Model.Height));
     }
 
     /// <summary>Moves the selected layer one step up (+1) or down (-1) within its group.</summary>
@@ -411,6 +411,7 @@ public sealed partial class DocumentViewModel : Dock.Model.Mvvm.Controls.Documen
         OnPropertyChanged(nameof(RedoText));
         HistoryChanged?.Invoke(); // History panel (DocumentViewModel.History.cs)
         if (edit is not (SelectionEdit or GuideEdit)) RequestRender();
+        RefreshPathOverlay(); // the path tools' outline follows undo and redo (DocumentViewModel.Paths.cs)
     }
 
     /// <summary>Recreates the panel's layer items, keeping the selection and folder state.</summary>

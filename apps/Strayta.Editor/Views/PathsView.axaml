@@ -1,0 +1,82 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Strayta.Editor.ViewModels"
+             x:Class="Strayta.Editor.Views.PathsView"
+             x:DataType="vm:PathsToolViewModel"
+             Background="{DynamicResource St.Panel}"
+             FontSize="11">
+  <UserControl.Styles>
+    <Style Selector="ListBox#List">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="Padding" Value="0" />
+    </Style>
+    <Style Selector="ListBox#List ListBoxItem">
+      <Setter Property="Padding" Value="6,3" />
+      <Setter Property="MinHeight" Value="0" />
+      <Setter Property="BorderBrush" Value="{DynamicResource St.RowLine}" />
+      <Setter Property="BorderThickness" Value="0,0,0,1" />
+    </Style>
+    <Style Selector="ListBox#List ListBoxItem:selected /template/ ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource St.RowSelected}" />
+    </Style>
+  </UserControl.Styles>
+  <Panel>
+    <TextBlock Classes="muted" Text="Open a document to see its paths" IsVisible="{Binding !HasDocument}"
+               HorizontalAlignment="Center" VerticalAlignment="Center" />
+    <DockPanel IsVisible="{Binding HasDocument}">
+      <!-- Footer: Photoshop's Paths panel buttons -->
+      <Border DockPanel.Dock="Bottom" Padding="6,3" BorderBrush="{DynamicResource St.Border}" BorderThickness="0,1,0,0">
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="2">
+          <Button Classes="icon" Command="{Binding Editor.FillPathCommand}" ToolTip.Tip="Fill path with foreground color">
+            <Path Classes="icon small" Data="{StaticResource IconFillPath}" />
+          </Button>
+          <Button Classes="icon" Command="{Binding Editor.StrokePathCommand}" ToolTip.Tip="Stroke path with brush">
+            <Path Classes="icon small" Data="{StaticResource IconStrokePath}" />
+          </Button>
+          <Button Classes="icon" Command="{Binding Editor.LoadPathAsSelectionCommand}" ToolTip.Tip="Load path as a selection (⌘Return)">
+            <Path Classes="icon small" Data="{StaticResource IconPathToSelection}" />
+          </Button>
+          <Button Classes="icon" Command="{Binding Editor.MakeWorkPathCommand}" ToolTip.Tip="Make work path from selection">
+            <Path Classes="icon small" Data="{StaticResource IconSelectionToPath}" />
+          </Button>
+          <Button Classes="icon" Command="{Binding Editor.NewPathCommand}" ToolTip.Tip="Create new path (saves the Work Path when it is selected)">
+            <Path Classes="icon small" Data="{StaticResource IconNewLayer}" />
+          </Button>
+          <Button Classes="icon" Command="{Binding DeleteCommand}" ToolTip.Tip="Delete current path">
+            <Path Classes="icon small" Data="{StaticResource IconTrash}" />
+          </Button>
+          <Button Classes="icon" ToolTip.Tip="Paths panel menu">
+            <TextBlock Text="≡" FontSize="13" />
+            <Button.Flyout>
+              <MenuFlyout Placement="TopEdgeAlignedRight">
+                <MenuItem Header="Save Path…" Command="{Binding SavePathCommand}" />
+                <MenuItem Header="Rename Path…" Command="{Binding RenameCommand}" />
+                <MenuItem Header="Duplicate Path" Command="{Binding DuplicateCommand}" />
+                <MenuItem Header="Delete Path" Command="{Binding DeleteCommand}" />
+                <Separator />
+                <MenuItem Header="Make Work Path…" Command="{Binding Editor.MakeWorkPathWithToleranceCommand}" />
+                <MenuItem Header="Make Selection…" Command="{Binding Editor.MakeSelectionWithFeatherCommand}" />
+                <MenuItem Header="Fill Path" Command="{Binding Editor.FillPathCommand}" />
+                <MenuItem Header="Stroke Path" Command="{Binding Editor.StrokePathCommand}" />
+                <Separator />
+                <MenuItem Header="Deselect Path" Command="{Binding DeselectCommand}" />
+              </MenuFlyout>
+            </Button.Flyout>
+          </Button>
+        </StackPanel>
+      </Border>
+      <ListBox x:Name="List" ItemsSource="{Binding Items}" SelectedItem="{Binding Selected}">
+        <ListBox.ItemTemplate>
+          <DataTemplate x:DataType="vm:PathItem">
+            <StackPanel Orientation="Horizontal" Spacing="8">
+              <Border BorderBrush="{DynamicResource St.Border}" BorderThickness="1" VerticalAlignment="Center">
+                <Image Source="{Binding Thumbnail}" Stretch="None" />
+              </Border>
+              <TextBlock Text="{Binding Name}" FontStyle="{Binding Style}" VerticalAlignment="Center" />
+            </StackPanel>
+          </DataTemplate>
+        </ListBox.ItemTemplate>
+      </ListBox>
+    </DockPanel>
+  </Panel>
+</UserControl>

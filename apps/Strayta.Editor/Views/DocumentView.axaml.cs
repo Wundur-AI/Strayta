@@ -24,6 +24,7 @@ public partial class DocumentView : UserControl
         WireRetouch(); // DocumentView.Retouch.cs
         WireSelectionTools(); // History Brush, Object Finder (DocumentView.SelectionTools.cs)
         WireType(); // DocumentView.Type.cs
+        WirePaths(); // DocumentView.Paths.cs
         WireGuides(); // rulers, guides, grid, snapping, Info (DocumentView.Guides.cs)
         DataContextChanged += (_, _) =>
         {

@@ -41,5 +41,6 @@
     <DataTemplate DataType="vm:CharacterToolViewModel"><v:CharacterView /></DataTemplate>
     <DataTemplate DataType="vm:ParagraphToolViewModel"><v:ParagraphView /></DataTemplate>
     <DataTemplate DataType="vm:InfoToolViewModel"><v:InfoView /></DataTemplate>
+    <DataTemplate DataType="vm:PathsToolViewModel"><v:PathsView /></DataTemplate>
   </Application.DataTemplates>
 </Application>

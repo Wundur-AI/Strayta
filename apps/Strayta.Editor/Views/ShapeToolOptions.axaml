@@ -1,0 +1,123 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Strayta.Editor.ViewModels"
+             xmlns:c="using:Strayta.Editor.Controls"
+             x:Class="Strayta.Editor.Views.ShapeToolOptions"
+             x:DataType="vm:EditorViewModel"
+             VerticalAlignment="Center">
+  <UserControl.Styles>
+    <Style Selector="ComboBox">
+      <Setter Property="FontSize" Value="11" />
+      <Setter Property="MinHeight" Value="0" />
+      <Setter Property="Padding" Value="8,2" />
+    </Style>
+    <Style Selector="Button.swatch">
+      <Setter Property="Padding" Value="0" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+  </UserControl.Styles>
+
+  <!-- The shape tools' and the Pen's options bar (ShapeOptions.cs): Shape / Path, fill and stroke (none, color, gradient,
+       pattern; width, alignment, dashes, caps, joins), W / H, the path operation and each tool's own settings. -->
+  <StackPanel Orientation="Horizontal" Spacing="12">
+    <StackPanel Orientation="Horizontal" Spacing="12" IsVisible="{Binding IsShapeOrPenTool}">
+      <ComboBox Width="80" SelectedIndex="{Binding Shapes.ModeIndex}" ToolTip.Tip="Draw a shape layer or a path">
+        <ComboBoxItem>Shape</ComboBoxItem>
+        <ComboBoxItem>Path</ComboBoxItem>
+      </ComboBox>
+
+      <StackPanel Orientation="Horizontal" Spacing="12" IsVisible="{Binding Shapes.IsShapeMode}">
+        <StackPanel Orientation="Horizontal" Spacing="6">
+          <TextBlock Classes="label" Text="Fill" VerticalAlignment="Center" />
+          <Button Classes="swatch" ToolTip.Tip="Shape fill: none, a color, a gradient or a pattern">
+            <Border Width="26" Height="18" CornerRadius="3" Background="{Binding Shapes.FillBrush}" BorderBrush="{DynamicResource St.Border}" BorderThickness="1" />
+            <Button.Flyout>
+              <Flyout Placement="BottomEdgeAlignedLeft">
+                <StackPanel Spacing="8" Width="300">
+                  <ComboBox ItemsSource="{x:Static vm:ShapeOptions.PaintKindNames}" SelectedIndex="{Binding Shapes.FillKindIndex}" Width="130" />
+                  <ColorView Color="{Binding Shapes.FillColor}" IsAlphaVisible="False" IsVisible="{Binding Shapes.FillIsColor}" />
+                  <c:GradientPicker Gradient="{Binding Shapes.FillGradient}" ForegroundColor="{Binding ForegroundRgb}" BackgroundColor="{Binding BackgroundRgb}"
+                                    IsVisible="{Binding Shapes.FillIsGradient}" HorizontalAlignment="Left" />
+                  <c:PatternPicker Pattern="{Binding Shapes.FillPattern}" DocumentPatterns="{Binding ActiveDocument.Model.Patterns, FallbackValue={x:Null}}"
+                                   IsVisible="{Binding Shapes.FillIsPattern}" HorizontalAlignment="Left" />
+                </StackPanel>
+              </Flyout>
+            </Button.Flyout>
+          </Button>
+        </StackPanel>
+
+        <StackPanel Orientation="Horizontal" Spacing="6">
+          <TextBlock Classes="label" Text="Stroke" VerticalAlignment="Center" />
+          <Button Classes="swatch" ToolTip.Tip="Shape stroke: none, a color, a gradient or a pattern">
+            <Border Width="26" Height="18" CornerRadius="3" BorderBrush="{Binding Shapes.StrokeBrush}" BorderThickness="4" Background="Transparent" />
+            <Button.Flyout>
+              <Flyout Placement="BottomEdgeAlignedLeft">
+                <StackPanel Spacing="8" Width="300">
+                  <ComboBox ItemsSource="{x:Static vm:ShapeOptions.PaintKindNames}" SelectedIndex="{Binding Shapes.StrokeKindIndex}" Width="130" />
+                  <ColorView Color="{Binding Shapes.StrokeColor}" IsAlphaVisible="False" IsVisible="{Binding Shapes.StrokeIsColor}" />
+                  <c:GradientPicker Gradient="{Binding Shapes.StrokeGradient}" ForegroundColor="{Binding ForegroundRgb}" BackgroundColor="{Binding BackgroundRgb}"
+                                    IsVisible="{Binding Shapes.StrokeIsGradient}" HorizontalAlignment="Left" />
+                  <c:PatternPicker Pattern="{Binding Shapes.StrokePattern}" DocumentPatterns="{Binding ActiveDocument.Model.Patterns, FallbackValue={x:Null}}"
+                                   IsVisible="{Binding Shapes.StrokeIsPattern}" HorizontalAlignment="Left" />
+                </StackPanel>
+              </Flyout>
+            </Button.Flyout>
+          </Button>
+          <c:NumberField Unit=" px" Width="58" Value="{Binding Shapes.StrokeWidth}" ToolTip.Tip="Stroke width" />
+          <Button Padding="6,1" MinHeight="0" Height="22" Content="⋯" ToolTip.Tip="Stroke options: alignment, dashes, caps and corners">
+            <Button.Flyout>
+              <Flyout Placement="BottomEdgeAlignedLeft">
+                <Grid ColumnDefinitions="Auto,8,Auto" RowDefinitions="Auto,6,Auto,6,Auto,6,Auto">
+                  <TextBlock Classes="label" Text="Align" VerticalAlignment="Center" />
+                  <ComboBox Grid.Column="2" Width="110" ItemsSource="{x:Static vm:ShapeOptions.AlignmentNames}" SelectedIndex="{Binding Shapes.StrokeAlignmentIndex}" />
+                  <TextBlock Grid.Row="2" Classes="label" Text="Line" VerticalAlignment="Center" />
+                  <ComboBox Grid.Row="2" Grid.Column="2" Width="110" ItemsSource="{x:Static vm:ShapeOptions.DashNames}" SelectedIndex="{Binding Shapes.DashIndex}" />
+                  <TextBlock Grid.Row="4" Classes="label" Text="Caps" VerticalAlignment="Center" />
+                  <ComboBox Grid.Row="4" Grid.Column="2" Width="110" ItemsSource="{x:Static vm:ShapeOptions.CapNames}" SelectedIndex="{Binding Shapes.CapIndex}" />
+                  <TextBlock Grid.Row="6" Classes="label" Text="Corners" VerticalAlignment="Center" />
+                  <ComboBox Grid.Row="6" Grid.Column="2" Width="110" ItemsSource="{x:Static vm:ShapeOptions.JoinNames}" SelectedIndex="{Binding Shapes.JoinIndex}" />
+                </Grid>
+              </Flyout>
+            </Button.Flyout>
+          </Button>
+        </StackPanel>
+
+        <StackPanel Orientation="Horizontal" Spacing="4" IsVisible="{Binding IsShapeTool}">
+          <TextBlock Classes="label" Text="W" VerticalAlignment="Center" />
+          <c:NumberField Unit=" px" Width="62" Value="{Binding Shapes.Width}" ToolTip.Tip="Width of the selected shape (a click draws one this size)" />
+          <TextBlock Classes="label" Text="H" VerticalAlignment="Center" Margin="4,0,0,0" />
+          <c:NumberField Unit=" px" Width="62" Value="{Binding Shapes.Height}" ToolTip.Tip="Height of the selected shape" />
+        </StackPanel>
+      </StackPanel>
+
+      <ComboBox Width="170" ItemsSource="{x:Static vm:ShapeOptions.OperationNames}" SelectedIndex="{Binding Shapes.OperationIndex}"
+                ToolTip.Tip="Path operations: a new shape layer, or combine with the selected shape" />
+
+      <StackPanel Orientation="Horizontal" Spacing="4" IsVisible="{Binding HasCornerRadius}">
+        <TextBlock Classes="label" Text="Radius" VerticalAlignment="Center" />
+        <c:NumberField Unit=" px" Width="54" Value="{Binding Shapes.CornerRadius}" ToolTip.Tip="Corner radius" />
+      </StackPanel>
+      <StackPanel Orientation="Horizontal" Spacing="4" IsVisible="{Binding IsPolygonTool}">
+        <TextBlock Classes="label" Text="Sides" VerticalAlignment="Center" />
+        <c:NumberField Width="40" Value="{Binding Shapes.Sides}" ToolTip.Tip="Number of sides (3–100)" />
+        <TextBlock Classes="label" Text="Star Ratio" VerticalAlignment="Center" Margin="6,0,0,0" />
+        <c:NumberField Unit="%" Width="50" Value="{Binding Shapes.StarRatio}" ToolTip.Tip="100% is a polygon; less pulls every other point in to make a star" />
+      </StackPanel>
+      <StackPanel Orientation="Horizontal" Spacing="6" IsVisible="{Binding IsLineTool}">
+        <TextBlock Classes="label" Text="Weight" VerticalAlignment="Center" />
+        <c:NumberField Unit=" px" Width="50" Value="{Binding Shapes.LineWeight}" ToolTip.Tip="Line weight" />
+        <CheckBox Content="Start arrow" FontSize="11" IsChecked="{Binding Shapes.ArrowStart}" />
+        <CheckBox Content="End arrow" FontSize="11" IsChecked="{Binding Shapes.ArrowEnd}" />
+      </StackPanel>
+      <StackPanel Orientation="Horizontal" Spacing="6" IsVisible="{Binding IsCustomShapeTool}">
+        <TextBlock Classes="label" Text="Shape" VerticalAlignment="Center" />
+        <ComboBox Width="130" ItemsSource="{x:Static vm:ShapeOptions.CustomShapeNames}" SelectedItem="{Binding Shapes.CustomShape}" />
+      </StackPanel>
+    </StackPanel>
+
+    <TextBlock Classes="label" VerticalAlignment="Center" IsVisible="{Binding IsPathSelectTool}"
+               Text="Click a path to select it · Shift adds · Option-drag copies · arrows nudge · Delete removes" />
+  </StackPanel>
+</UserControl>

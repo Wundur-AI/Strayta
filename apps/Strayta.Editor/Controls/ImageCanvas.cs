@@ -30,6 +30,19 @@ public enum CanvasTool
     Healing,
     HistoryBrush,
     Type,
+    // The Pen group, path selection and shape tools (ImageCanvas.Paths.cs).
+    Pen,
+    AddAnchor,
+    DeleteAnchor,
+    ConvertPoint,
+    PathSelect,
+    DirectSelect,
+    Rectangle,
+    Ellipse,
+    Triangle,
+    Polygon,
+    Line,
+    CustomShape,
 }
 
 /// <summary>
@@ -132,6 +145,7 @@ public sealed partial class ImageCanvas : Control
         if (change.Property == FreeTransformProperty) OnFreeTransformChanged(change);
         OnTypePropertyChanged(change); // ImageCanvas.Type.cs
         OnCropPropertyChanged(change); // ImageCanvas.Crop.cs
+        if (change.Property == PathOverlayProperty) InvalidateVisual(); // ImageCanvas.Paths.cs
         OnGuidesPropertyChanged(change); // ImageCanvas.Guides.cs
     }
 
@@ -191,6 +205,7 @@ public sealed partial class ImageCanvas : Control
         }
         DrawTransformBox(context);
         RenderType(context); // caret, selection and text box (ImageCanvas.Type.cs)
+        RenderPaths(context); // paths, anchors and shapes being drawn (ImageCanvas.Paths.cs)
         RenderEverydayTools(context); // ImageCanvas.Everyday.cs
         DrawCropOverlay(context);
         RenderZoomRectangle(context); // ImageCanvas.Zoom.cs
@@ -247,6 +262,11 @@ public sealed partial class ImageCanvas : Control
             e.Pointer.Capture(this);
             return;
         }
+        if (!_panning && PathToolPressed(e, props)) // shapes, the pen and path selection (ImageCanvas.Paths.cs)
+        {
+            e.Pointer.Capture(this);
+            return;
+        }
         if (!_panning && EverydayPressed(e, props)) // Eyedropper, Paint Bucket, Gradient (ImageCanvas.Everyday.cs)
         {
             e.Pointer.Capture(this);
@@ -283,6 +303,7 @@ public sealed partial class ImageCanvas : Control
         if (TransformMoved(e) || CropMoved(e) || ZoomMoved(e)) return;
         ObjectFinderMoved(e); // ImageCanvas.ObjectFinder.cs
         if (TypeMoved(e)) return;
+        if (PathToolMoved(e)) return; // ImageCanvas.Paths.cs
         if (EverydayMoved(e)) return;
         if (IsPaintTool || Tool == CanvasTool.QuickSelect)
         {
@@ -342,6 +363,7 @@ public sealed partial class ImageCanvas : Control
         }
         TransformReleased();
         TypeReleased(e);
+        PathToolReleased(e); // ImageCanvas.Paths.cs
         ZoomReleased(e);
         EverydayReleased(e);
         CropReleased();
@@ -361,6 +383,7 @@ public sealed partial class ImageCanvas : Control
     {
         base.OnKeyDown(e);
         if (!(e.Key == Key.Space && IsCommand(e.KeyModifiers)) && TypeKeyDown(e)) return; // typing (ImageCanvas.Type.cs); ⌘Space still zooms
+        if (PathKeyDown(e)) return; // nudging and deleting path items, ending the pen's path (ImageCanvas.Paths.cs)
         if (ZoomKeyChanged(e, down: true)) return; // ⌘Space zooms (ImageCanvas.Zoom.cs)
         TransformModifiersChanged(e);
         EverydayKeyChanged(e, down: true);
@@ -393,6 +416,7 @@ public sealed partial class ImageCanvas : Control
         : Tool == CanvasTool.Hand || _spaceHeld ? new Cursor(StandardCursorType.Hand)
         : FreeTransform is not null || CropBox is not null ? new Cursor(StandardCursorType.Arrow)
         : Tool == CanvasTool.Type ? new Cursor(StandardCursorType.Ibeam)
+        : IsPathCanvasTool ? PathCursor() // ImageCanvas.Paths.cs
         : EverydayCursor() ?? new Cursor(IsPaintTool || IsSelectTool || IsWandTool ? StandardCursorType.Cross : StandardCursorType.SizeAll);
 
     private static IBrush CreateChecker(Color light, Color dark)

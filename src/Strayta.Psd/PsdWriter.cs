@@ -391,7 +391,8 @@ public static class PsdWriter
         var bounds = mask.Pixels is null ? PixelRect.Empty : mask.Bounds;
         s.I32(bounds.Top); s.I32(bounds.Left); s.I32(bounds.Bottom); s.I32(bounds.Right);
         s.U8(mask.DefaultColor);
-        s.U8((byte)((mask.PositionRelativeToLayer ? 0x01 : 0) | (mask.Disabled ? 0x02 : 0)));
+        // Bit 3: the mask is a rasterized vector mask (Photoshop's cache for shape and fill layers).
+        s.U8((byte)((mask.PositionRelativeToLayer ? 0x01 : 0) | (mask.Disabled ? 0x02 : 0) | (mask.AppliedToPixels ? 0x08 : 0)));
 
         // Keep the combined vector+pixel ("real") mask when the source had one.
         if (src?.Mask is { RealRect: { } real, RealFlags: { } realFlags, RealDefaultColor: { } realDefault }

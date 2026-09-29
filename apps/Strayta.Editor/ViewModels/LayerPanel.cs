@@ -15,7 +15,11 @@ public sealed partial class LayerPanel : PropertiesPanel
     public LayerPanel(DocumentViewModel document, LayerNode node) : base(document, node)
     {
         Mask = node.GetMask() is not null ? new MaskPanel(document, node) : null;
+        Shape = node is PixelLayer p && ShapeLayers.IsShape(p) ? new ShapePanel(document, p) : null; // ShapePanel.cs
     }
+
+    /// <summary>The Live Shape section of a shape layer, or null.</summary>
+    public ShapePanel? Shape { get; }
 
     public override string Title => Node switch
     {
@@ -123,6 +127,7 @@ public sealed partial class LayerPanel : PropertiesPanel
     public override void Dispose()
     {
         Mask?.Dispose();
+        Shape?.Dispose();
         base.Dispose();
     }
 }
