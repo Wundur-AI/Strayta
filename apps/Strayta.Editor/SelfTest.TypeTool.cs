@@ -374,8 +374,18 @@ internal static partial class SelfTest
                 return Task.FromResult<string?>(FontCatalog.System.FallbackPostScriptName);
             };
             editor.Tool = CanvasTool.Type;
+            int frames = 0;
+            void OnFrame(bool _) => frames++;
+            doc.FrameDisplayed += OnFrame;
             var session = await doc.BeginEditTextAsync(layer);
             string file = Path.GetFileName(t.Path);
+            if (t.Missing && session is not null)
+            {
+                for (int wait = 0; wait < 100 && frames == 0; wait++) await Task.Delay(20);
+                check(frames > 0 && !ReferenceEquals(layer.Pixels, pixels),
+                    $"{file}: replacing the missing font redraws the canvas in the new font at once ({frames} frames)");
+            }
+            doc.FrameDisplayed -= OnFrame;
             if (session is null)
             {
                 check(false, $"{file}: the type layer \"{name}\" opens for editing");

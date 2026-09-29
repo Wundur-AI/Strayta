@@ -86,9 +86,11 @@ public sealed partial class DocumentViewModel
         if (layer.Parent is not { } parent) return null;
         Select(layer);
         var session = new TypeSession(Model, layer, data, isNew: false, parent, parent.IndexOf(layer));
+        StartType(session);
+        // After StartType, so the redraw in the replacement font reaches the canvas (before, the canvas kept showing
+        // the old font's pixels while the caret and selection followed the new layout).
         if (replacement is not null)
             session.Editor.Replace(data.ApplyStyle(s => missing.Contains(s.FontPostScriptName) ? s with { FontPostScriptName = replacement } : s));
-        StartType(session);
         if (x is { } px && y is { } py)
         {
             var (tx, ty) = session.ToText(px, py);
