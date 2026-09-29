@@ -196,6 +196,33 @@ internal static partial class SelfTest
         check(group.Effects?.Items.SingleOrDefault() is ColorOverlayEffect && groupAfter[inA + 1] == 160 && groupAfter[inB + 1] == 160 && groupBefore[inA + 1] != 160,
             "a group takes a layer style, drawn over its content");
 
+        // ---- The real dialog shows every page (its templates and bindings load) -----------------------------
+        doc.SelectedLayer = Item(shape);
+        if (doc.BeginLayerStyle(LayerStylePage.BlendingOptions) is { } shown)
+        {
+            var window = new Views.LayerStyleWindow(shown);
+            string? error = null;
+            try
+            {
+                window.Show();
+                foreach (var entry in shown.Entries.ToList())
+                {
+                    shown.SelectedEntry = entry;
+                    await Task.Delay(40);
+                }
+            }
+            catch (Exception ex)
+            {
+                error = ex.Message;
+            }
+            finally
+            {
+                window.Close();
+                shown.Cancel();
+            }
+            check(error is null, $"the Layer Style window shows every page ({error ?? $"{shown.Entries.Count} rows"})");
+        }
+
         // ---- Save and reopen ----------------------------------------------------------------------------------
         string path = Path.Combine(Path.GetTempPath(), $"strayta-selftest-styles2-{Guid.NewGuid():N}.psd");
         await doc.SaveAsync(path);

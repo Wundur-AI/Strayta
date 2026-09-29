@@ -54,9 +54,16 @@ internal static partial class EffectRenderer
         var height = new float[n];
         if (size > 0f)
         {
-            var profile = Profile(f, b, shape, size);
-            if (b.UseContour && RangeMap.For(b.Contour, b.ContourAntiAliased, b.ContourRange) is { } map)
-                for (int i = 0; i < n; i++) profile[i] = map.Apply(profile[i]);
+            float[] Shaped()
+            {
+                var p = Profile(f, b, shape, size);
+                if (b.UseContour && RangeMap.For(b.Contour, b.ContourAntiAliased, b.ContourRange) is { } map)
+                    for (int i = 0; i < n; i++) p[i] = map.Apply(p[i]);
+                return p;
+            }
+            // The profile depends on the shape and the structure only: light, depth and colors reuse it.
+            var profile = b.Style == BevelStyle.StrokeEmboss ? Shaped()
+                : f.Derived((b.Style, b.Technique, size, b.UseContour, b.Contour, b.ContourAntiAliased, b.ContourRange), Shaped);
             // Emboss spans twice the size (both sides of the edge), so its slope matches the other styles'.
             float rise = size * b.Depth * (b.Style == BevelStyle.Emboss ? 2f : 1f) * (b.Up ? 1f : -1f);
             for (int i = 0; i < n; i++) height[i] = profile[i] * rise;

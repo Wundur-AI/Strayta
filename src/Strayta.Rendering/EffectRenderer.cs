@@ -100,7 +100,7 @@ internal static partial class EffectRenderer
             content.FillRow(y, x0, x1, Span<float>.Empty, shape.AsSpan((y - area.Top) * w + (x0 - area.Left), x1 - x0));
         }
 
-        var field = new EffectField(shape, w, h, area, content.Bounds, targetBounds);
+        var field = EffectField.For(layer, shape, w, h, area, content.Bounds, targetBounds);
         float layerOpacity = layer.Opacity;
 
         foreach (var shadow in effects.OfType<DropShadowEffect>())
@@ -310,4 +310,35 @@ internal sealed class EffectField(float[] shape, int w, int h, PixelRect area, P
     public float[] SignedDistance => _signed ??= EffectRenderer.SignedDistance(Shape, DistanceToShape, DistanceToOutside);
 
     private float[]? _toShape, _toOutside, _signed;
+    private (object Key, float[] Value)? _profile;
+
+    /// <summary>
+    /// A value derived from the shape alone (a bevel's profile), kept for the next render with the same key: while a
+    /// light, depth or color slider moves, the shape and its profile do not change.
+    /// </summary>
+    public float[] Derived(object key, Func<float[]> compute)
+    {
+        lock (this)
+            if (_profile is { } p && p.Key.Equals(key)) return p.Value;
+        var value = compute();
+        lock (this) _profile = (key, value);
+        return value;
+    }
+
+    private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<LayerNode, EffectField> Cache = new();
+
+    /// <summary>
+    /// The field for <paramref name="layer"/>'s shape: the one kept from its previous render when the shape and area
+    /// are the same (so distance fields and profiles are not computed again while a style slider is dragged), else a
+    /// new one, kept for next time. Comparing the shape costs far less than the distance transforms it saves.
+    /// </summary>
+    public static EffectField For(LayerNode layer, float[] shape, int w, int h, PixelRect area, PixelRect contentBounds, PixelRect target)
+    {
+        if (Cache.TryGetValue(layer, out var kept) && kept.Area == area && kept.ContentBounds == contentBounds && kept.Target == target
+            && kept.Shape.AsSpan().SequenceEqual(shape))
+            return kept;
+        var field = new EffectField(shape, w, h, area, contentBounds, target);
+        Cache.AddOrUpdate(layer, field);
+        return field;
+    }
 }
