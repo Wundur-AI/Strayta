@@ -48,6 +48,7 @@ internal static partial class EffectRenderer
             }
         }
 
+        var lut = GradientSampler.Of(g.Gradient);
         var rgb = new float[w * h * 3];
         var alpha = new float[w * h];
         Parallel.For(0, h, y =>
@@ -68,7 +69,8 @@ internal static partial class EffectRenderer
                     _ => along / length + 0.5f,
                 };
                 if (g.Reverse) t = 1f - t;
-                var (color, opacity) = g.Gradient.Sample(t);
+                var (cr, cg, cb, opacity) = lut.At(t);
+                var color = new RgbColor(cr, cg, cb);
                 rgb[i * 3] = color.R;
                 rgb[i * 3 + 1] = color.G;
                 rgb[i * 3 + 2] = color.B;
@@ -98,7 +100,7 @@ internal static partial class EffectRenderer
     /// </summary>
     private static (float[] Rgb, float[] Alpha) PatternFillField(PatternFill fill, float[] mask, EffectField f)
     {
-        var tile = PatternTile.Of(fill.Pattern.Pixels!);
+        var tile = PatternTile.Of(fill.Pattern.Resolved!.Pixels);
         int w = f.W, h = f.H;
         float scale = MathF.Max(fill.Scale, 0.001f);
         float ox = (fill.LinkWithLayer ? f.ContentBounds.Left : 0) + fill.PhaseX;
@@ -144,6 +146,18 @@ internal static partial class EffectRenderer
         }
         return a;
     }
+}
+
+/// <summary>
+/// Gradients as layer styles draw them: Classic blending (the document's encoded values, as Photoshop's styles still
+/// use) with the gradient's smoothness and noise, evaluated once per gradient into a table.
+/// </summary>
+internal static class GradientSampler
+{
+    private static readonly ConditionalWeakTable<Gradient, Strayta.Core.Painting.GradientLut> Cache = new();
+
+    public static Strayta.Core.Painting.GradientLut Of(Gradient gradient) =>
+        Cache.GetValue(gradient, g => Strayta.Core.Painting.GradientLut.Build(g, Strayta.Core.Painting.GradientMethod.Classic));
 }
 
 /// <summary>A pattern tile as straight RGBA floats, cached per raster, sampled with wrap-around.</summary>

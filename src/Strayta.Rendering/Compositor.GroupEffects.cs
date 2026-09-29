@@ -40,7 +40,7 @@ public sealed partial class Compositor
                 BevelEffect { UseTexture: true } b => b.Texture?.Pattern,
                 _ => null,
             };
-            if (pattern is { Pixels: null })
+            if (pattern is { Resolved: null })
                 warnings.Add($"Pattern \"{pattern.Name}\" used on \"{node.Name}\" is not in the file, so it is not drawn.");
         }
     }

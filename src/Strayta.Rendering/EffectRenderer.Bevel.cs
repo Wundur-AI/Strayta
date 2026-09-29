@@ -23,7 +23,7 @@ internal static partial class EffectRenderer
     {
         int w = f.W, h = f.H, n = w * h;
         float size = MathF.Max(b.Size, 0f);
-        var texture = b.UseTexture && b.Texture is { Pattern.Pixels: { } px } t ? (Fill: t, Tile: PatternTile.Of(px)) : default;
+        var texture = b.UseTexture && b.Texture is { Pattern.Resolved: { } px } t ? (Fill: t, Tile: PatternTile.Of(px.Pixels)) : default;
         if (size <= 0f && texture.Tile is null) return null;
 
         float[] shape, region;

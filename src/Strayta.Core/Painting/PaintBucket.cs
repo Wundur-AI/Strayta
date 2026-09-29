@@ -25,4 +25,12 @@ public static class PaintBucket
     public static (Raster? Pixels, PixelRect Bounds)? Fill(PixelLayer layer, SampleImage image, int x, int y, MagicWandOptions options,
         SelectionMask? selection, RgbColor color, ColorMode mode, int bitDepth) =>
         Region(image, x, y, options, selection) is { } region ? SelectionPainter.Fill(layer, region, color, mode, bitDepth) : null;
+
+    /// <summary>
+    /// The layer's new pixels after a fill with <paramref name="fill"/> (the foreground color or a pattern, with a mode
+    /// and opacity), or null when nothing is filled.
+    /// </summary>
+    public static (Raster? Pixels, PixelRect Bounds)? Fill(PixelLayer layer, SampleImage image, int x, int y, MagicWandOptions options,
+        SelectionMask? selection, FillOptions fill, ColorMode mode, int bitDepth) =>
+        Region(image, x, y, options, selection) is { } region ? FillPainter.Fill(layer, region, fill, mode, bitDepth) : null;
 }

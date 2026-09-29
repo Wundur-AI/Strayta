@@ -68,10 +68,10 @@ public sealed class Document
     public float GlobalLightAltitude { get; set; } = 30f;
 
     /// <summary>
-    /// The patterns stored with the document (PSD 'Patt' / 'Pat2' / 'Pat3' blocks). Pattern effects refer to them by
-    /// id; the editor offers these when choosing a pattern.
+    /// Patterns stored with the document (PSD's Patt/Pat2/Pat3 blocks): the ones its layers' pattern fills and effects
+    /// refer to by ID. A format writer adds any a layer refers to that the file did not have yet.
     /// </summary>
-    public List<Pattern> Patterns { get; } = [];
+    public List<Painting.Pattern> Patterns { get; } = [];
 
     public PixelRect Bounds => PixelRect.FromSize(Width, Height);
 }

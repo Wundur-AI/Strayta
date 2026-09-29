@@ -1,0 +1,76 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:Strayta.Editor.ViewModels"
+        xmlns:c="using:Strayta.Editor.Controls"
+        x:Class="Strayta.Editor.Views.StrokeWindow"
+        x:DataType="vm:StrokeDialogViewModel"
+        Title="Stroke"
+        Width="400" SizeToContent="Height" CanResize="False"
+        WindowStartupLocation="CenterOwner"
+        Background="{DynamicResource St.Panel}"
+        FontSize="12">
+  <!-- Photoshop's Stroke dialog: Stroke (Width, Color), Location, Blending. -->
+  <Window.Styles>
+    <Style Selector="ComboBox">
+      <Setter Property="MinHeight" Value="24" />
+      <Setter Property="Height" Value="24" />
+      <Setter Property="Padding" Value="8,0" />
+    </Style>
+  </Window.Styles>
+  <Grid ColumnDefinitions="*,14,90" Margin="16,14">
+    <StackPanel Spacing="12">
+      <Border BorderBrush="{DynamicResource St.Border}" BorderThickness="1" CornerRadius="4" Padding="10,8">
+        <StackPanel Spacing="8">
+          <TextBlock Text="Stroke" FontWeight="SemiBold" />
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <TextBlock Text="Width:" VerticalAlignment="Center" Width="60" />
+            <c:NumberField Value="{Binding WidthValue}" Unit=" px" Width="64" />
+          </StackPanel>
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <TextBlock Text="Color:" VerticalAlignment="Center" Width="60" />
+            <Button Padding="0" BorderThickness="0" Background="Transparent">
+              <Border Width="40" Height="20" CornerRadius="3" BorderBrush="{DynamicResource St.Border}" BorderThickness="1">
+                <Border.Background>
+                  <SolidColorBrush Color="{Binding Color}" />
+                </Border.Background>
+              </Border>
+              <Button.Flyout>
+                <Flyout Placement="Bottom">
+                  <ColorView Color="{Binding Color}" IsAlphaVisible="False" Width="300" />
+                </Flyout>
+              </Button.Flyout>
+            </Button>
+          </StackPanel>
+        </StackPanel>
+      </Border>
+      <Border BorderBrush="{DynamicResource St.Border}" BorderThickness="1" CornerRadius="4" Padding="10,8">
+        <StackPanel Spacing="8">
+          <TextBlock Text="Location" FontWeight="SemiBold" />
+          <StackPanel Orientation="Horizontal" Spacing="16">
+            <RadioButton GroupName="Location" Content="Inside" IsChecked="{Binding IsInside}" />
+            <RadioButton GroupName="Location" Content="Center" IsChecked="{Binding IsCenter}" />
+            <RadioButton GroupName="Location" Content="Outside" IsChecked="{Binding IsOutside}" />
+          </StackPanel>
+        </StackPanel>
+      </Border>
+      <Border BorderBrush="{DynamicResource St.Border}" BorderThickness="1" CornerRadius="4" Padding="10,8">
+        <StackPanel Spacing="8">
+          <TextBlock Text="Blending" FontWeight="SemiBold" />
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <TextBlock Text="Mode:" VerticalAlignment="Center" Width="60" />
+            <ComboBox ItemsSource="{x:Static c:PaintModeNames.Names}" SelectedIndex="{Binding ModeIndex}" Width="160" MaxDropDownHeight="500" />
+          </StackPanel>
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <TextBlock Text="Opacity:" VerticalAlignment="Center" Width="60" />
+            <c:NumberField Value="{Binding Opacity}" Unit="%" Width="60" />
+          </StackPanel>
+          <CheckBox Content="Preserve Transparency" IsChecked="{Binding PreserveTransparency}" />
+        </StackPanel>
+      </Border>
+    </StackPanel>
+    <StackPanel Grid.Column="2" Spacing="8">
+      <Button x:Name="OkButton" Content="OK" IsDefault="True" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" />
+      <Button x:Name="CancelButton" Content="Cancel" IsCancel="True" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" />
+    </StackPanel>
+  </Grid>
+</Window>

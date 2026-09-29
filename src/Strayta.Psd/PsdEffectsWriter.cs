@@ -73,6 +73,19 @@ public static class PsdEffectsWriter
         else blocks.Insert(at, ("lfx2", data));
     }
 
+    /// <summary>
+    /// The patterns layer styles in <paramref name="doc"/> use and know the tile of, so saving can store any the file
+    /// lacks (a style pasted from another document, a built-in pattern chosen in the dialog).
+    /// </summary>
+    internal static IEnumerable<Strayta.Core.Painting.Pattern> PatternsUsed(Document doc) =>
+        doc.Root.Descendants().SelectMany(n => n.Effects?.Items ?? []).Select(e => e switch
+        {
+            PatternOverlayEffect o => o.Fill?.Pattern.Resolved,
+            StrokeEffect { FillType: StrokeFillType.Pattern } s => s.PatternFill?.Pattern.Resolved,
+            BevelEffect b => b.Texture?.Pattern.Resolved,
+            _ => null,
+        }).OfType<Strayta.Core.Painting.Pattern>();
+
     /// <summary>The 'lfx2' block data: object effects version (0), descriptor version (16), then the descriptor.</summary>
     public static byte[] Encode(LayerEffects effects) => [0, 0, 0, 0, .. DescriptorWriter.WriteVersioned(Describe(effects))];
 
@@ -375,7 +388,10 @@ public static class PsdEffectsWriter
     /// <summary>Percentages as Photoshop's dialog keeps them: rounded to a thousandth of a percent.</summary>
     private static double Percent(float fraction) => Math.Round(fraction * 100.0, 3);
 
-    /// <summary>A custom gradient ('Grdn'): color and opacity stops at 0..4096 with midpoints in percent.</summary>
+    /// <summary>
+    /// A gradient ('Grdn'): custom gradients with color and opacity stops at 0..4096, midpoints in percent, each color
+    /// stop's kind and the smoothness ('Intr'); noise gradients with their settings (see <see cref="PsdEffects.GradientOf"/>).
+    /// </summary>
     private static Descriptor GradientDescriptor(Gradient g)
     {
         static DescriptorValue Stop(string classId, float location, float midpoint, List<(string, DescriptorValue)> items)
@@ -385,12 +401,33 @@ public static class PsdEffectsWriter
             return new ObjectValue(Object(classId, [.. items]));
         }
 
+        if (g.Noise is { } noise)
+        {
+            static DescriptorValue Percents4(float a, float b, float c, float alpha) => new ListValue(
+                new[] { a, b, c, alpha }.Select(v => (DescriptorValue)new IntegerValue((int)MathF.Round(Math.Clamp(v, 0f, 1f) * 100f))).ToList());
+            return Object("Grdn",
+                ("Nm  ", new TextValue(g.Name)),
+                ("GrdF", new EnumValue("GrdF", "ClNs")),
+                ("ShTr", new BoolValue(noise.AddTransparency)),
+                ("VctC", new BoolValue(noise.RestrictColors)),
+                ("ClrS", new EnumValue("ClrS", noise.Model == NoiseColorModel.Hsb ? "HSBC" : "RGBC")),
+                ("RndS", new IntegerValue(noise.Seed)),
+                ("Smth", new IntegerValue((int)MathF.Round(Math.Clamp(noise.Roughness, 0f, 1f) * 4096f))),
+                ("Mnm ", Percents4(noise.C1.Min, noise.C2.Min, noise.C3.Min, 0f)),
+                ("Mxm ", Percents4(noise.C1.Max, noise.C2.Max, noise.C3.Max, 1f)));
+        }
+
         return Object("Grdn",
             ("Nm  ", new TextValue(g.Name)),
             ("GrdF", new EnumValue("GrdF", "CstS")),
-            ("Intr", new DoubleValue(4096)),
+            ("Intr", new DoubleValue(Math.Clamp(g.Smoothness, 0f, 1f) * 4096.0)),
             ("Clrs", new ListValue(g.Colors.Select(c => Stop("Clrt", c.Location, c.Midpoint,
-                [("Clr ", new ObjectValue(Rgb(c.Color))), ("Type", new EnumValue("Clry", "UsrS"))])).ToList())),
+                [("Clr ", new ObjectValue(Rgb(c.Color))), ("Type", new EnumValue("Clry", c.Kind switch
+                {
+                    GradientStopKind.Foreground => "FrgC",
+                    GradientStopKind.Background => "BckC",
+                    _ => "UsrS",
+                }))])).ToList())),
             ("Trns", new ListValue(g.Opacities.Select(o => Stop("TrnS", o.Location, o.Midpoint,
                 [("Opct", new UnitFloatValue("#Prc", Percent(o.Opacity)))])).ToList())));
     }
@@ -556,7 +593,7 @@ public static class PsdEffectsWriter
         }
 
         /// <summary>A pattern reference ('Ptrn' with 'Nm  ' and 'Idnt'), kept when it already names this pattern.</summary>
-        public void Pattern(string key, Pattern pattern, string? before)
+        public void Pattern(string key, PatternReference pattern, string? before)
         {
             if (Get(key) is ObjectValue o && o.Value.Text("Idnt") == pattern.Id && o.Value.Text("Nm  ") == pattern.Name) return;
             SetBefore(key, new ObjectValue(Object("Ptrn", ("Nm  ", new TextValue(pattern.Name)), ("Idnt", new TextValue(pattern.Id)))), before);

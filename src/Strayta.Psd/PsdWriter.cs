@@ -1,6 +1,7 @@
 using System.Buffers.Binary;
 using System.Text;
 using Strayta.Core;
+using Strayta.Core.Painting;
 
 namespace Strayta.Psd;
 
@@ -176,25 +177,38 @@ public static class PsdWriter
 
         if (layersInBlock)
             WriteBlock(s, doc.BitDepth == 16 ? "Lr16" : "Lr32", layerInfo, psb);
-        // Patterns the document gained (a new pattern effect, a pasted style) are added to the 'Patt' block.
-        var newPatterns = PsdPatterns.Missing(doc, source);
-        bool patternsWritten = newPatterns.Count == 0;
+        // Patterns layers refer to that the file does not carry yet are appended to its pattern block (PsdPatterns.cs).
+        var patternKey = PsdPatterns.KeyFor(doc.BitDepth);
+        var newPatterns = NewReferencedPatterns(doc, source, records);
         foreach (var block in source?.GlobalBlocks ?? [])
         {
             if (block.Key is "Layr" or "Lr16" or "Lr32") continue;
             var data = RequireData(block, "document");
-            if (block.Key == "Patt" && !patternsWritten)
+            if (newPatterns.Count > 0 && block.Key == patternKey)
             {
-                data = [.. data, .. PsdPatterns.Encode(newPatterns)];
-                patternsWritten = true;
+                data = PsdPatterns.Append(data, newPatterns, doc.BitDepth);
+                newPatterns = [];
             }
             WriteBlock(s, block.Key, data, psb, block.Signature);
         }
-        if (!patternsWritten) WriteBlock(s, "Patt", PsdPatterns.Encode(newPatterns), psb);
+        if (newPatterns.Count > 0) WriteBlock(s, patternKey, PsdPatterns.Encode(newPatterns, doc.BitDepth), psb);
 
         while (section.Length % 4 != 0) section.WriteByte(0);
         w.Length(section.Length, psb);
         w.Bytes(section.ToArray());
+    }
+
+    /// <summary>Document patterns that some layer's data mentions by ID and that the source file's pattern blocks lack.</summary>
+    private static List<Pattern> NewReferencedPatterns(Document doc, PsdFile? source, List<Record> records)
+    {
+        // Layer styles carry their patterns too (a style pasted from another document, a built-in pattern).
+        var candidates = doc.Patterns.Concat(PsdEffectsWriter.PatternsUsed(doc)).ToList();
+        if (candidates.Count == 0) return [];
+        var stored = source is null ? [] : PsdPatterns.Read(source).Select(p => p.Id).ToHashSet();
+        return candidates
+            .Where(p => !stored.Contains(p.Id) && records.Any(r => r.Blocks.Any(b => PsdPatterns.Mentions(b.Data, p.Id))))
+            .DistinctBy(p => p.Id)
+            .ToList();
     }
 
     private static byte[] LayerInfo(List<Record> records, bool psb, bool compositeAlpha)

@@ -121,7 +121,7 @@ internal static partial class EffectRenderer
 
         foreach (var overlay in effects.OfType<PatternOverlayEffect>())
         {
-            if (overlay.Fill is not { Pattern.Pixels: not null } fill) continue;
+            if (overlay.Fill is not { Pattern.Resolved: not null } fill) continue;
             var (rgb, alpha) = PatternFillField(fill, shape, field);
             composite(new FieldSource(area, alpha, default, rgb), overlay.BlendMode, layerOpacity, overlay.Opacity);
         }
@@ -167,7 +167,7 @@ internal static partial class EffectRenderer
                     composite(new FieldSource(area, a, default, rgb), stroke.BlendMode, layerOpacity, stroke.Opacity);
                     break;
                 }
-                case StrokeFillType.Pattern when stroke.PatternFill is { Pattern.Pixels: not null } pattern:
+                case StrokeFillType.Pattern when stroke.PatternFill is { Pattern.Resolved: not null } pattern:
                 {
                     var (rgb, a) = PatternFillField(pattern, alpha, field);
                     composite(new FieldSource(area, a, default, rgb), stroke.BlendMode, layerOpacity, stroke.Opacity);

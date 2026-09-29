@@ -1,4 +1,5 @@
 using Strayta.Core;
+using Strayta.Core.Painting;
 using Strayta.Psd.Descriptors;
 
 namespace Strayta.Psd.Tests;
@@ -11,7 +12,7 @@ namespace Strayta.Psd.Tests;
 public class EffectsExtendedTests
 {
     private static readonly Gradient Fire = new(
-        [new(0, 0.5f, new RgbColor(1, 0, 0)), new(0.6f, 0.4f, new RgbColor(1, 1, 0)), new(1, 0.5f, new RgbColor(1, 1, 1))],
+        [new(0, 0.5f, new RgbColor(1, 0, 0)), new(0.625f, 0.4f, new RgbColor(1, 1, 0)), new(1, 0.5f, new RgbColor(1, 1, 1))],
         [new(0, 0.5f, 1), new(1, 0.5f, 0)]) { Name = "Fire" };
 
     private static readonly Contour Ridge = new([new(0, 0), new(90, 200, true), new(180, 60), new(255, 255)]) { Name = "Custom" };
@@ -31,7 +32,7 @@ public class EffectsExtendedTests
             a = Plane.Create(w, h, 8);
             for (int i = 0; i < w * h; i++) a.Data[i] = (byte)(i * 10);
         }
-        return new Pattern(id, name) { Pixels = new Raster(gray ? ColorMode.Grayscale : ColorMode.Rgb, planes, a) };
+        return new Pattern(id, name, new Raster(gray ? ColorMode.Grayscale : ColorMode.Rgb, planes, a));
     }
 
     /// <summary>One of every new kind and setting, away from Photoshop's defaults.</summary>
@@ -39,7 +40,7 @@ public class EffectsExtendedTests
 
     private static Dictionary<string, LayerEffect> Samples()
     {
-        var pattern = Checker();
+        var pattern = PatternReference.To(Checker());
         return new()
         {
             ["bevel"] = new BevelEffect
@@ -169,11 +170,11 @@ public class EffectsExtendedTests
         var pattern = Assert.Single(again.Patterns);
         var original = Checker();
         Assert.Equal((original.Id, original.Name), (pattern.Id, pattern.Name));
-        Assert.Equal(original.Pixels!.ColorPlanes.Select(p => p.Data), pattern.Pixels!.ColorPlanes.Select(p => p.Data));
+        Assert.Equal(original.Pixels.ColorPlanes.Select(p => p.Data), pattern.Pixels.ColorPlanes.Select(p => p.Data));
         Assert.Equal(original.Pixels.Alpha!.Data, pattern.Pixels.Alpha!.Data);
         // The effect finds its pixels when the file is read.
         var overlay = (PatternOverlayEffect)again.Root.Children[0].Effects!.Items[0];
-        Assert.Same(pattern, overlay.Fill!.Pattern);
+        Assert.Same(pattern, overlay.Fill!.Pattern.Resolved);
 
         // Saving again does not add the pattern twice.
         var (file2, again2) = Reload(again);
@@ -182,14 +183,40 @@ public class EffectsExtendedTests
     }
 
     [Fact]
-    public void Pattern_blocks_parse_rgb_gray_and_transparency()
+    public void A_pattern_the_file_lacks_is_kept_as_a_reference()
     {
-        var patterns = new[] { Checker(), Checker("id-2", "Gray", alpha: false, gray: true) };
-        var parsed = PsdPatterns.Parse(PsdPatterns.Encode(patterns));
-        Assert.Equal(patterns, parsed);
-        Assert.Equal(ColorMode.Grayscale, parsed[1].Pixels!.ColorMode);
-        Assert.Null(parsed[1].Pixels!.Alpha);
-        Assert.Equal(patterns[1].Pixels!.ColorPlanes[0].Data, parsed[1].Pixels!.ColorPlanes[0].Data);
+        var reference = new PatternReference("not-in-this-file", "Somebody's Preset");
+        var effects = new LayerEffects([new PatternOverlayEffect { Fill = new PatternFill(reference) }]);
+        var (file, again) = Reload(NewDocument(effects));
+        Assert.Null(file.GlobalBlocks.SingleOrDefault(b => PsdPatterns.IsPatternKey(b.Key)));
+        var read = (PatternOverlayEffect)again.Root.Children[0].Effects!.Items[0];
+        Assert.Equal(reference, read.Fill!.Pattern);
+        Assert.Null(read.Fill.Pattern.Resolved);
+    }
+
+    [Fact]
+    public void Gradients_keep_smoothness_stop_kinds_and_noise()
+    {
+        var smooth = Fire with
+        {
+            Smoothness = 0.25f,
+            Colors = [Fire.Colors[0] with { Kind = GradientStopKind.Foreground }, Fire.Colors[1], Fire.Colors[2] with { Kind = GradientStopKind.Background }],
+        };
+        var noise = new Gradient([], [])
+        {
+            Name = "Noisy",
+            Noise = new GradientNoise
+            {
+                Roughness = 0.75f, Seed = 12345, Model = NoiseColorModel.Hsb, C1 = new ChannelRange(0.1f, 0.9f),
+                C2 = new ChannelRange(0.2f, 0.8f), C3 = new ChannelRange(0f, 0.5f), RestrictColors = true, AddTransparency = true,
+            },
+        };
+        var effects = new LayerEffects([
+            new GradientOverlayEffect { Gradient = smooth },
+            new OuterGlowEffect { Gradient = noise, Size = 5 },
+        ]);
+        var (_, again) = Reload(NewDocument(effects));
+        Assert.Equal(effects, again.Root.Children[0].Effects);
     }
 
     [Fact]
@@ -200,7 +227,7 @@ public class EffectsExtendedTests
         var stroke = (StrokeEffect)read.Root.Children[0].Effects!.Items[0];
         read.Root.Children[0].Effects = read.Root.Children[0].Effects! with
         {
-            Items = [stroke with { FillType = StrokeFillType.Pattern, GradientFill = null, PatternFill = new PatternFill(Checker()) }],
+            Items = [stroke with { FillType = StrokeFillType.Pattern, GradientFill = null, PatternFill = new PatternFill(PatternReference.To(Checker())) }],
         };
 
         var (file, again) = Reload(read);
@@ -223,7 +250,7 @@ public class EffectsExtendedTests
         var (file, again) = Reload(read);
         var fx = DescriptorReader.ReadVersioned(file.Layers[0].FindBlock("lfx2")!.Data!, 4).Object("OrGl")!;
         Assert.False(fx.Has("Clr "));
-        Assert.Equal(3, fx.Keys().IndexOf("Grad")); // where the color was
+        Assert.Equal(4, fx.Keys().IndexOf("Grad")); // where the color was
         Assert.Equal(Fire, ((OuterGlowEffect)again.Root.Children[0].Effects!.Items[0]).Gradient);
     }
 

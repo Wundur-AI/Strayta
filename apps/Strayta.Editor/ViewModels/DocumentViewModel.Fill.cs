@@ -21,7 +21,7 @@ public sealed partial class DocumentViewModel
     /// <summary>How long the last Paint Bucket click took from click to new pixels, for the self-test and benchmark.</summary>
     public double LastBucketMs { get; private set; }
 
-    /// <summary>A Paint Bucket click at image pixel (<paramref name="x"/>, <paramref name="y"/>): fills similar colors with the foreground color.</summary>
+    /// <summary>A Paint Bucket click at image pixel (<paramref name="x"/>, <paramref name="y"/>): fills similar colors with the foreground color or a pattern, in the bucket's mode and opacity.</summary>
     public async Task PaintBucketAsync(int x, int y)
     {
         if (_baking || IsTransforming || x < 0 || y < 0 || x >= Model.Width || y >= Model.Height) return;
@@ -34,7 +34,7 @@ public sealed partial class DocumentViewModel
         var clock = Stopwatch.StartNew();
         var options = Editor.CurrentBucketOptions;
         var selection = Selection;
-        var color = Editor.CurrentColor;
+        var fill = Editor.CurrentBucketFill;
         _baking = true;
         try
         {
@@ -44,7 +44,7 @@ public sealed partial class DocumentViewModel
                 return;
             }
             var doc = Model;
-            var result = await Task.Run(() => PaintBucket.Fill(layer, sample, x, y, options, selection, color, doc.ColorMode, doc.BitDepth));
+            var result = await Task.Run(() => PaintBucket.Fill(layer, sample, x, y, options, selection, fill, doc.ColorMode, doc.BitDepth));
             if (result is { } r) Apply(new PixelsEdit(layer, r.Pixels, r.Bounds, "Paint Bucket"));
             LastBucketMs = clock.Elapsed.TotalMilliseconds;
         }
@@ -179,10 +179,20 @@ public sealed partial class DocumentViewModel
         static double Median(List<double> v) => v.Count == 0 ? double.NaN : v.OrderBy(t => t).ElementAt(v.Count / 2);
         static double P90(List<double> v) => v.Count == 0 ? double.NaN : v.OrderBy(t => t).ElementAt((int)(v.Count * 0.9));
 
-        foreach (var type in new[] { GradientType.Linear, GradientType.Radial })
+        // Two-color Classic (the old tool) and a seven-stop Perceptual Spectrum, plain and in Multiply mode.
+        var runs = new (GradientType Type, Gradient Gradient, GradientMethod Method, PaintMode Mode)[]
+        {
+            (GradientType.Linear, Editing.GradientPresets.ForegroundToBackground, GradientMethod.Classic, PaintMode.Normal),
+            (GradientType.Radial, Editing.GradientPresets.ForegroundToBackground, GradientMethod.Classic, PaintMode.Normal),
+            (GradientType.Linear, Editing.GradientPresets.BuiltIn.First(g => g.Name == "Spectrum"), GradientMethod.Perceptual, PaintMode.Normal),
+            (GradientType.Radial, Editing.GradientPresets.BuiltIn.First(g => g.Name == "Spectrum"), GradientMethod.Perceptual, new PaintMode(BlendMode.Multiply)),
+        };
+        var (savedGradient, savedMethod, savedMode) = (Editor.ToolGradient, Editor.GradientMethod, Editor.GradientMode);
+        foreach (var (type, gradient, method, mode) in runs)
         {
             NewLayer();
             Editor.GradientType = type;
+            (Editor.ToolGradient, Editor.GradientMethod, Editor.GradientMode) = (gradient, method, mode);
             int frames = 0;
             var times = new List<double>();
             var parts = new List<double>();
@@ -209,10 +219,12 @@ public sealed partial class DocumentViewModel
             var release = Stopwatch.StartNew();
             await EndGradientAsync();
             double releaseMs = release.Elapsed.TotalMilliseconds;
-            Console.WriteLine($"TOOLBENCH gradient {type} drag {inputMs:F0} ms: frames={frames} fps={frames / (inputMs / 1000):F1} " +
+            Console.WriteLine($"TOOLBENCH gradient {type} {gradient.Name} {method} {PaintModeNamesOf(mode)} drag {inputMs:F0} ms: frames={frames} fps={frames / (inputMs / 1000):F1} " +
                               $"median-frame={Median(times):F0}ms p90={P90(times):F0}ms preview-render median={Median(parts):F1}ms " +
                               $"factor={PreviewDocument.FactorForZoom(_viewZoom)}; release to edit {releaseMs:F0} ms (bake {LastGradientBakeMs:F0} ms) on {w}×{h}");
         }
+
+        (Editor.ToolGradient, Editor.GradientMethod, Editor.GradientMode) = (savedGradient, savedMethod, savedMode);
 
         // Paint Bucket on the layer below the gradients (the photo): the first click prepares the layer's sample image.
         var photo = Layers.SelectMany(l => l.SelfAndDescendants()).FirstOrDefault(i => i.Node is PixelLayer { Pixels: not null } && i.Name != "Background");
@@ -250,6 +262,8 @@ public sealed partial class DocumentViewModel
         }
         while (CanUndo) Undo();
     }
+
+    private static string PaintModeNamesOf(PaintMode mode) => Controls.PaintModeNames.Of(mode);
 
     private Action<CancellationToken>? PrepareGradient(PreviewDocument proxy)
     {

@@ -19,13 +19,13 @@ public sealed record PsdEffectSource(string Type, Descriptor Descriptor);
 /// What reading effects needs from the rest of the file: the global light (effects marked "use global light" take
 /// it) and the document's patterns, which pattern effects refer to by id.
 /// </summary>
-public sealed record PsdEffectContext(float GlobalAngle, float GlobalAltitude, IReadOnlyList<Pattern> Patterns)
+public sealed record PsdEffectContext(float GlobalAngle, float GlobalAltitude, IReadOnlyList<Strayta.Core.Painting.Pattern> Patterns)
 {
     public static PsdEffectContext Default { get; } = new(120f, 30f, []);
 
     /// <summary>The document's pattern with this id, or a pattern without pixels that keeps the reference.</summary>
-    internal Pattern Resolve(string id, string name) =>
-        Patterns.FirstOrDefault(p => p.Id == id) ?? new Pattern(id, name);
+    internal PatternReference Resolve(string id, string name) =>
+        Patterns.FirstOrDefault(p => p.Id == id) is { } pattern ? new PatternReference(id, name) { Resolved = pattern } : new PatternReference(id, name);
 }
 
 /// <summary>Reads layer styles from the 'lfx2' / 'lmfx' descriptor blocks.</summary>
@@ -380,19 +380,62 @@ public static class PsdEffects
         };
     }
 
-    /// <summary>Custom gradients store color and opacity stops with locations in 0..4096 and midpoints in percent.</summary>
+    /// <summary>
+    /// A gradient ('Grdn'). Custom gradients ('GrdF' 'CstS') store color and opacity stops with locations in 0..4096
+    /// and midpoints in percent, each color stop's kind as its 'Type' (user color, foreground or background), and the
+    /// Smoothness as 'Intr' (0..4096). Noise gradients ('ClNs') store their roughness ('Smth', 0..4096), color model
+    /// ('ClrS'), seed ('RndS'), per-channel minimum and maximum percentages ('Mnm ', 'Mxm '), "Restrict Colors"
+    /// ('VctC') and "Add Transparency" ('ShTr').
+    /// </summary>
     public static Gradient? GradientOf(Descriptor? g)
     {
-        if (g?.List("Clrs") is not { } colors) return null;
+        if (g is null) return null;
+        if (g.Enum("GrdF") == "ClNs") return NoiseGradientOf(g);
+        if (g.List("Clrs") is not { } colors) return null;
         var colorStops = colors.OfType<ObjectValue>().Select(o => new GradientColorStop(
             (float)(o.Value.Number("Lctn") ?? 0) / 4096f,
             (float)(o.Value.Number("Mdpn") ?? 50) / 100f,
-            ColorOf(o.Value.Object("Clr ")))).OrderBy(s => s.Location).ToList();
+            ColorOf(o.Value.Object("Clr ")))
+        {
+            Kind = o.Value.Enum("Type") switch
+            {
+                "FrgC" => GradientStopKind.Foreground,
+                "BckC" => GradientStopKind.Background,
+                _ => GradientStopKind.User,
+            },
+        }).OrderBy(s => s.Location).ToList();
         var opacityStops = (g.List("Trns") ?? []).OfType<ObjectValue>().Select(o => new GradientOpacityStop(
             (float)(o.Value.Number("Lctn") ?? 0) / 4096f,
             (float)(o.Value.Number("Mdpn") ?? 50) / 100f,
             (float)(o.Value.Number("Opct") ?? 100) / 100f)).OrderBy(s => s.Location).ToList();
-        return colorStops.Count == 0 ? null : new Gradient(colorStops, opacityStops) { Name = g.Text("Nm  ") ?? "Custom" };
+        return colorStops.Count == 0 ? null : new Gradient(colorStops, opacityStops)
+        {
+            Name = g.Text("Nm  ") ?? "Custom",
+            Smoothness = (float)Math.Clamp((g.Number("Intr") ?? 4096) / 4096.0, 0, 1),
+        };
+    }
+
+    private static Gradient NoiseGradientOf(Descriptor g)
+    {
+        static float[] Channels(IReadOnlyList<DescriptorValue>? list, float fallback) =>
+            Enumerable.Range(0, 3).Select(i => list is not null && i < list.Count && list[i] is IntegerValue v ? v.Value / 100f : fallback).ToArray();
+        var min = Channels(g.List("Mnm "), 0f);
+        var max = Channels(g.List("Mxm "), 1f);
+        return new Gradient([], [])
+        {
+            Name = g.Text("Nm  ") ?? "Noise",
+            Noise = new GradientNoise
+            {
+                Roughness = (float)Math.Clamp((g.Number("Smth") ?? 2048) / 4096.0, 0, 1),
+                Seed = (int)(g.Number("RndS") ?? 0),
+                Model = g.Enum("ClrS") == "HSBC" ? NoiseColorModel.Hsb : NoiseColorModel.Rgb,
+                C1 = new ChannelRange(min[0], max[0]),
+                C2 = new ChannelRange(min[1], max[1]),
+                C3 = new ChannelRange(min[2], max[2]),
+                RestrictColors = g.Bool("VctC") ?? false,
+                AddTransparency = g.Bool("ShTr") ?? false,
+            },
+        };
     }
 
     private static readonly Dictionary<string, BlendMode> Modes = new()

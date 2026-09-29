@@ -141,6 +141,7 @@ internal static partial class SelfTest
             editor.GradientPresetIndex = 0;
             editor.GradientDither = false;
             editor.GradientOpacity = 100;
+            editor.GradientMethod = GradientMethod.Classic; // the checks below expect values blended linearly in the file's encoding
             (byte R, byte A) Pixel(int x, int y) => paint.Pixels is { } p ? (p.ColorPlanes[0].Data[At(paint, x, y)], p.Alpha!.Data[At(paint, x, y)]) : ((byte)0, (byte)0);
             foreach (var type in Enum.GetValues<GradientType>())
             {

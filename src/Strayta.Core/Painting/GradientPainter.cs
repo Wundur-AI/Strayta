@@ -39,6 +39,10 @@ public static class GradientPainter
         float levels = bitDepth == 8 ? 255f : bitDepth == 16 ? 65535f : 0f;
         bool dither = spec.Dither && levels > 0f;
         bool gray = mode == ColorMode.Grayscale;
+        var lut = spec.Lut;
+        float opacity = spec.Opacity;
+        var paintMode = spec.Mode;
+        bool normal = paintMode.IsNormal;
 
         var options = new ParallelOptions { CancellationToken = cancel };
         Parallel.For(0, h, options, () => new RowBuffers(w, colors), (row, _, buf) =>
@@ -59,18 +63,30 @@ public static class GradientPainter
             {
                 ReadSelection(selection, selectionFactor, y, region.Left, buf.Selection.AsSpan(0, region.Width));
                 float cy = y + 0.5f;
+                Span<float> pixel = stackalloc float[colors], paint = stackalloc float[colors];
                 for (int x = region.Left; x < region.Right; x++)
                 {
                     float s = buf.Selection[x - region.Left] * (1f / 255f);
                     if (s <= 0f) continue;
-                    var (r, g, b, ga) = spec.ColorAt(spec.PositionAt(x + 0.5f, cy));
-                    float cov = ga * s;
+                    var (r, g, b, ga) = lut.At(spec.PositionAt(x + 0.5f, cy));
+                    float cov = ga * opacity * s;
                     if (cov <= 0f) continue;
                     int i = x - bounds.Left;
+                    float n = dither ? GradientSpec.DitherAt(x, y) / levels : 0f;
+                    if (!normal)
+                    {
+                        float pa = withAlpha ? buf.Alpha[i] : 1f;
+                        for (int k = 0; k < colors; k++) pixel[k] = buf.Color[k][i];
+                        if (gray) paint[0] = 0.299f * r + 0.587f * g + 0.114f * b;
+                        else (paint[0], paint[1], paint[2]) = (r, g, b);
+                        PaintBlender.Paint(paintMode, pixel, ref pa, paint, cov, x, y);
+                        for (int k = 0; k < colors; k++) buf.Color[k][i] = pixel[k] + n;
+                        buf.Alpha[i] = withAlpha ? pa : 1f;
+                        continue;
+                    }
                     float oa = buf.Alpha[i];
                     float na = cov + oa * (1f - cov);
                     float keep = na > 0f ? oa * (1f - cov) / na : 0f, add = na > 0f ? cov / na : 1f;
-                    float n = dither ? GradientSpec.DitherAt(x, y) / levels : 0f;
                     if (gray) buf.Color[0][i] = (0.299f * r + 0.587f * g + 0.114f * b) * add + buf.Color[0][i] * keep + n;
                     else
                     {
@@ -111,6 +127,8 @@ public static class GradientPainter
         float outside = mask.DefaultColor / 255f;
         float levels = bitDepth == 8 ? 255f : bitDepth == 16 ? 65535f : 0f;
         bool dither = spec.Dither && levels > 0f;
+        var lut = spec.Lut;
+        float opacity = spec.Opacity;
 
         var options = new ParallelOptions { CancellationToken = cancel };
         Parallel.For(0, h, options, () => new RowBuffers(w, 1), (row, _, buf) =>
@@ -128,8 +146,8 @@ public static class GradientPainter
                 {
                     float s = buf.Selection[x - region.Left] * (1f / 255f);
                     if (s <= 0f) continue;
-                    var (r, g, b, ga) = spec.ColorAt(spec.PositionAt(x + 0.5f, cy));
-                    float cov = ga * s;
+                    var (r, g, b, ga) = lut.At(spec.PositionAt(x + 0.5f, cy));
+                    float cov = ga * opacity * s;
                     if (cov <= 0f) continue;
                     int i = x - bounds.Left;
                     float target = 0.299f * r + 0.587f * g + 0.114f * b;

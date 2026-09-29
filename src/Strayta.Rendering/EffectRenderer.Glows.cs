@@ -61,6 +61,7 @@ internal static partial class EffectRenderer
             return (falloff, null);
         }
 
+        var lut = GradientSampler.Of(gradient);
         var rgb = new float[n * 3];
         var alpha = new float[n];
         int w = f.W;
@@ -73,7 +74,8 @@ internal static partial class EffectRenderer
                 if (a <= 0f) continue;
                 float t = 1f - MathF.Min(1f, a / edge);
                 if (jitter > 0f) t += jitter * (Hash(f.Area.Left + x, f.Area.Top + y, 7u) - 0.5f);
-                var (c, o) = gradient.Sample(Math.Clamp(t, 0f, 1f));
+                var (cr, cg, cb, o) = lut.At(t);
+                var c = new RgbColor(cr, cg, cb);
                 rgb[i * 3] = c.R;
                 rgb[i * 3 + 1] = c.G;
                 rgb[i * 3 + 2] = c.B;
