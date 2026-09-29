@@ -77,17 +77,17 @@ public static class BlendFunctions
     private static float ColorBurn(float b, float s) =>
         b >= 1f ? 1f : s <= 0f ? 0f : 1f - MathF.Min(1f, (1f - b) / s);
 
-    private static float Lum(float r, float g, float b) => 0.3f * r + 0.59f * g + 0.11f * b;
+    internal static float Lum(float r, float g, float b) => 0.3f * r + 0.59f * g + 0.11f * b;
 
     private static float Sat(float r, float g, float b) => MathF.Max(r, MathF.Max(g, b)) - MathF.Min(r, MathF.Min(g, b));
 
-    private static (float, float, float) SetLum((float R, float G, float B) c, float l)
+    internal static (float, float, float) SetLum((float R, float G, float B) c, float l)
     {
         float d = l - Lum(c.R, c.G, c.B);
         return ClipColor(c.R + d, c.G + d, c.B + d);
     }
 
-    private static (float, float, float) ClipColor(float r, float g, float b)
+    internal static (float, float, float) ClipColor(float r, float g, float b)
     {
         float l = Lum(r, g, b);
         float n = MathF.Min(r, MathF.Min(g, b));

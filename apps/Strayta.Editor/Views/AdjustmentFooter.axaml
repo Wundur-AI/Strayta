@@ -1,0 +1,18 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Strayta.Editor.ViewModels"
+             x:Class="Strayta.Editor.Views.AdjustmentFooter"
+             x:DataType="vm:AdjustmentPanelBase">
+  <!-- Photoshop's bottom row for adjustments: clip to layer, reset to defaults, visibility -->
+  <StackPanel Orientation="Horizontal" Spacing="4" Margin="0,4,0,0">
+    <ToggleButton Classes="icon" IsChecked="{Binding IsClipped}" ToolTip.Tip="{Binding ClipTip}">
+      <Path Classes="icon small" Data="{StaticResource IconClip}" />
+    </ToggleButton>
+    <Button Classes="icon" Command="{Binding ResetCommand}" ToolTip.Tip="Reset to adjustment defaults">
+      <Path Classes="icon small" Data="{StaticResource IconReset}" />
+    </Button>
+    <ToggleButton Classes="icon" IsChecked="{Binding IsLayerVisible}" ToolTip.Tip="Toggle layer visibility">
+      <Path Classes="icon small" Data="{StaticResource IconEye}" />
+    </ToggleButton>
+  </StackPanel>
+</UserControl>

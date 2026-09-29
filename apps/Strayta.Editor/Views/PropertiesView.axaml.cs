@@ -12,4 +12,14 @@ public partial class PropertiesView : UserControl
     {
         if (sender is Control { DataContext: CurvesPanel panel }) panel.Reset();
     }
+
+    private async void OnAutoLevels(object? sender, RoutedEventArgs e)
+    {
+        if (sender is Control { DataContext: LevelsPanel panel }) await panel.AutoAsync();
+    }
+
+    private async void OnAutoCurves(object? sender, RoutedEventArgs e)
+    {
+        if (sender is Control { DataContext: CurvesPanel panel }) await panel.AutoAsync();
+    }
 }

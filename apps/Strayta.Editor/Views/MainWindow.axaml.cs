@@ -133,7 +133,9 @@ public partial class MainWindow : Window, IEditorDialogs
                 Item("Layer via Cut", Editor.LayerViaCommand, new KeyGesture(Key.J, cmd | KeyModifiers.Shift), parameter: "cut"),
                 Item("Rasterize", Editor.RasterizeLayerCommand),
                 new NativeMenuItemSeparator(),
-                Submenu("New Adjustment Layer", Editor.AdjustmentKinds.Select(k => (NativeMenuItemBase)Item(k + "…", Editor.NewAdjustmentCommand, parameter: k)).ToArray()),
+                Submenu("New Adjustment Layer", Editor.AdjustmentKinds.SelectMany(k => (NativeMenuItemBase[])(Editing.AdjustmentFactory.StartsMenuGroup(k)
+                    ? [new NativeMenuItemSeparator(), Item(Editing.AdjustmentFactory.MenuTitle(k), Editor.NewAdjustmentCommand, parameter: k)]
+                    : [Item(Editing.AdjustmentFactory.MenuTitle(k), Editor.NewAdjustmentCommand, parameter: k)])).ToArray()),
                 Submenu("Layer Mask",
                     Item("Reveal All", Editor.AddMaskCommand, parameter: "reveal"),
                     Item("Hide All", Editor.AddMaskCommand, parameter: "hide"),
@@ -181,6 +183,8 @@ public partial class MainWindow : Window, IEditorDialogs
         AddTypeMenus(menu, Item); // MainWindow.Type.cs
         AddGuideMenus(menu, Item); // rulers, guides, grid, snapping, Info (MainWindow.Guides.cs)
         NativeMenu.SetMenu(this, menu);
+        if (Environment.GetEnvironmentVariable("STRAYTA_ADJUSTBENCH") == "new")
+            Opened += async (_, _) => await SelfTest.RunAdjustmentBenchmarkAsync(Editor); // SelfTest.Adjustments.cs
 
         // Enter, Esc and arrow keys drive an open Free Transform before any other single-key shortcut.
         AddHandler(KeyDownEvent, OnTransformKey, Avalonia.Interactivity.RoutingStrategies.Bubble);

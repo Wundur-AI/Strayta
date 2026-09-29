@@ -21,6 +21,24 @@ public class AdjustmentWritingTests
         ["invert"] = new InvertAdjustment(),
         ["threshold"] = new ThresholdAdjustment(97),
         ["posterize"] = new PosterizeAdjustment(6),
+        ["exposure"] = new ExposureAdjustment(1.25f, -0.0625f, 0.75f),
+        ["vibrance"] = new VibranceAdjustment(35, -20),
+        ["balance"] = new ColorBalanceAdjustment(new(-10, 5, 20), new(30, -40, 0), new(0, 0, -100), false),
+        ["blackwhite"] = new BlackWhiteAdjustment(-50, 120, 40, 300, -200, 80, true, BlackWhiteAdjustment.DefaultTint),
+        ["photofilter"] = new PhotoFilterAdjustment(new RgbColor(1, 0, 1), 60, false),
+        ["mixer"] = new ChannelMixerAdjustment(false, new(80, 30, -10, 5), new(0, 100, 0, 0), new(10, -20, 110, -4), ChannelMixerAdjustment.Default.Gray),
+        ["mixermono"] = ChannelMixerAdjustment.Default with { Monochrome = true, Gray = new(-70, 200, -30, 0) },
+        ["selective"] = SelectiveColorAdjustment.Default.With(SelectiveColorRange.Reds, new(-20, 10, 30, 5))
+            .With(SelectiveColorRange.Neutrals, new(0, 0, 0, -15)) with { Absolute = true },
+        ["gradientmap"] = new GradientMapAdjustment(new Gradient(
+            [new GradientColorStop(0, 0.5f, new RgbColor(0, 0, 1)), new GradientColorStop(0.5f, 0.25f, new RgbColor(1, 0, 0)),
+             new GradientColorStop(1, 0.5f, new RgbColor(1, 1, 0)) { Kind = GradientStopKind.Background }],
+            [new GradientOpacityStop(0, 0.5f, 1), new GradientOpacityStop(1, 0.5f, 1)]) { Name = "Blue, Red, Yellow" }, true, true,
+            Strayta.Core.Painting.GradientMethod.Classic),
+        ["gradientmapperceptual"] = new GradientMapAdjustment(Strayta.Core.GradientModel.TwoColor("Black, White", new RgbColor(0, 0, 0), new RgbColor(1, 1, 1)),
+            false, false, Strayta.Core.Painting.GradientMethod.Perceptual),
+        ["lookup"] = new ColorLookupAdjustment(ColorLookupKind.Lut3D, "Test.cube", "CUBE",
+            System.Text.Encoding.ASCII.GetBytes("LUT_3D_SIZE 2\n0 0 0\n1 0 0\n0 1 0\n1 1 0\n0 0 1\n1 0 1\n0 1 1\n1 1 1\n"), false),
     };
 
     private static AdjustmentLayer ReadSingle(string key, byte[] data)

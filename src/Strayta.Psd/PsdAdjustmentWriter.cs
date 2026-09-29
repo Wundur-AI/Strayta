@@ -9,7 +9,7 @@ namespace Strayta.Psd;
 /// <see cref="PsdAdjustments"/>. Layouts follow Adobe's file format specification and match what Photoshop
 /// itself writes (e.g. Levels' 29 legacy records plus the 'Lvls' extension, Curves' 'Crv ' extension).
 /// </summary>
-public static class PsdAdjustmentWriter
+public static partial class PsdAdjustmentWriter
 {
     private const int LegacyLevelsRecords = 29;
     private const int TotalLevelsRecords = 62; // what Photoshop writes: 29 legacy + 33 in the 'Lvls' extension
@@ -31,7 +31,7 @@ public static class PsdAdjustmentWriter
         InvertAdjustment => "nvrt",
         ThresholdAdjustment => "thrs",
         PosterizeAdjustment => "post",
-        _ => throw new NotSupportedException($"Saving {adjustment.GetType().Name} is not supported yet."),
+        _ => ExtendedKeyOf(adjustment),
     };
 
     /// <summary>
@@ -48,7 +48,7 @@ public static class PsdAdjustmentWriter
         InvertAdjustment => [],
         ThresholdAdjustment t => Patch(original, 4, [Math.Clamp(t.Level, 1, 255)], fresh: [Math.Clamp(t.Level, 1, 255), 0]),
         PosterizeAdjustment p => Patch(original, 4, [Math.Clamp(p.Levels, 2, 255)], fresh: [Math.Clamp(p.Levels, 2, 255), 0]),
-        _ => throw new NotSupportedException($"Saving {adjustment.GetType().Name} is not supported yet."),
+        _ => EncodeExtended(adjustment, original),
     };
 
     /// <summary>

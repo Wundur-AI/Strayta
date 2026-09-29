@@ -138,11 +138,21 @@
                 <MenuItem Header="Brightness/Contrast…" Tag="Brightness/Contrast" Click="OnNewAdjustment" />
                 <MenuItem Header="Levels…" Tag="Levels" Click="OnNewAdjustment" />
                 <MenuItem Header="Curves…" Tag="Curves" Click="OnNewAdjustment" />
+                <MenuItem Header="Exposure…" Tag="Exposure" Click="OnNewAdjustment" />
+                <Separator />
+                <MenuItem Header="Vibrance…" Tag="Vibrance" Click="OnNewAdjustment" />
                 <MenuItem Header="Hue/Saturation…" Tag="Hue/Saturation" Click="OnNewAdjustment" />
+                <MenuItem Header="Color Balance…" Tag="Color Balance" Click="OnNewAdjustment" />
+                <MenuItem Header="Black &amp; White…" Tag="Black &amp; White" Click="OnNewAdjustment" />
+                <MenuItem Header="Photo Filter…" Tag="Photo Filter" Click="OnNewAdjustment" />
+                <MenuItem Header="Channel Mixer…" Tag="Channel Mixer" Click="OnNewAdjustment" />
+                <MenuItem Header="Color Lookup…" Tag="Color Lookup" Click="OnNewAdjustment" />
                 <Separator />
                 <MenuItem Header="Invert" Tag="Invert" Click="OnNewAdjustment" />
                 <MenuItem Header="Posterize…" Tag="Posterize" Click="OnNewAdjustment" />
                 <MenuItem Header="Threshold…" Tag="Threshold" Click="OnNewAdjustment" />
+                <MenuItem Header="Gradient Map…" Tag="Gradient Map" Click="OnNewAdjustment" />
+                <MenuItem Header="Selective Color…" Tag="Selective Color" Click="OnNewAdjustment" />
               </MenuFlyout>
             </Button.Flyout>
           </Button>

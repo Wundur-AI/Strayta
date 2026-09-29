@@ -143,8 +143,16 @@ dotnet test
   mask thumbnail to paint in it (black hides, white reveals), Shift-click to disable it; Apply, Delete. Reveal
   Selection / Hide Selection (and the panel's button while something is selected) make the mask from the selection;
   Option-click on the button hides instead (Hide Selection / Hide All).
-- Adjustment layers (Layer > New Adjustment Layer): Levels, Curves, Hue/Saturation, Brightness/Contrast, Invert,
-  Threshold, Posterize, edited live in the Properties panel.
+- Adjustment layers (Layer > New Adjustment Layer, or the Layers panel's half-circle button), all of Photoshop's:
+  Brightness/Contrast, Levels, Curves, Exposure, Vibrance, Hue/Saturation, Color Balance, Black & White, Photo Filter,
+  Channel Mixer, Color Lookup, Invert, Posterize, Threshold, Gradient Map and Selective Color, edited live in the
+  Properties panel with Photoshop's controls (presets for Curves, Exposure, Black & White and Channel Mixer; Photo
+  Filter's filters; Levels and Curves Auto as Enhance Per Channel Contrast; Color Lookup loads .cube and .3dl files,
+  embedded in the layer, and applies them with tetrahedral interpolation), plus clip to layer, reset and visibility.
+  Each drag is one undo step. Black & White, Channel Mixer, Gradient Map and Color Lookup follow their definitions;
+  Exposure, Vibrance, Color Balance, Photo Filter and Selective Color are Strayta's models of Photoshop's behaviour, not
+  yet compared with Photoshop renders (`tools/Strayta.Inspect adjustsamples` writes files to check them). ICC profile
+  lookups are kept but not applied.
 - Layer styles (Layer > Layer Style, the panel's fx button, or double-click a layer row) on layers and groups (a
   group's effects follow its flattened content): Blending Options and every Photoshop effect: Bevel & Emboss (Inner,
   Outer, Emboss, Pillow and Stroke Emboss; Smooth, Chisel Hard and Soft; depth, direction, size, soften, angle and
@@ -219,7 +227,8 @@ dotnet run -c Release --project apps/Strayta.Editor -- [file.psd ...]
 
 Diagnostics (environment variables): `STRAYTA_SELFTEST=1` runs a scripted editing session and reports
 each step (`=selection` only the selection, sampling, zoom and history steps, with FINDERBENCH / MASKBENCH timings);
-`STRAYTA_DRAGBENCH=1` / `STRAYTA_PAINTBENCH=1` / `STRAYTA_TRANSFORMBENCH=1` / `STRAYTA_ADJUSTBENCH=1`
+`STRAYTA_DRAGBENCH=1` / `STRAYTA_PAINTBENCH=1` / `STRAYTA_TRANSFORMBENCH=1` / `STRAYTA_ADJUSTBENCH=1` (`=new` on a generated
+4000×3000 document; `STRAYTA_ADJUSTBENCH_KINDS` picks kinds)
 measure frame rates (layer drag, brush stroke, free transform, Properties slider drag) on the first opened file
 (`STRAYTA_TRANSFORMBENCH=new` builds a 4000×3000 document and runs the drag and transform benchmarks on it);
 `STRAYTA_WANDBENCH=1` times Magic Wand clicks and a Quick Selection drag, plain and Object-Aware (`=new` on a generated 4000×3000
@@ -275,6 +284,7 @@ dotnet run --project tools/Strayta.Inspect -- scan ~/psd-corpus             # pa
 dotnet run --project tools/Strayta.Inspect -- fidelity ~/psd-corpus         # render and score vs composite
 dotnet run --project tools/Strayta.Inspect -- text file.psd                 # type layers' text, styles, paragraphs
 dotnet run --project tools/Strayta.Inspect -- textfid ~/psd-corpus          # draw type layers, score vs Photoshop's pixels
+dotnet run --project tools/Strayta.Inspect -- adjustsamples out/            # one PSD per adjustment kind to check in Photoshop
 ```
 
 ## Test corpus

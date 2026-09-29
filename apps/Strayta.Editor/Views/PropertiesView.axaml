@@ -2,6 +2,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:Strayta.Editor.ViewModels"
              xmlns:c="using:Strayta.Editor.Controls"
+             xmlns:v="using:Strayta.Editor.Views"
              x:Class="Strayta.Editor.Views.PropertiesView"
              x:DataType="vm:PropertiesToolViewModel"
              Background="{DynamicResource St.Panel}"
@@ -122,7 +123,11 @@
                 <Path Classes="icon small" Data="{StaticResource IconAdjust}" />
                 <TextBlock Classes="heading" Text="{Binding Title}" />
               </StackPanel>
-              <ComboBox Classes="channel" ItemsSource="{Binding ChannelNames}" SelectedIndex="{Binding Channel}" />
+              <DockPanel>
+                <Button DockPanel.Dock="Right" Content="Auto" Margin="6,0,0,0" Padding="8,1" Height="22" MinHeight="0" Click="OnAutoLevels"
+                        ToolTip.Tip="Enhance Per Channel Contrast: each channel's darkest and lightest 0.1% become black and white" />
+                <ComboBox Classes="channel" ItemsSource="{Binding ChannelNames}" SelectedIndex="{Binding Channel}" />
+              </DockPanel>
               <Border Classes="graph" Height="96">
                 <c:HistogramView Values="{Binding Histogram}" Margin="2" />
               </Border>
@@ -131,6 +136,7 @@
               <c:SliderField Label="Input white" Minimum="2" Maximum="255" Value="{Binding InputWhite}" />
               <c:SliderField Label="Output black" Minimum="0" Maximum="255" Value="{Binding OutputBlack}" />
               <c:SliderField Label="Output white" Minimum="0" Maximum="255" Value="{Binding OutputWhite}" />
+              <v:AdjustmentFooter />
             </StackPanel>
           </DataTemplate>
 
@@ -141,6 +147,12 @@
                 <TextBlock Classes="heading" Text="{Binding Title}" />
               </StackPanel>
               <DockPanel>
+                <TextBlock Classes="label" Text="Preset" Width="46" VerticalAlignment="Center" />
+                <ComboBox Classes="channel" ItemsSource="{Binding PresetNames}" SelectedItem="{Binding Preset}" />
+              </DockPanel>
+              <DockPanel>
+                <Button DockPanel.Dock="Right" Content="Auto" Margin="6,0,0,0" Padding="8,1" Height="22" MinHeight="0" Click="OnAutoCurves"
+                        ToolTip.Tip="Enhance Per Channel Contrast: each channel's darkest and lightest 0.1% become black and white" />
                 <Button DockPanel.Dock="Right" Content="Reset" Margin="6,0,0,0" Padding="8,1" Height="22" MinHeight="0" Click="OnResetCurve"
                         ToolTip.Tip="Make this channel's curve a straight line again" />
                 <ComboBox Classes="channel" ItemsSource="{Binding ChannelNames}" SelectedIndex="{Binding Channel}" />
@@ -148,6 +160,7 @@
               <c:CurveEditor Height="220" Points="{Binding Points}" Histogram="{Binding Histogram}" />
               <TextBlock Classes="muted" TextWrapping="Wrap"
                          Text="Click the curve to add a point, drag points to adjust, drag a point off the graph to remove it." />
+              <v:AdjustmentFooter />
             </StackPanel>
           </DataTemplate>
 
@@ -163,6 +176,7 @@
               <CheckBox Content="Colorize" IsChecked="{Binding Colorize}" FontSize="11" />
               <TextBlock Classes="muted" TextWrapping="Wrap" IsVisible="{Binding HasColorRangeEdits}"
                          Text="This adjustment also changes individual color ranges. Strayta keeps them but cannot edit them yet." />
+              <v:AdjustmentFooter />
             </StackPanel>
           </DataTemplate>
 
@@ -174,6 +188,7 @@
               </StackPanel>
               <c:SliderField Label="Brightness" Minimum="-150" Maximum="150" Value="{Binding Brightness}" />
               <c:SliderField Label="Contrast" Minimum="-50" Maximum="100" Value="{Binding Contrast}" />
+              <v:AdjustmentFooter />
             </StackPanel>
           </DataTemplate>
 
@@ -187,6 +202,7 @@
                 <c:HistogramView Values="{Binding Histogram}" Margin="2" />
               </Border>
               <c:SliderField Label="Threshold level" Minimum="1" Maximum="255" Value="{Binding Level}" />
+              <v:AdjustmentFooter />
             </StackPanel>
           </DataTemplate>
 
@@ -197,7 +213,14 @@
                 <TextBlock Classes="heading" Text="{Binding Title}" />
               </StackPanel>
               <c:SliderField Label="Levels" Minimum="2" Maximum="255" Value="{Binding Levels}" />
+              <v:AdjustmentFooter />
             </StackPanel>
+          </DataTemplate>
+
+          <!-- Exposure, Vibrance, Color Balance, Black & White, Photo Filter, Channel Mixer, Selective Color, Gradient Map,
+               Color Lookup and Invert (AdjustmentPanelsView.axaml) -->
+          <DataTemplate DataType="vm:AdjustmentPanelBase">
+            <v:AdjustmentPanelsView />
           </DataTemplate>
 
         </ContentControl.DataTemplates>

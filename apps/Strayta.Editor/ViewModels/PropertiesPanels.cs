@@ -4,6 +4,7 @@ using CommunityToolkit.Mvvm.Input;
 using Dock.Model.Mvvm.Controls;
 using Strayta.Core;
 using Strayta.Editor.Editing;
+using Strayta.Psd;
 
 namespace Strayta.Editor.ViewModels;
 
@@ -38,13 +39,7 @@ public abstract class PropertiesPanel : ObservableObject, IDisposable
     /// <summary>The panel to show for <paramref name="node"/>.</summary>
     public static PropertiesPanel For(DocumentViewModel document, LayerNode? node) => node switch
     {
-        AdjustmentLayer { Adjustment: LevelsAdjustment } a => new LevelsPanel(document, a),
-        AdjustmentLayer { Adjustment: CurvesAdjustment } a => new CurvesPanel(document, a),
-        AdjustmentLayer { Adjustment: HueSaturationAdjustment } a => new HueSaturationPanel(document, a),
-        AdjustmentLayer { Adjustment: BrightnessContrastAdjustment } a => new BrightnessContrastPanel(document, a),
-        AdjustmentLayer { Adjustment: ThresholdAdjustment } a => new ThresholdPanel(document, a),
-        AdjustmentLayer { Adjustment: PosterizeAdjustment } a => new PosterizePanel(document, a),
-        AdjustmentLayer { Adjustment: InvertAdjustment } a => new MessagePanel(document, a, "Invert", "Invert has no settings."),
+        AdjustmentLayer { Adjustment: { } adjustment } a when AdjustmentPanels.TypeOf(adjustment) is not null => AdjustmentPanels.Create(document, a),
         AdjustmentLayer a => new MessagePanel(document, a, a.Kind,
             $"Strayta cannot edit {a.Kind} adjustments yet. The layer is kept exactly as it is when you save."),
         PixelLayer or LayerGroup => new LayerPanel(document, node),
@@ -58,12 +53,7 @@ public abstract class PropertiesPanel : ObservableObject, IDisposable
     /// <summary>The type of panel <see cref="For"/> creates for <paramref name="node"/>, without creating one.</summary>
     private static Type TypeFor(LayerNode? node) => node switch
     {
-        AdjustmentLayer { Adjustment: LevelsAdjustment } => typeof(LevelsPanel),
-        AdjustmentLayer { Adjustment: CurvesAdjustment } => typeof(CurvesPanel),
-        AdjustmentLayer { Adjustment: HueSaturationAdjustment } => typeof(HueSaturationPanel),
-        AdjustmentLayer { Adjustment: BrightnessContrastAdjustment } => typeof(BrightnessContrastPanel),
-        AdjustmentLayer { Adjustment: ThresholdAdjustment } => typeof(ThresholdPanel),
-        AdjustmentLayer { Adjustment: PosterizeAdjustment } => typeof(PosterizePanel),
+        AdjustmentLayer { Adjustment: { } adjustment } when AdjustmentPanels.TypeOf(adjustment) is { } type => type,
         AdjustmentLayer => typeof(MessagePanel),
         PixelLayer or LayerGroup => typeof(LayerPanel),
         { } n when n.GetMask() is not null => typeof(MaskPanel),
@@ -129,13 +119,56 @@ public sealed partial class MaskPanel(DocumentViewModel document, LayerNode node
 }
 
 /// <summary>Base for panels editing one kind of adjustment.</summary>
-public abstract class AdjustmentPanel<T>(DocumentViewModel document, AdjustmentLayer layer) : PropertiesPanel(document, layer) where T : Adjustment
+public abstract class AdjustmentPanel<T>(DocumentViewModel document, AdjustmentLayer layer) : AdjustmentPanelBase(document, layer) where T : Adjustment
 {
-    public AdjustmentLayer Layer { get; } = layer;
-    public override string Title => Layer.Kind;
-
     /// <summary>The current settings (the panel is replaced if the adjustment changes type).</summary>
     protected T Settings => (T)Layer.Adjustment!;
+
+    /// <summary>Photoshop's presets for this adjustment (besides Default), in its menu order.</summary>
+    protected virtual IReadOnlyList<(string Name, T Settings)> PresetList => [];
+
+    private IReadOnlyList<string>? _presetNames;
+
+    public override bool HasPresets => PresetList.Count > 0;
+
+    /// <summary>Default, the presets, and Custom (shown when the settings match none of them).</summary>
+    public override IReadOnlyList<string> PresetNames => _presetNames ??= ["Default", .. PresetList.Select(p => p.Name), "Custom"];
+
+    public override string Preset
+    {
+        get
+        {
+            var s = Settings;
+            if (AdjustmentFactory.KindOf(s) is { } kind && PsdAdjustmentWriter.SameSettings(s, AdjustmentFactory.Default(kind))) return "Default";
+            foreach (var (name, settings) in PresetList)
+                if (PsdAdjustmentWriter.SameSettings(s, settings)) return name;
+            return "Custom";
+        }
+        set
+        {
+            if (value is null || value == Preset || value == "Custom") return;
+            T? chosen = value == "Default" ? DefaultSettings : PresetList.FirstOrDefault(p => p.Name == value).Settings;
+            if (chosen is null) return;
+            Change(() => Document.SetAdjustment(Layer, chosen, "Preset " + value));
+            PresetChosen();
+            OnPropertyChanged(string.Empty);
+        }
+    }
+
+    /// <summary>Called after a preset or reset replaced the settings (panels reset their own view state here).</summary>
+    protected virtual void PresetChosen()
+    {
+    }
+
+    private T? DefaultSettings => AdjustmentFactory.KindOf(Settings) is { } kind ? AdjustmentFactory.Default(kind) as T : null;
+
+    public override void ResetSettings()
+    {
+        if (DefaultSettings is not { } d) return;
+        Change(() => Document.SetAdjustment(Layer, d, "Reset"));
+        PresetChosen();
+        OnPropertyChanged(string.Empty);
+    }
 
     /// <summary>Records new settings; edits from the same <paramref name="control"/> merge into one undo step.</summary>
     protected void Set(string control, T value, params string[] changed)
@@ -246,6 +279,18 @@ public sealed class LevelsPanel(DocumentViewModel document, AdjustmentLayer laye
         get => Current.OutputWhite;
         set => SetCurrent("Output White", Current with { OutputWhite = Math.Clamp((int)Math.Round(value), 0, 255) }, nameof(OutputWhite));
     }
+
+    /// <summary>
+    /// Auto: Photoshop's "Enhance Per Channel Contrast" — each color channel's darkest and lightest 0.1% become black
+    /// and white (the composite record is reset). One undo step.
+    /// </summary>
+    public async Task AutoAsync()
+    {
+        var bins = await Document.HistogramWithoutAsync(Layer);
+        var channels = Enumerable.Range(1, 3).Select(c => AutoContrast.Range(bins[c]) is var (lo, hi)
+            ? new LevelsChannel(lo, hi, 0, 255, 1f) : LevelsChannel.Identity).ToArray();
+        Set("Auto", Settings with { Master = LevelsChannel.Identity, Channels = channels }, string.Empty);
+    }
 }
 
 public sealed class CurvesPanel(DocumentViewModel document, AdjustmentLayer layer) : AdjustmentPanel<CurvesAdjustment>(document, layer)
@@ -290,6 +335,34 @@ public sealed class CurvesPanel(DocumentViewModel document, AdjustmentLayer laye
     }
 
     public void Reset() => SetPoints(AdjustmentFactory.IdentityCurve);
+
+    /// <summary>
+    /// Photoshop's preset names. Negative is Photoshop's curve; the contrast, lighter and darker curves are Strayta's
+    /// under the same names.
+    /// </summary>
+    protected override IReadOnlyList<(string, CurvesAdjustment)> PresetList { get; } =
+    [
+        ("Darker (RGB)", Master([new(0, 0), new(128, 100), new(255, 255)])),
+        ("Increase Contrast (RGB)", Master([new(0, 0), new(64, 54), new(192, 202), new(255, 255)])),
+        ("Lighter (RGB)", Master([new(0, 0), new(128, 156), new(255, 255)])),
+        ("Linear Contrast (RGB)", Master([new(0, 0), new(64, 58), new(192, 198), new(255, 255)])),
+        ("Medium Contrast (RGB)", Master([new(0, 0), new(64, 48), new(192, 208), new(255, 255)])),
+        ("Negative (RGB)", Master([new(0, 255), new(255, 0)])),
+        ("Strong Contrast (RGB)", Master([new(0, 0), new(64, 38), new(192, 218), new(255, 255)])),
+    ];
+
+    private static CurvesAdjustment Master(IReadOnlyList<CurvePoint> points) => new(points, [null, null, null]);
+
+    protected override void PresetChosen() => _channel = 0;
+
+    /// <summary>Auto: each color channel's curve maps its darkest and lightest 0.1% to black and white. One undo step.</summary>
+    public async Task AutoAsync()
+    {
+        var bins = await Document.HistogramWithoutAsync(Layer);
+        var channels = Enumerable.Range(1, 3).Select(c => AutoContrast.Range(bins[c]) is var (lo, hi)
+            ? (IReadOnlyList<CurvePoint>?)[new(lo, 0), new(hi, 255)] : null).ToArray();
+        Set("Auto", Settings with { Master = AdjustmentFactory.IdentityCurve, Channels = channels }, string.Empty);
+    }
 }
 
 public sealed class HueSaturationPanel(DocumentViewModel document, AdjustmentLayer layer) : AdjustmentPanel<HueSaturationAdjustment>(document, layer)

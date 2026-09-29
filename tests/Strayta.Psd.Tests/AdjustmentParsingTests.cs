@@ -80,8 +80,8 @@ public class AdjustmentParsingTests
     [Fact]
     public void Unsupported_adjustments_become_layers_without_an_adjustment()
     {
-        var layer = ReadSingle("blnc", new byte[40]);
-        Assert.Equal("Color Balance", layer.Kind);
+        var layer = ReadSingle("hue ", new byte[40]); // the pre-Photoshop 5 Hue/Saturation layout
+        Assert.Equal("Hue/Saturation (legacy)", layer.Kind);
         Assert.Null(layer.Adjustment);
     }
 

@@ -16,6 +16,7 @@ return args switch
     ["text", var path] => TextCommands.Dump(path),
     ["textfid", .. var rest] when rest.Length > 0 => TextCommands.Fidelity(rest),
     ["textsamples", .. var rest] => TextSamples.Run(rest),
+    ["adjustsamples", .. var rest] => AdjustmentSamples.Run(rest),
     ["fidelity", var target] => Fidelity(target, exportDir: null),
     ["fidelity", var target, "--export", var dir] => Fidelity(target, dir),
     _ => Usage(),
@@ -30,6 +31,7 @@ static int Usage()
           strayta-inspect fidelity <file | dir> [--export d]  render and score against the embedded composite
           strayta-inspect bench <file>                        time full renders and cached layer toggles
           strayta-inspect roundtrip <file|dir> [--keep dir]   read, save, re-read and compare everything
+          strayta-inspect adjustsamples <dir>                 write one PSD per adjustment kind for checking in Photoshop
           strayta-inspect text <file.psd>                     print the type layers' text model
           strayta-inspect textfid <file|dir>... [--fonts d] [--all] [--export d]
                                                               render type layers, compare with Photoshop's pixels

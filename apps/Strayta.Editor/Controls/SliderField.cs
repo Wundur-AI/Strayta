@@ -26,6 +26,12 @@ public sealed class SliderField : TemplatedControl
     /// <summary>The slider moves on a log scale (for gamma, so 1.00 sits in the middle of 0.10..9.99).</summary>
     public static readonly StyledProperty<bool> LogarithmicProperty = AvaloniaProperty.Register<SliderField, bool>(nameof(Logarithmic));
 
+    /// <summary>The smallest change the slider makes (1 by default; e.g. 0.01 for Exposure).</summary>
+    public static readonly StyledProperty<double> StepProperty = AvaloniaProperty.Register<SliderField, double>(nameof(Step), 1);
+
+    /// <summary>The maximum is at the left (Photoshop's Exposure gamma runs 9.99 to 0.01).</summary>
+    public static readonly StyledProperty<bool> ReversedProperty = AvaloniaProperty.Register<SliderField, bool>(nameof(Reversed));
+
     private readonly Slider _slider;
     private readonly TextBox _text;
     private readonly TextBlock _label;
@@ -83,6 +89,8 @@ public sealed class SliderField : TemplatedControl
     public string Label { get => GetValue(LabelProperty); set => SetValue(LabelProperty, value); }
     public string Format { get => GetValue(FormatProperty); set => SetValue(FormatProperty, value); }
     public bool Logarithmic { get => GetValue(LogarithmicProperty); set => SetValue(LogarithmicProperty, value); }
+    public double Step { get => GetValue(StepProperty); set => SetValue(StepProperty, value); }
+    public bool Reversed { get => GetValue(ReversedProperty); set => SetValue(ReversedProperty, value); }
 
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
     {
@@ -90,12 +98,14 @@ public sealed class SliderField : TemplatedControl
         if (change.Property == LabelProperty) _label.Text = Label;
         else if (change.Property == DataContextProperty) _typed = false;
         if (change.Property == ValueProperty || change.Property == MinimumProperty || change.Property == MaximumProperty
-            || change.Property == LogarithmicProperty || change.Property == FormatProperty || change.Property == DataContextProperty)
+            || change.Property == LogarithmicProperty || change.Property == FormatProperty || change.Property == DataContextProperty
+            || change.Property == StepProperty || change.Property == ReversedProperty)
             Sync();
     }
 
     private double ToSlider(double v) => Logarithmic ? Math.Log10(Math.Max(v, 1e-6)) : v;
-    private double FromSlider(double s) => Logarithmic ? Math.Round(Math.Pow(10, s), 2) : Math.Round(s);
+    private double FromSlider(double s) => Logarithmic ? Math.Round(Math.Pow(10, s), 2)
+        : Step == 1 ? Math.Round(s) : Math.Round(Math.Round(s / Step) * Step, 6);
 
     /// <summary>Shows the current value without writing anything back.</summary>
     private void Sync()
@@ -105,8 +115,9 @@ public sealed class SliderField : TemplatedControl
         {
             _slider.Minimum = ToSlider(Minimum);
             _slider.Maximum = ToSlider(Maximum);
-            _slider.SmallChange = Logarithmic ? 0.01 : 1;
-            _slider.LargeChange = Logarithmic ? 0.1 : 10;
+            _slider.SmallChange = Logarithmic ? 0.01 : Step;
+            _slider.LargeChange = Logarithmic ? 0.1 : Step * 10;
+            _slider.IsDirectionReversed = Reversed;
             if (!_dragging) _slider.Value = ToSlider(Value);
         }
         finally

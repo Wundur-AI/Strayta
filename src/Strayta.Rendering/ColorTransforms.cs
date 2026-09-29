@@ -11,8 +11,30 @@ internal abstract class ColorTransform
     /// <summary>True when the result is only an approximation of Photoshop's.</summary>
     public virtual bool Approximate => false;
 
-    public static ColorTransform? Create(Adjustment? adjustment) => adjustment switch
+    private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<Adjustment, ColorTransform?[]> Cache = new();
+
+    /// <summary>
+    /// The transform for <paramref name="adjustment"/>, built once per settings object (adjustments are immutable), so
+    /// renders during a drag do not re-parse LUT files or re-sample gradients.
+    /// </summary>
+    public static ColorTransform? Create(Adjustment? adjustment)
     {
+        if (adjustment is null) return null;
+        return Cache.GetValue(adjustment, a => [Build(a)])[0];
+    }
+
+    private static ColorTransform? Build(Adjustment? adjustment) => adjustment switch
+    {
+        ExposureAdjustment e => LutTransform.FromFunction(v => AdjustmentMath.Exposure(e, v), approximate: true),
+        VibranceAdjustment v => v is { Vibrance: 0, Saturation: 0 } ? IdentityTransform.Instance : new VibranceTransform(v),
+        ColorBalanceAdjustment c => new ColorBalanceTransform(c),
+        BlackWhiteAdjustment bw => new BlackWhiteTransform(bw),
+        PhotoFilterAdjustment p => new PhotoFilterTransform(p),
+        ChannelMixerAdjustment m => new ChannelMixerTransform(m),
+        SelectiveColorAdjustment s => s.Ranges.All(r => r.IsZero) ? IdentityTransform.Instance : new SelectiveColorTransform(s),
+        GradientMapAdjustment g => new GradientMapTransform(g),
+        ColorLookupAdjustment { Kind: ColorLookupKind.Lut3D } l => LookupTable3D.Parse(l.Data, l.Format) is { } table ? new ColorLookupTransform(table) : null,
+
         LevelsAdjustment l => LutTransform.FromLevels(l),
         CurvesAdjustment c => LutTransform.FromCurves(c),
         HueSaturationAdjustment h => new HueSaturationTransform(h),
@@ -22,6 +44,16 @@ internal abstract class ColorTransform
         ThresholdAdjustment t => new ThresholdTransform(t.Level / 255f),
         _ => null,
     };
+}
+
+/// <summary>Leaves colors as they are (an adjustment at its neutral settings; its blend mode still applies).</summary>
+internal sealed class IdentityTransform : ColorTransform
+{
+    public static IdentityTransform Instance { get; } = new();
+
+    public override void ApplyRow(Span<float> rgb)
+    {
+    }
 }
 
 /// <summary>Independent per-channel tone curves, sampled into lookup tables.</summary>
@@ -57,11 +89,14 @@ internal sealed class LutTransform(float[] r, float[] g, float[] b, bool approxi
         return t;
     }
 
-    public static LutTransform FromFunction(Func<float, float> f)
+    public static LutTransform FromFunction(Func<float, float> f, bool approximate = false)
     {
         var t = Table(f);
-        return new LutTransform(t, t, t);
+        return new LutTransform(t, t, t, approximate);
     }
+
+    /// <summary>A lookup table sampling <paramref name="f"/> on 0..1.</summary>
+    internal static float[] TableOf(Func<float, float> f) => Table(f);
 
     /// <summary>Each channel runs through its own record first, then the master record.</summary>
     public static LutTransform FromLevels(LevelsAdjustment a)
