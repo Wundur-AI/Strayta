@@ -163,7 +163,9 @@ internal static partial class SelfTest
         var clock = System.Diagnostics.Stopwatch.StartNew();
         fresh.BeginQuickSelection(dome[0].X, dome[0].Y, SelectionMode.Replace);
         bool liveBeforeAnalysis = false;
-        for (int i = 0; clock.ElapsedMilliseconds < 6000; i++)
+        // Analysis takes ~1.5 s on a quiet machine and several times that under load; the drag keeps going until it
+        // arrives (up to 30 s), so the check is that the upgrade happens mid-drag, not how soon.
+        for (int i = 0; clock.ElapsedMilliseconds < 30000; i++)
         {
             var p = Vector2.Lerp(dome[0], dome[^1], (i % 60) / 60f);
             fresh.ContinueQuickSelection(p.X, p.Y);
