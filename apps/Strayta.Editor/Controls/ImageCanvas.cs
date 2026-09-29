@@ -29,6 +29,7 @@ public enum CanvasTool
     SpotHealing,
     Healing,
     HistoryBrush,
+    Type,
 }
 
 /// <summary>
@@ -129,6 +130,7 @@ public sealed partial class ImageCanvas : Control
         OnObjectFinderPropertyChanged(change); // ImageCanvas.ObjectFinder.cs
         OnWorkspacePropertyChanged(change); // ImageCanvas.SelectAndMask.cs
         if (change.Property == FreeTransformProperty) OnFreeTransformChanged(change);
+        OnTypePropertyChanged(change); // ImageCanvas.Type.cs
         OnCropPropertyChanged(change); // ImageCanvas.Crop.cs
     }
 
@@ -186,6 +188,7 @@ public sealed partial class ImageCanvas : Control
             RenderObjectHover(context); // ImageCanvas.ObjectFinder.cs
         }
         DrawTransformBox(context);
+        RenderType(context); // caret, selection and text box (ImageCanvas.Type.cs)
         RenderEverydayTools(context); // ImageCanvas.Everyday.cs
         DrawCropOverlay(context);
         RenderZoomRectangle(context); // ImageCanvas.Zoom.cs
@@ -229,6 +232,11 @@ public sealed partial class ImageCanvas : Control
             e.Pointer.Capture(this);
             return;
         }
+        if (!_panning && TypePressed(e, props)) // the Type tool (ImageCanvas.Type.cs)
+        {
+            e.Pointer.Capture(this);
+            return;
+        }
         if (!_panning && EverydayPressed(e, props)) // Eyedropper, Paint Bucket, Gradient (ImageCanvas.Everyday.cs)
         {
             e.Pointer.Capture(this);
@@ -263,6 +271,7 @@ public sealed partial class ImageCanvas : Control
         base.OnPointerMoved(e);
         if (TransformMoved(e) || CropMoved(e) || ZoomMoved(e)) return;
         ObjectFinderMoved(e); // ImageCanvas.ObjectFinder.cs
+        if (TypeMoved(e)) return;
         if (EverydayMoved(e)) return;
         if (IsPaintTool || Tool == CanvasTool.QuickSelect)
         {
@@ -320,6 +329,7 @@ public sealed partial class ImageCanvas : Control
     {
         base.OnPointerReleased(e);
         TransformReleased();
+        TypeReleased(e);
         ZoomReleased(e);
         EverydayReleased(e);
         CropReleased();
@@ -338,6 +348,7 @@ public sealed partial class ImageCanvas : Control
     protected override void OnKeyDown(KeyEventArgs e)
     {
         base.OnKeyDown(e);
+        if (!(e.Key == Key.Space && IsCommand(e.KeyModifiers)) && TypeKeyDown(e)) return; // typing (ImageCanvas.Type.cs); ⌘Space still zooms
         if (ZoomKeyChanged(e, down: true)) return; // ⌘Space zooms (ImageCanvas.Zoom.cs)
         TransformModifiersChanged(e);
         EverydayKeyChanged(e, down: true);
@@ -369,6 +380,7 @@ public sealed partial class ImageCanvas : Control
         _tempZoom ? TemporaryZoomCursor() // ⌘Space (ImageCanvas.Zoom.cs)
         : Tool == CanvasTool.Hand || _spaceHeld ? new Cursor(StandardCursorType.Hand)
         : FreeTransform is not null || CropBox is not null ? new Cursor(StandardCursorType.Arrow)
+        : Tool == CanvasTool.Type ? new Cursor(StandardCursorType.Ibeam)
         : EverydayCursor() ?? new Cursor(IsPaintTool || IsSelectTool || IsWandTool ? StandardCursorType.Cross : StandardCursorType.SizeAll);
 
     private static IBrush CreateChecker(Color light, Color dark)

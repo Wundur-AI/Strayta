@@ -20,8 +20,11 @@ namespace Strayta.Editor.Editing;
 /// smart objects, ones with smart filters, linked files and unreadable content keep the resampled pixels.</item>
 /// <item>Solid color fill layers ('SoCo') without a vector mask are filled again, covering the canvas they
 /// covered before.</item>
-/// <item>Type, shapes, gradient and pattern fills keep the resampled pixels as their preview; Photoshop redraws
-/// them from the updated data when they are edited.</item>
+/// <item>Type is drawn again by the text engine through its new transform (sharp at any scale, as Photoshop redraws
+/// it) when every font it uses is installed and it is neither warped nor vertical; otherwise the resampled pixels
+/// stand in.</item>
+/// <item>Shapes, gradient and pattern fills keep the resampled pixels as their preview; Photoshop redraws them from
+/// the updated data when they are edited.</item>
 /// </list>
 /// </summary>
 internal static class LiveContent
@@ -43,6 +46,7 @@ internal static class LiveContent
         {
             if (layer.Tags.Contains("smart-object") && file is not null)
                 return RedrawSmartObject(record, file, doc, newCanvas, cancel);
+            if (layer.Tags.Contains("text")) return RedrawType(record, doc);
             if (layer.Tags.Contains("fill") && record.FindBlock("SoCo") is { Data: { } soco }
                 && record.FindBlock("vmsk") is null && record.FindBlock("vsms") is null)
                 return RedrawSolidFill(soco, doc, oldBounds, oldCanvas, newCanvas, map);
@@ -52,6 +56,14 @@ internal static class LiveContent
             // Unreadable or unusual content: the resampled pixels stand in, as for type.
         }
         return null;
+    }
+
+    private static (Raster?, PixelRect)? RedrawType(PsdLayerRecord record, Document doc)
+    {
+        if (Psd.Text.PsdTypeLayer.Read(record) is not { Warp: null, Orientation: Core.Text.TextOrientation.Horizontal } data) return null;
+        if (data.FontsUsed.Any(f => !Text.FontCatalog.System.Contains(f))) return null;
+        var render = Text.TextRenderer.Render(data, new Text.TextRenderOptions { ColorMode = doc.ColorMode, BitDepth = doc.BitDepth });
+        return (render.Pixels, render.Pixels is null ? PixelRect.Empty : render.Bounds);
     }
 
     private static (Raster?, PixelRect)? RedrawSmartObject(PsdLayerRecord record, PsdFile file, Document doc, PixelRect canvas, CancellationToken cancel)

@@ -177,6 +177,7 @@ public partial class MainWindow : Window, IEditorDialogs
         AddRefineSelectionMenus(menu, Item); // MainWindow.RefineSelection.cs
         AddFilterMenu(menu, Item); // MainWindow.Filters.cs
         AddRetouchMenus(menu, Item); // MainWindow.Retouch.cs
+        AddTypeMenus(menu, Item); // MainWindow.Type.cs
         NativeMenu.SetMenu(this, menu);
 
         // Enter, Esc and arrow keys drive an open Free Transform before any other single-key shortcut.
@@ -200,7 +201,7 @@ public partial class MainWindow : Window, IEditorDialogs
 
     private void OnSingleKey(object? sender, KeyEventArgs e)
     {
-        if (e.Handled || FocusManager?.GetFocusedElement() is TextBox) return;
+        if (e.Handled || IsTyping) return; // MainWindow.Type.cs
         // Tool keys (EditorViewModel.ToolGroups): the key picks the slot's tool, Shift plus the key steps through its group.
         if (e.KeyModifiers is KeyModifiers.None or KeyModifiers.Shift && e.Key is >= Key.A and <= Key.Z
             && Editor.HandleToolKey(e.Key.ToString(), e.KeyModifiers == KeyModifiers.Shift))

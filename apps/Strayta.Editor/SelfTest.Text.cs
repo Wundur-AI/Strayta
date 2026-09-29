@@ -14,15 +14,17 @@ namespace Strayta.Editor;
 /// </summary>
 internal static partial class SelfTest
 {
-    /// <summary>STRAYTA_SELFTEST=text: only the text engine steps.</summary>
+    /// <summary>STRAYTA_SELFTEST=text: only the text engine and Type tool steps.</summary>
     public static async Task RunTextOnlyAsync(EditorViewModel editor)
     {
         int failures = 0;
-        await RunTextStepsAsync(editor, (ok, what) =>
+        void Check(bool ok, string what)
         {
             Console.WriteLine($"SELFTEST {(ok ? "ok  " : "FAIL")} {what}");
             if (!ok) failures++;
-        });
+        }
+        await RunTextStepsAsync(editor, Check);
+        await RunTypeToolStepsAsync(editor, Check); // SelfTest.TypeTool.cs
         Console.WriteLine(failures == 0 ? "SELFTEST PASSED" : $"SELFTEST FAILED ({failures})");
     }
 

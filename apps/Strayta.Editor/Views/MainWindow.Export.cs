@@ -13,7 +13,7 @@ public partial class MainWindow
     /// <summary>Enter applies and Esc cancels an open Free Transform; arrow keys nudge it (Shift: 10 pixels).</summary>
     private void OnTransformKey(object? sender, KeyEventArgs e)
     {
-        if (e.Handled || Editor.ActiveDocument?.FreeTransform is not { } transform || FocusManager?.GetFocusedElement() is TextBox) return;
+        if (e.Handled || Editor.ActiveDocument?.FreeTransform is not { } transform || IsTyping) return;
         int step = e.KeyModifiers == KeyModifiers.Shift ? 10 : 1;
         switch (e.Key)
         {

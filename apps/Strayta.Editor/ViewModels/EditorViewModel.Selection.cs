@@ -25,13 +25,14 @@ public sealed partial class EditorViewModel
 
     public RgbColor CurrentBackgroundColor => new(BackgroundColor.R / 255f, BackgroundColor.G / 255f, BackgroundColor.B / 255f);
 
-    [RelayCommand] private void SelectAll() => ActiveDocument?.SelectAll();
+    // While typing, Select All and the clipboard act on the text (EditorViewModel.Type.cs).
+    [RelayCommand] private void SelectAll() { if (!SelectAllText()) ActiveDocument?.SelectAll(); }
     [RelayCommand] private void Deselect() => ActiveDocument?.Deselect();
     [RelayCommand] private void Reselect() => ActiveDocument?.Reselect();
     [RelayCommand] private void InvertSelection() => ActiveDocument?.InvertSelection();
     [RelayCommand] private Task Clear() => ActiveDocument?.ClearAsync() ?? Task.CompletedTask;
     [RelayCommand] private Task Fill(string? color) => ActiveDocument?.FillAsync(background: color == "background") ?? Task.CompletedTask;
-    [RelayCommand] private void Copy() => ActiveDocument?.Copy();
-    [RelayCommand] private Task Cut() => ActiveDocument?.CutAsync() ?? Task.CompletedTask;
-    [RelayCommand] private void Paste() => ActiveDocument?.Paste();
+    [RelayCommand] private async Task Copy() { if (!await CopyTextAsync(cut: false)) ActiveDocument?.Copy(); }
+    [RelayCommand] private async Task Cut() { if (!await CopyTextAsync(cut: true) && ActiveDocument is { } doc) await doc.CutAsync(); }
+    [RelayCommand] private async Task Paste() { if (!await PasteTextAsync()) ActiveDocument?.Paste(); }
 }

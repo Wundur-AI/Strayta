@@ -38,7 +38,7 @@ public partial class MainWindow : ICanvasDialogs
     /// </summary>
     private void OnCropKey(object? sender, KeyEventArgs e)
     {
-        if (e.Handled || FocusManager?.GetFocusedElement() is TextBox) return;
+        if (e.Handled || IsTyping) return;
         var doc = Editor.ActiveDocument;
         if (doc?.PerspectiveCrop is not null && e.KeyModifiers == KeyModifiers.None && e.Key is Key.Enter or Key.Return or Key.Escape)
         {

@@ -66,4 +66,14 @@
   <StreamGeometry x:Key="IconSelAdd">M3 3h11v7h7v11H10v-7H3Z</StreamGeometry>
   <StreamGeometry x:Key="IconSelSubtract">M3 3h11v7h-4v4H3Z M14 14h7v7h-7Z</StreamGeometry>
   <StreamGeometry x:Key="IconRefineEdge">M16.5 3.5a2.1 2.1 0 0 1 3 3L9 17l-3-3Z M5 15c-1.6 0-2.7 1.1-2.7 2.7 0 .8-.5 1.4-1.3 1.7 M14 17.5l1.5 1.5 M17.5 14.5l1.5 1.5 M19 19l2 2</StreamGeometry>
+  <!-- Type tool: a serif T; alignment as lines; the panels button as a small "A" over paragraph lines. -->
+  <StreamGeometry x:Key="IconType">M5 7V4h14v3 M12 4v16 M9 20h6</StreamGeometry>
+  <StreamGeometry x:Key="IconAlignLeft">M4 6h16 M4 10h10 M4 14h16 M4 18h10</StreamGeometry>
+  <StreamGeometry x:Key="IconAlignCenter">M4 6h16 M7 10h10 M4 14h16 M7 18h10</StreamGeometry>
+  <StreamGeometry x:Key="IconAlignRight">M4 6h16 M10 10h10 M4 14h16 M10 18h10</StreamGeometry>
+  <StreamGeometry x:Key="IconJustifyLeft">M4 6h16 M4 10h16 M4 14h16 M4 18h9</StreamGeometry>
+  <StreamGeometry x:Key="IconJustifyCenter">M4 6h16 M4 10h16 M4 14h16 M7.5 18h9</StreamGeometry>
+  <StreamGeometry x:Key="IconJustifyRight">M4 6h16 M4 10h16 M4 14h16 M11 18h9</StreamGeometry>
+  <StreamGeometry x:Key="IconJustifyAll">M4 6h16 M4 10h16 M4 14h16 M4 18h16</StreamGeometry>
+  <StreamGeometry x:Key="IconTypePanels">M3 13l3.5-9 3.5 9 M4.3 10h4.4 M13 5h8 M13 9h8 M3 17h18 M3 21h18</StreamGeometry>
 </ResourceDictionary>

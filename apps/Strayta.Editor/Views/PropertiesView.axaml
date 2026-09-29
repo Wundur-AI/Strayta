@@ -67,6 +67,34 @@
                 <c:NumberField Grid.Row="2" Grid.Column="4" Unit=" px" Value="{Binding Y}" Width="76" ToolTip.Tip="Top edge of the layer's content" />
               </Grid>
               <TextBlock Classes="muted" Text="This layer has no pixels to size or move." IsVisible="{Binding !HasContent}" TextWrapping="Wrap" />
+
+              <!-- Type layers: Photoshop's Character and Paragraph basics (TypeOptions.cs; the full set is in Window › Character) -->
+              <StackPanel Spacing="8" IsVisible="{Binding IsType}">
+                <Separator Margin="0,4" />
+                <TextBlock Classes="label" Text="Character" />
+                <c:FontFamilyPicker Families="{Binding Type.Families}" Family="{Binding Type.FontFamily}" />
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                  <ComboBox Classes="channel" Width="110" ItemsSource="{Binding Type.FontStyles}" SelectedItem="{Binding Type.FontStyle}" ToolTip.Tip="Font style" />
+                  <c:NumberField Unit=" pt" Width="62" Value="{Binding Type.FontSize}" ToolTip.Tip="Font size" />
+                  <Button Padding="0" BorderThickness="0" Background="Transparent" VerticalAlignment="Center" ToolTip.Tip="Text color">
+                    <Border Width="26" Height="18" CornerRadius="3" Background="{Binding Type.ColorBrush}"
+                            BorderBrush="{DynamicResource St.Border}" BorderThickness="1" />
+                    <Button.Flyout>
+                      <Flyout Placement="BottomEdgeAlignedLeft">
+                        <ColorView Color="{Binding Type.Color}" IsAlphaVisible="False" Width="300" />
+                      </Flyout>
+                    </Button.Flyout>
+                  </Button>
+                </StackPanel>
+                <TextBlock Classes="label" Text="Paragraph" />
+                <StackPanel Orientation="Horizontal" Spacing="2">
+                  <ToggleButton Classes="icon" IsChecked="{Binding Type.AlignLeft}" ToolTip.Tip="Left align text"><Path Classes="icon small" Data="{StaticResource IconAlignLeft}" /></ToggleButton>
+                  <ToggleButton Classes="icon" IsChecked="{Binding Type.AlignCenter}" ToolTip.Tip="Center text"><Path Classes="icon small" Data="{StaticResource IconAlignCenter}" /></ToggleButton>
+                  <ToggleButton Classes="icon" IsChecked="{Binding Type.AlignRight}" ToolTip.Tip="Right align text"><Path Classes="icon small" Data="{StaticResource IconAlignRight}" /></ToggleButton>
+                  <ToggleButton Classes="icon" IsChecked="{Binding Type.JustifyLastLeft}" ToolTip.Tip="Justify last left"><Path Classes="icon small" Data="{StaticResource IconJustifyLeft}" /></ToggleButton>
+                  <ToggleButton Classes="icon" IsChecked="{Binding Type.JustifyAll}" ToolTip.Tip="Justify all"><Path Classes="icon small" Data="{StaticResource IconJustifyAll}" /></ToggleButton>
+                </StackPanel>
+              </StackPanel>
               <Separator IsVisible="{Binding Mask, Converter={x:Static ObjectConverters.IsNotNull}}" Margin="0,4" />
               <ContentControl Content="{Binding Mask}" />
             </StackPanel>

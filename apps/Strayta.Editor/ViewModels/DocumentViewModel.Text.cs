@@ -22,7 +22,18 @@ public sealed partial class DocumentViewModel
         var missing = await Task.Run(() => TypeLayers.MissingFonts(Model));
         MissingFonts = missing;
         if (missing.Count > 0) Notice = MissingFontsNotice(missing);
+        HasMissingFontsBanner = missing.Count > 0;
+        OnPropertyChanged(nameof(MissingFontsMessage));
     }
+
+    /// <summary>The banner over the canvas naming the missing fonts (dismissable; the status bar keeps the notice).</summary>
+    [CommunityToolkit.Mvvm.ComponentModel.ObservableProperty] public partial bool HasMissingFontsBanner { get; private set; }
+
+    public string MissingFontsMessage => MissingFonts.Count == 0 ? "" :
+        $"This document uses font{(MissingFonts.Count == 1 ? "" : "s")} that {(MissingFonts.Count == 1 ? "is" : "are")} not installed: {string.Join(", ", MissingFonts)}. "
+        + "Type using them shows the stored pixels and keeps the font names when saved; editing it with the Type tool asks for a replacement.";
+
+    public void DismissMissingFonts() => HasMissingFontsBanner = false;
 
     private static string MissingFontsNotice(IReadOnlyList<string> missing) =>
         $"Missing font{(missing.Count == 1 ? "" : "s")}: {string.Join(", ", missing)}. Type using {(missing.Count == 1 ? "it" : "them")} shows "

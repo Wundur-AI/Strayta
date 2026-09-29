@@ -77,6 +77,21 @@ dotnet test
   options (opacity, clipped, auto hide); the Clone Stamp and Healing Brush share each source point, as in Photoshop.
 - Edit › Content-Aware Fill fills the selection from everything outside it (current layer or all layers, into the
   layer or a new one, with or without color adaptation).
+- Horizontal Type (T, in Photoshop's place before the Hand tool): click for point text, drag for a text box, click type
+  to edit it (the caret lands where you click). Typing is drawn per keystroke by the text engine; arrows, Option+arrows
+  (words), ⌘ arrows (line start / end, text start / end), Shift extends, drag / double / triple / quadruple click select
+  (word, line, paragraph), ⌘A, ⌘C / ⌘X / ⌘V (plain text), Return (paragraph), Shift+Return (line break), input-method
+  composition, and ⌘Z inside the edit. ⌘Return, keypad Enter, the options bar's ✓ or another tool commits as one history
+  step ("Type" / "Edit Type Layer"), and the layer is named after its text; Esc or ⊘ cancels. Box text has handles
+  that reflow live (Shift keeps proportions); ⌘-drag moves the text. While typing, single-key shortcuts type.
+  Options bar: searchable font menu (each family in its own font), style, size in points (document resolution
+  applies), anti-aliasing, alignment, color, the Character / Paragraph panels. Window › Character and › Paragraph have
+  Photoshop's settings (leading, kerning, tracking, scales, baseline shift, faux bold / italic, caps, super / subscript,
+  underline, strikethrough; justification, indents, spacing, hyphenate): they change the selected characters while
+  typing, the whole layer when a type layer is selected (one undoable step each), and new text otherwise; mixed values
+  show blank. The Properties panel shows a type layer's font, size, color and alignment. Documents with missing fonts
+  show a banner; editing such type asks for a replacement (Cancel leaves it and its font names alone). Free Transform,
+  crops and Image Size redraw type sharply through its new transform when its fonts are installed.
 - Zoom (Z): click zooms in, Option-click out, drag left/right zooms smoothly (Scrubby Zoom; off, the drag draws a
   rectangle to zoom into); double-click the tool for 100%. ⌘Space / ⌘⌥Space zoom in / out over any tool while held.
   Steps glide in a short ease (Animated Zoom, can be turned off). View > Zoom In / Zoom Out (⌘+ / ⌘−), Fit on

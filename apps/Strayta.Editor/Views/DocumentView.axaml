@@ -27,7 +27,7 @@
       <c:ImageCanvas x:Name="Canvas" Source="{Binding Display}" DocumentSize="{Binding DocumentSize}"
                      Tool="{Binding Editor.Tool}" BrushSize="{Binding Editor.ToolBrushSize}"
                      Selection="{Binding Selection}" LiveSelectionOutline="{Binding QuickSelectionOutline}"
-                     FreeTransform="{Binding FreeTransform}"
+                     FreeTransform="{Binding FreeTransform}" TypeSession="{Binding TypeSession}"
                      CropBox="{Binding CropBox}" StraightenMode="{Binding Editor.CropStraighten}"
                      CropOverlay="{Binding Editor.CropOverlay}" CropOverlayOrientation="{Binding Editor.CropOverlayOrientation}"
                      PerspectiveCrop="{Binding PerspectiveCrop}"
@@ -42,6 +42,19 @@
           <TextBlock VerticalAlignment="Center" Text="Photoshop's saved image — edits aren't shown here" />
           <Button Content="Show Strayta" Padding="8,2" Click="OnShowStrayta" />
         </StackPanel>
+      </Border>
+
+      <!-- Type layers need fonts that are not installed (DocumentViewModel.Text.cs) -->
+      <Border IsVisible="{Binding HasMissingFontsBanner}" HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,14,0,0"
+              MaxWidth="560" Padding="14,10" CornerRadius="8" Background="{DynamicResource St.PanelRaised}"
+              BorderBrush="{DynamicResource St.Warning}" BorderThickness="1" BoxShadow="0 4 16 0 #60000000">
+        <DockPanel>
+          <Button DockPanel.Dock="Right" Classes="icon" Padding="2" VerticalAlignment="Top" Click="OnDismissFonts" ToolTip.Tip="Dismiss">
+            <TextBlock Text="✕" FontSize="11" />
+          </Button>
+          <Path Classes="icon small" Data="{StaticResource IconWarning}" Stroke="{DynamicResource St.Warning}" Margin="0,1,8,0" VerticalAlignment="Top" />
+          <TextBlock Text="{Binding MissingFontsMessage}" TextWrapping="Wrap" />
+        </DockPanel>
       </Border>
 
       <!-- Why the brush can't paint here, with the fixes that apply -->
