@@ -2,6 +2,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:Strayta.Editor.ViewModels"
              xmlns:c="using:Strayta.Editor.Controls"
+             xmlns:ed="using:Strayta.Editor.Editing"
              x:Class="Strayta.Editor.Views.DocumentView"
              x:DataType="vm:DocumentViewModel">
   <DockPanel>
@@ -53,7 +54,35 @@
             <TextBlock Text="✕" FontSize="11" />
           </Button>
           <Path Classes="icon small" Data="{StaticResource IconWarning}" Stroke="{DynamicResource St.Warning}" Margin="0,1,8,0" VerticalAlignment="Top" />
-          <TextBlock Text="{Binding MissingFontsMessage}" TextWrapping="Wrap" />
+          <StackPanel Spacing="8">
+            <TextBlock Text="{Binding MissingFontsMessage}" TextWrapping="Wrap" />
+            <!-- Each missing font, with places to look for it (DocumentView.Fonts.cs opens them in the browser) -->
+            <ItemsControl ItemsSource="{Binding MissingFontItems}">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="ed:MissingFont">
+                  <DockPanel Margin="0,2">
+                    <Button DockPanel.Dock="Right" Content="Find ▾" Padding="8,1" FontSize="11" ToolTip.Tip="Look for this font online">
+                      <Button.Flyout>
+                        <MenuFlyout Placement="BottomEdgeAlignedRight">
+                          <MenuItem Header="Google Fonts (free)" Tag="{Binding GoogleFonts}" Click="OnFindFont" />
+                          <MenuItem Header="Adobe Fonts" Tag="{Binding AdobeFonts}" Click="OnFindFont" />
+                          <MenuItem Header="Search the Web" Tag="{Binding WebSearch}" Click="OnFindFont" />
+                        </MenuFlyout>
+                      </Button.Flyout>
+                    </Button>
+                    <TextBlock VerticalAlignment="Center" TextTrimming="CharacterEllipsis">
+                      <Run Text="{Binding Family, Mode=OneWay}" FontWeight="SemiBold" />
+                      <Run Text="{Binding PostScriptName, Mode=OneWay, StringFormat=' ({0})'}" Foreground="{DynamicResource St.TextMuted}" />
+                    </TextBlock>
+                  </DockPanel>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+            <StackPanel Orientation="Horizontal" Spacing="6">
+              <Button Content="Install Font File…" Click="OnInstallFonts" ToolTip.Tip="Install a downloaded .ttf, .otf or .ttc for your account" />
+              <Button Content="Check Again" Click="OnRecheckFonts" ToolTip.Tip="Look again after installing fonts another way (e.g. Font Book)" />
+            </StackPanel>
+          </StackPanel>
         </DockPanel>
       </Border>
 

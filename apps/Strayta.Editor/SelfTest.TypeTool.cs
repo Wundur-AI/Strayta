@@ -347,6 +347,22 @@ internal static partial class SelfTest
             editor.Factory.AddDocument(doc);
             editor.ActiveDocument = doc;
             await doc.RenderAsync();
+            if (t.Missing)
+            {
+                await doc.CheckFontsAsync();
+                var items = doc.MissingFontItems;
+                check(items.Count > 0 && items.All(m => m.Family.Length > 0 && !m.Family.Contains('-') && m.GoogleFonts.Query.Contains(Uri.EscapeDataString(m.Family))),
+                    $"{Path.GetFileName(t.Path)}: the missing-fonts banner lists each font with search links ({string.Join(", ", items.Select(m => $"{m.PostScriptName} → {m.Family}"))})");
+                if (Environment.GetEnvironmentVariable("STRAYTA_SELFTEST_SHOTS") is { Length: > 0 } shots
+                    && Avalonia.Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime { MainWindow: { } w })
+                {
+                    await Task.Delay(300);
+                    var size = new Avalonia.PixelSize((int)w.Bounds.Width, (int)w.Bounds.Height);
+                    using var shot = new Avalonia.Media.Imaging.RenderTargetBitmap(size);
+                    shot.Render(w);
+                    shot.Save(Path.Combine(shots, "missing-fonts-banner.png"), new Avalonia.Media.Imaging.PngBitmapEncoderOptions());
+                }
+            }
             var layer = model.Root.Descendants().OfType<PixelLayer>()
                 .First(l => TypeLayers.Read(l) is { } d && d.FontsUsed.All(FontCatalog.System.Contains) != t.Missing);
             var original = TypeLayers.Read(layer)!;

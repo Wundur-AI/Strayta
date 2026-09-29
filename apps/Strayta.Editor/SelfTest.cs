@@ -12,6 +12,11 @@ namespace Strayta.Editor;
 /// </summary>
 internal static partial class SelfTest
 {
+    /// <summary>Section names for STRAYTA_SELFTEST_ONLY.</summary>
+    private static readonly string[] Sections =
+        ["core", "masks", "images", "wand", "quickselect", "everyday", "gradients", "refine", "crop", "transform", "retouch", "brush",
+         "filters", "styles", "selection", "text", "type", "objects"];
+
     public static async Task RunAsync(EditorViewModel editor, Func<Task<(int, int, bool)?>> _)
     {
         var failures = new List<string>();
@@ -21,7 +26,25 @@ internal static partial class SelfTest
             if (!ok) failures.Add(what);
         }
 
-        try
+        // STRAYTA_SELFTEST_ONLY=type,text runs just those sections (names below); unset runs everything.
+        var only = Environment.GetEnvironmentVariable("STRAYTA_SELFTEST_ONLY")?.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Select(n => n.ToLowerInvariant()).ToHashSet();
+        bool Runs(string section) => only is null || only.Count == 0 || only.Contains(section);
+        async Task Section(string section, Func<Task> run)
+        {
+            if (!Runs(section)) return;
+            try
+            {
+                await run();
+            }
+            catch (Exception ex)
+            {
+                Check(false, $"exception in {section} steps: {ex}");
+            }
+        }
+        if (only is { Count: > 0 }) Console.WriteLine($"SELFTEST note: only {string.Join(", ", only)} (sections: {string.Join(", ", Sections)})");
+
+        if (Runs("core")) try
         {
             // New document with a white background.
             var model = Editing.LayerFactory.NewDocument(400, 300, whiteBackground: true);
@@ -148,31 +171,24 @@ internal static partial class SelfTest
             Check(false, $"exception: {ex}");
         }
 
-        await RunMaskAndAdjustmentStepsAsync(editor, Check); // SelfTest.Masks.cs
-        await RunImageStepsAsync(editor, Check); // SelfTest.Images.cs
-        await RunMagicWandStepsAsync(editor, Check); // SelfTest.MagicWand.cs
-        await RunQuickSelectObjectsStepsAsync(editor, Check); // SelfTest.QuickSelectObjects.cs
-        await RunEverydayToolStepsAsync(editor, Check); // SelfTest.Everyday.cs
-        await RunGradientAndFillStepsAsync(editor, Check); // SelfTest.Gradients.cs
-        await RunRefineSelectionStepsAsync(editor, Check); // SelfTest.RefineSelection.cs
-        await RunCropStepsAsync(editor, Check); // SelfTest.Crop.cs
-        await RunTransformGapStepsAsync(editor, Check); // SelfTest.Transform2.cs
-        await RunRetouchStepsAsync(editor, Check); // SelfTest.Retouch.cs
-        await RunBrushStepsAsync(editor, Check); // SelfTest.Brush.cs
-        await RunRetouchExtrasStepsAsync(editor, Check); // SelfTest.Brush.cs
-        await RunFilterStepsAsync(editor, Check); // SelfTest.Filters.cs
-        await RunLayerStyleStepsAsync(editor, Check); // SelfTest.LayerStyle.cs
-        await RunSelectionGapStepsAsync(editor, Check); // SelfTest.SelectionGaps.cs
-        await RunTextStepsAsync(editor, Check); // SelfTest.Text.cs
-        await RunTypeToolStepsAsync(editor, Check); // SelfTest.TypeTool.cs
-        try
-        {
-            await RunObjectSelectionStepsAsync(editor, Check); // SelfTest.ObjectSelection.cs
-        }
-        catch (Exception ex)
-        {
-            Check(false, $"exception in Object Selection steps: {ex}");
-        }
+        await Section("masks", () => RunMaskAndAdjustmentStepsAsync(editor, Check)); // SelfTest.Masks.cs
+        await Section("images", () => RunImageStepsAsync(editor, Check)); // SelfTest.Images.cs
+        await Section("wand", () => RunMagicWandStepsAsync(editor, Check)); // SelfTest.MagicWand.cs
+        await Section("quickselect", () => RunQuickSelectObjectsStepsAsync(editor, Check)); // SelfTest.QuickSelectObjects.cs
+        await Section("everyday", () => RunEverydayToolStepsAsync(editor, Check)); // SelfTest.Everyday.cs
+        await Section("gradients", () => RunGradientAndFillStepsAsync(editor, Check)); // SelfTest.Gradients.cs
+        await Section("refine", () => RunRefineSelectionStepsAsync(editor, Check)); // SelfTest.RefineSelection.cs
+        await Section("crop", () => RunCropStepsAsync(editor, Check)); // SelfTest.Crop.cs
+        await Section("transform", () => RunTransformGapStepsAsync(editor, Check)); // SelfTest.Transform2.cs
+        await Section("retouch", () => RunRetouchStepsAsync(editor, Check)); // SelfTest.Retouch.cs
+        await Section("brush", () => RunBrushStepsAsync(editor, Check)); // SelfTest.Brush.cs
+        await Section("brush", () => RunRetouchExtrasStepsAsync(editor, Check)); // SelfTest.Brush.cs
+        await Section("filters", () => RunFilterStepsAsync(editor, Check)); // SelfTest.Filters.cs
+        await Section("styles", () => RunLayerStyleStepsAsync(editor, Check)); // SelfTest.LayerStyle.cs
+        await Section("selection", () => RunSelectionGapStepsAsync(editor, Check)); // SelfTest.SelectionGaps.cs
+        await Section("text", () => RunTextStepsAsync(editor, Check)); // SelfTest.Text.cs
+        await Section("type", () => RunTypeToolStepsAsync(editor, Check)); // SelfTest.TypeTool.cs
+        await Section("objects", () => RunObjectSelectionStepsAsync(editor, Check)); // SelfTest.ObjectSelection.cs
 
         Console.WriteLine(failures.Count == 0 ? "SELFTEST PASSED" : $"SELFTEST FAILED ({failures.Count})");
     }

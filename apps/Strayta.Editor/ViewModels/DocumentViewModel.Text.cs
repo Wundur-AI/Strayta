@@ -24,14 +24,16 @@ public sealed partial class DocumentViewModel
         if (missing.Count > 0) Notice = MissingFontsNotice(missing);
         HasMissingFontsBanner = missing.Count > 0;
         OnPropertyChanged(nameof(MissingFontsMessage));
+        OnPropertyChanged(nameof(MissingFontItems));
     }
 
     /// <summary>The banner over the canvas naming the missing fonts (dismissable; the status bar keeps the notice).</summary>
     [CommunityToolkit.Mvvm.ComponentModel.ObservableProperty] public partial bool HasMissingFontsBanner { get; private set; }
 
     public string MissingFontsMessage => MissingFonts.Count == 0 ? "" :
-        $"This document uses font{(MissingFonts.Count == 1 ? "" : "s")} that {(MissingFonts.Count == 1 ? "is" : "are")} not installed: {string.Join(", ", MissingFonts)}. "
-        + "Type using them shows the stored pixels and keeps the font names when saved; editing it with the Type tool asks for a replacement.";
+        MissingFonts.Count == 1
+            ? "This document uses a font that is not installed. Type using it shows the stored pixels and keeps the font name when saved; to edit it, install the font or replace it when asked."
+            : "This document uses fonts that are not installed. Type using them shows the stored pixels and keeps the font names when saved; to edit it, install the fonts or replace them when asked.";
 
     public void DismissMissingFonts() => HasMissingFontsBanner = false;
 
