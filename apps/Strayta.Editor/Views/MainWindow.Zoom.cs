@@ -16,7 +16,7 @@ public partial class MainWindow
 
     private void OnSpringKeyDown(object? sender, KeyEventArgs e)
     {
-        if (Editor.IsSelectAndMaskOpen || e.KeyModifiers != KeyModifiers.None || e.Key is < Key.A or > Key.Z || FocusManager?.GetFocusedElement() is TextBox) return;
+        if (Editor.IsSelectAndMaskOpen || e.KeyModifiers != KeyModifiers.None || e.Key is < Key.A or > Key.Z || IsTyping) return;
         if (Editor.ToolGroups.Any(g => g.Key == e.Key.ToString())) Editor.SpringKeyDown(e.Key.ToString());
     }
 

@@ -1,0 +1,162 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Strayta.Editor.ViewModels"
+             xmlns:c="using:Strayta.Editor.Controls"
+             xmlns:sys="using:System"
+             x:Class="Strayta.Editor.Views.CharacterView"
+             x:DataType="vm:CharacterToolViewModel"
+             Background="{DynamicResource St.Panel}"
+             FontSize="11">
+  <UserControl.Styles>
+    <Style Selector="c|NumberField">
+      <Setter Property="Width" Value="64" />
+    </Style>
+    <Style Selector="ComboBox">
+      <Setter Property="FontSize" Value="11" />
+      <Setter Property="MinHeight" Value="22" />
+      <Setter Property="Height" Value="22" />
+      <Setter Property="Padding" Value="8,0" />
+    </Style>
+    <Style Selector="TextBlock.glyph">
+      <Setter Property="Width" Value="22" />
+      <Setter Property="FontSize" Value="11" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+      <Setter Property="Foreground" Value="{DynamicResource St.TextMuted}" />
+    </Style>
+    <Style Selector="ToggleButton.style">
+      <Setter Property="MinWidth" Value="26" />
+      <Setter Property="Height" Value="24" />
+      <Setter Property="Padding" Value="2,0" />
+      <Setter Property="FontSize" Value="12" />
+      <Setter Property="HorizontalContentAlignment" Value="Center" />
+    </Style>
+    <Style Selector="Button.preset">
+      <Setter Property="Padding" Value="3,1" />
+      <Setter Property="MinHeight" Value="0" />
+      <Setter Property="Height" Value="22" />
+    </Style>
+    <Style Selector="Button.menuItem">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="HorizontalAlignment" Value="Stretch" />
+      <Setter Property="HorizontalContentAlignment" Value="Left" />
+      <Setter Property="Padding" Value="10,3" />
+      <Setter Property="FontSize" Value="11" />
+    </Style>
+  </UserControl.Styles>
+
+  <!-- Photoshop's Character panel (TypeOptions.cs): blank fields are values that differ across the selection. -->
+  <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+    <StackPanel Margin="10,8" Spacing="8" DataContext="{Binding Editor.Type}" x:DataType="vm:TypeOptions">
+      <TextBlock Classes="muted" Text="{Binding TargetText}" />
+      <c:FontFamilyPicker Families="{Binding Families}" Family="{Binding FontFamily}" />
+      <ComboBox ItemsSource="{Binding FontStyles}" SelectedItem="{Binding FontStyle}" HorizontalAlignment="Stretch" ToolTip.Tip="Font style" />
+
+      <Grid ColumnDefinitions="Auto,Auto,Auto,12,Auto,Auto,Auto" RowDefinitions="Auto,6,Auto,6,Auto,6,Auto">
+        <!-- Size and leading -->
+        <TextBlock Classes="glyph" Text="T↕" ToolTip.Tip="Font size" />
+        <c:NumberField Grid.Column="1" Unit=" pt" Value="{Binding FontSize}" ToolTip.Tip="Font size" />
+        <Button Grid.Column="2" Classes="preset" ToolTip.Tip="Font size presets">
+          <Path Data="M0,0 L4,4 L8,0" Stroke="Gray" StrokeThickness="1.2" />
+          <Button.Flyout>
+            <Flyout Placement="BottomEdgeAlignedLeft">
+              <ItemsControl ItemsSource="{x:Static vm:TypeOptions.SizePresets}">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="sys:Double">
+                    <Button Classes="menuItem" Content="{Binding StringFormat='{}{0} pt'}" CommandParameter="{Binding}"
+                            Command="{Binding $parent[UserControl].((vm:CharacterToolViewModel)DataContext).Editor.Type.SetFontSizeCommand}" />
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </Flyout>
+          </Button.Flyout>
+        </Button>
+        <TextBlock Grid.Column="4" Classes="glyph" Text="A⇕" ToolTip.Tip="Leading (line spacing)" />
+        <c:NumberField Grid.Column="5" Unit=" pt" Value="{Binding Leading}" PlaceholderText="{Binding LeadingPlaceholder}" ToolTip.Tip="Leading (line spacing)" />
+        <Button Grid.Column="6" Classes="preset" ToolTip.Tip="Leading presets">
+          <Path Data="M0,0 L4,4 L8,0" Stroke="Gray" StrokeThickness="1.2" />
+          <Button.Flyout>
+            <Flyout Placement="BottomEdgeAlignedLeft">
+              <StackPanel>
+                <Button Classes="menuItem" Content="(Auto)" Command="{Binding SetAutoLeadingCommand}" />
+                <ItemsControl ItemsSource="{x:Static vm:TypeOptions.SizePresets}">
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="sys:Double">
+                      <Button Classes="menuItem" Content="{Binding StringFormat='{}{0} pt'}" CommandParameter="{Binding}"
+                              Command="{Binding $parent[UserControl].((vm:CharacterToolViewModel)DataContext).Editor.Type.SetLeadingCommand}" />
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+              </StackPanel>
+            </Flyout>
+          </Button.Flyout>
+        </Button>
+
+        <!-- Kerning and tracking -->
+        <TextBlock Grid.Row="2" Classes="glyph" Text="VA" ToolTip.Tip="Kerning between characters" />
+        <ComboBox Grid.Row="2" Grid.Column="1" Grid.ColumnSpan="2" ItemsSource="{x:Static vm:TypeOptions.KerningNames}" SelectedIndex="{Binding KerningIndex}"
+                  HorizontalAlignment="Stretch" ToolTip.Tip="Kerning: the font's pairs (Metrics), from the outlines (Optical), or none (0)" />
+        <TextBlock Grid.Row="2" Grid.Column="4" Classes="glyph" Text="V͟A" ToolTip.Tip="Tracking (1/1000 em)" />
+        <c:NumberField Grid.Row="2" Grid.Column="5" Value="{Binding Tracking}" ToolTip.Tip="Tracking: space added after every character, 1/1000 em" />
+        <Button Grid.Row="2" Grid.Column="6" Classes="preset" ToolTip.Tip="Tracking presets">
+          <Path Data="M0,0 L4,4 L8,0" Stroke="Gray" StrokeThickness="1.2" />
+          <Button.Flyout>
+            <Flyout Placement="BottomEdgeAlignedLeft">
+              <ItemsControl ItemsSource="{x:Static vm:TypeOptions.TrackingPresets}">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="sys:Double">
+                    <Button Classes="menuItem" Content="{Binding}" CommandParameter="{Binding}"
+                            Command="{Binding $parent[UserControl].((vm:CharacterToolViewModel)DataContext).Editor.Type.SetTrackingCommand}" />
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </Flyout>
+          </Button.Flyout>
+        </Button>
+
+        <!-- Scale -->
+        <TextBlock Grid.Row="4" Classes="glyph" Text="↕T" ToolTip.Tip="Vertical scale" />
+        <c:NumberField Grid.Row="4" Grid.Column="1" Unit="%" Value="{Binding VerticalScale}" ToolTip.Tip="Vertical scale" />
+        <TextBlock Grid.Row="4" Grid.Column="4" Classes="glyph" Text="↔T" ToolTip.Tip="Horizontal scale" />
+        <c:NumberField Grid.Row="4" Grid.Column="5" Unit="%" Value="{Binding HorizontalScale}" ToolTip.Tip="Horizontal scale" />
+
+        <!-- Baseline shift, manual kerning -->
+        <TextBlock Grid.Row="6" Classes="glyph" Text="Aª" ToolTip.Tip="Baseline shift" />
+        <c:NumberField Grid.Row="6" Grid.Column="1" Unit=" pt" Value="{Binding BaselineShift}" ToolTip.Tip="Baseline shift (up)" />
+        <TextBlock Grid.Row="6" Grid.Column="4" Classes="glyph" Text="V|A" ToolTip.Tip="Manual kerning before the selected characters" />
+        <c:NumberField Grid.Row="6" Grid.Column="5" Value="{Binding ManualKerning}" ToolTip.Tip="Manual kerning before the selected characters (1/1000 em)" />
+      </Grid>
+
+      <StackPanel Orientation="Horizontal" Spacing="8">
+        <TextBlock Classes="label" Text="Color:" VerticalAlignment="Center" />
+        <Button Padding="0" BorderThickness="0" Background="Transparent" ToolTip.Tip="Text color">
+          <Border Width="44" Height="18" CornerRadius="3" Background="{Binding ColorBrush}"
+                  BorderBrush="{DynamicResource St.Border}" BorderThickness="1" />
+          <Button.Flyout>
+            <Flyout Placement="BottomEdgeAlignedLeft">
+              <ColorView Color="{Binding Color}" IsAlphaVisible="False" Width="300" />
+            </Flyout>
+          </Button.Flyout>
+        </Button>
+        <TextBlock Classes="muted" Text="mixed" VerticalAlignment="Center" IsVisible="{Binding IsColorMixed}" />
+      </StackPanel>
+
+      <!-- Faux Bold, Faux Italic, All Caps, Small Caps, Superscript, Subscript, Underline, Strikethrough -->
+      <WrapPanel>
+        <ToggleButton Classes="style" IsChecked="{Binding FauxBold}" ToolTip.Tip="Faux Bold"><TextBlock Text="T" FontWeight="Bold" /></ToggleButton>
+        <ToggleButton Classes="style" IsChecked="{Binding FauxItalic}" ToolTip.Tip="Faux Italic"><TextBlock Text="T" FontStyle="Italic" /></ToggleButton>
+        <ToggleButton Classes="style" IsChecked="{Binding AllCaps}" ToolTip.Tip="All Caps"><TextBlock Text="TT" /></ToggleButton>
+        <ToggleButton Classes="style" IsChecked="{Binding SmallCaps}" ToolTip.Tip="Small Caps"><TextBlock Text="Tᴛ" /></ToggleButton>
+        <ToggleButton Classes="style" IsChecked="{Binding Superscript}" ToolTip.Tip="Superscript"><TextBlock Text="T¹" /></ToggleButton>
+        <ToggleButton Classes="style" IsChecked="{Binding Subscript}" ToolTip.Tip="Subscript"><TextBlock Text="T₁" /></ToggleButton>
+        <ToggleButton Classes="style" IsChecked="{Binding Underline}" ToolTip.Tip="Underline"><TextBlock Text="T" TextDecorations="Underline" /></ToggleButton>
+        <ToggleButton Classes="style" IsChecked="{Binding Strikethrough}" ToolTip.Tip="Strikethrough"><TextBlock Text="T" TextDecorations="Strikethrough" /></ToggleButton>
+      </WrapPanel>
+
+      <StackPanel Orientation="Horizontal" Spacing="8">
+        <TextBlock Classes="label" Text="aa" FontStyle="Italic" VerticalAlignment="Center" />
+        <ComboBox ItemsSource="{x:Static vm:TypeOptions.AntiAliasNames}" SelectedIndex="{Binding AntiAliasIndex}" Width="100" ToolTip.Tip="Anti-aliasing method" />
+      </StackPanel>
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>

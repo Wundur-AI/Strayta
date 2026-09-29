@@ -1,0 +1,98 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Strayta.Editor.ViewModels"
+             xmlns:c="using:Strayta.Editor.Controls"
+             xmlns:sys="using:System"
+             x:Class="Strayta.Editor.Views.TypeToolOptions"
+             x:DataType="vm:EditorViewModel"
+             VerticalAlignment="Center">
+  <UserControl.Styles>
+    <Style Selector="ComboBox">
+      <Setter Property="FontSize" Value="11" />
+      <Setter Property="MinHeight" Value="0" />
+      <Setter Property="Padding" Value="8,2" />
+    </Style>
+    <Style Selector="Button.preset">
+      <Setter Property="Padding" Value="3,1" />
+      <Setter Property="MinHeight" Value="0" />
+      <Setter Property="Height" Value="22" />
+    </Style>
+    <Style Selector="Button.menuItem">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="HorizontalAlignment" Value="Stretch" />
+      <Setter Property="HorizontalContentAlignment" Value="Left" />
+      <Setter Property="Padding" Value="10,3" />
+      <Setter Property="FontSize" Value="11" />
+    </Style>
+  </UserControl.Styles>
+
+  <!-- The Horizontal Type tool's options bar (EditorViewModel.Type.cs, TypeOptions.cs): font, style, size,
+       anti-aliasing, alignment, color, the Character and Paragraph panels, and commit / cancel while typing. -->
+  <DockPanel IsVisible="{Binding IsTypeTool}" LastChildFill="False">
+    <StackPanel DockPanel.Dock="Left" Orientation="Horizontal" Spacing="12">
+      <c:FontFamilyPicker Width="170" Families="{Binding Type.Families}" Family="{Binding Type.FontFamily}" />
+      <ComboBox ItemsSource="{Binding Type.FontStyles}" SelectedItem="{Binding Type.FontStyle}" Width="120" ToolTip.Tip="Font style" />
+
+      <StackPanel Orientation="Horizontal" Spacing="2" ToolTip.Tip="Font size">
+        <Path Classes="icon small" Data="{StaticResource IconType}" VerticalAlignment="Center" Margin="0,0,4,0" />
+        <c:NumberField Unit=" pt" Width="60" Value="{Binding Type.FontSize}" />
+        <Button Classes="preset" ToolTip.Tip="Font size presets">
+          <Path Data="M0,0 L4,4 L8,0" Stroke="Gray" StrokeThickness="1.2" />
+          <Button.Flyout>
+            <Flyout Placement="BottomEdgeAlignedLeft">
+              <ItemsControl ItemsSource="{x:Static vm:TypeOptions.SizePresets}">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="sys:Double">
+                    <Button Classes="menuItem" Content="{Binding StringFormat='{}{0} pt'}" CommandParameter="{Binding}"
+                            Command="{Binding $parent[UserControl].((vm:EditorViewModel)DataContext).Type.SetFontSizeCommand}" />
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </Flyout>
+          </Button.Flyout>
+        </Button>
+      </StackPanel>
+
+      <StackPanel Orientation="Horizontal" Spacing="6">
+        <TextBlock Classes="label" Text="aa" VerticalAlignment="Center" FontStyle="Italic" />
+        <ComboBox ItemsSource="{x:Static vm:TypeOptions.AntiAliasNames}" SelectedIndex="{Binding Type.AntiAliasIndex}" Width="84"
+                  ToolTip.Tip="Anti-aliasing method" />
+      </StackPanel>
+
+      <StackPanel Orientation="Horizontal" Spacing="2">
+        <ToggleButton Classes="icon" IsChecked="{Binding Type.AlignLeft}" ToolTip.Tip="Left align text"><Path Classes="icon small" Data="{StaticResource IconAlignLeft}" /></ToggleButton>
+        <ToggleButton Classes="icon" IsChecked="{Binding Type.AlignCenter}" ToolTip.Tip="Center text"><Path Classes="icon small" Data="{StaticResource IconAlignCenter}" /></ToggleButton>
+        <ToggleButton Classes="icon" IsChecked="{Binding Type.AlignRight}" ToolTip.Tip="Right align text"><Path Classes="icon small" Data="{StaticResource IconAlignRight}" /></ToggleButton>
+      </StackPanel>
+
+      <Button Padding="0" BorderThickness="0" Background="Transparent" VerticalAlignment="Center" ToolTip.Tip="Set the text color">
+        <Border Width="24" Height="18" CornerRadius="3" Background="{Binding Type.ColorBrush}"
+                BorderBrush="{DynamicResource St.Border}" BorderThickness="1" />
+        <Button.Flyout>
+          <Flyout Placement="BottomEdgeAlignedLeft">
+            <ColorView Color="{Binding Type.Color}" IsAlphaVisible="False" Width="300" />
+          </Flyout>
+        </Button.Flyout>
+      </Button>
+
+      <Button Classes="icon" Command="{Binding ToggleTypePanelsCommand}" ToolTip.Tip="Show the Character and Paragraph panels">
+        <Path Classes="icon" Data="{StaticResource IconTypePanels}" />
+      </Button>
+
+      <TextBlock Classes="label" VerticalAlignment="Center" IsVisible="{Binding !ActiveDocument.IsEditingType, FallbackValue=True}"
+                 Text="Click for point text · drag for a text box · click type to edit it" />
+      <TextBlock Classes="label" VerticalAlignment="Center" IsVisible="{Binding ActiveDocument.IsEditingType, FallbackValue=False}"
+                 Text="⌘Return commits · Esc cancels · ⌘-drag moves" />
+    </StackPanel>
+
+    <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="6" IsVisible="{Binding ActiveDocument.IsEditingType, FallbackValue=False}">
+      <Button Classes="icon" ToolTip.Tip="Cancel any current edits (Esc)" Command="{Binding CancelTypeCommand}">
+        <Path Classes="icon" Data="M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18Z M5.6 5.6l12.8 12.8" />
+      </Button>
+      <Button Classes="icon" ToolTip.Tip="Commit any current edits (⌘Return)" Command="{Binding CommitTypeCommand}">
+        <Path Classes="icon" Data="{StaticResource IconCommit}" Stroke="{DynamicResource St.Accent}" />
+      </Button>
+    </StackPanel>
+  </DockPanel>
+</UserControl>

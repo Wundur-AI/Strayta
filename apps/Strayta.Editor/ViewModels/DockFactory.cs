@@ -31,6 +31,8 @@ public sealed class DockFactory(EditorViewModel editor) : Factory
         var properties = new PropertiesToolViewModel(editor) { Id = "Properties", Title = "Properties", CanClose = false };
         var history = new HistoryToolViewModel(editor) { Id = "History", Title = "History", CanClose = false };
         var cloneSource = new CloneSourceToolViewModel(editor) { Id = "CloneSource", Title = "Clone Source", CanClose = false }; // CloneSources.cs
+        var character = new CharacterToolViewModel(editor) { Id = "Character", Title = "Character", CanClose = false }; // TypePanels.cs
+        var paragraph = new ParagraphToolViewModel(editor) { Id = "Paragraph", Title = "Paragraph", CanClose = false };
 
         // Photoshop's default right column: Color/Swatches on top, Properties in the middle, Layers below.
         var tools = new ProportionalDock
@@ -41,7 +43,7 @@ public sealed class DockFactory(EditorViewModel editor) : Factory
             VisibleDockables = CreateList<IDockable>(
                 new ToolDock { Id = "ColorDock", Alignment = Alignment.Right, Proportion = 0.25, ActiveDockable = color, VisibleDockables = CreateList<IDockable>(color, swatches) },
                 new ProportionalDockSplitter(),
-                new ToolDock { Id = "PropertiesDock", Alignment = Alignment.Right, Proportion = 0.3, ActiveDockable = properties, VisibleDockables = CreateList<IDockable>(properties, history, cloneSource) },
+                new ToolDock { Id = "PropertiesDock", Alignment = Alignment.Right, Proportion = 0.3, ActiveDockable = properties, VisibleDockables = CreateList<IDockable>(properties, history, cloneSource, character, paragraph) },
                 new ProportionalDockSplitter(),
                 new ToolDock { Id = "LayersDock", Alignment = Alignment.Right, Proportion = 0.45, ActiveDockable = layers, VisibleDockables = CreateList<IDockable>(layers) }),
         };

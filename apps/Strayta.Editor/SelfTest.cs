@@ -164,6 +164,7 @@ internal static partial class SelfTest
         await RunLayerStyleStepsAsync(editor, Check); // SelfTest.LayerStyle.cs
         await RunSelectionGapStepsAsync(editor, Check); // SelfTest.SelectionGaps.cs
         await RunTextStepsAsync(editor, Check); // SelfTest.Text.cs
+        await RunTypeToolStepsAsync(editor, Check); // SelfTest.TypeTool.cs
         try
         {
             await RunObjectSelectionStepsAsync(editor, Check); // SelfTest.ObjectSelection.cs

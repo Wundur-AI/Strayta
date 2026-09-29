@@ -9,7 +9,8 @@ namespace Strayta.Editor.Controls;
 
 /// <summary>
 /// A compact numeric text field for the options bar (Free Transform's X, Y, W, H and angle). Shows the value
-/// with a unit, and writes back only what the person typed, on Enter or when focus leaves; Esc restores it.
+/// with a unit, and writes back only what the person typed, on Enter or when focus leaves; Esc restores it. NaN
+/// shows blank (mixed values), with the TextBox's placeholder text if one is set.
 /// </summary>
 public sealed class NumberField : TextBox
 {
@@ -80,7 +81,8 @@ public sealed class NumberField : TextBox
 
     private void Show(bool force = false)
     {
-        if (force || !IsFocused) Text = $"{Value.ToString("0.#", CultureInfo.CurrentCulture)}{Unit}";
+        // NaN shows an empty field: a value that differs across a selection (the Character panel's mixed values).
+        if (force || !IsFocused) Text = double.IsNaN(Value) ? "" : $"{Value.ToString("0.#", CultureInfo.CurrentCulture)}{Unit}";
     }
 
     private void Commit()

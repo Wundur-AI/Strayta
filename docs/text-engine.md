@@ -124,7 +124,33 @@ Sharp and Crisp in between; None aliased.
 pixels, bounds, and the name while it still equals the old text), `TypeLayers.Create(doc, data, out render)`,
 `TypeLayers.MissingFonts(doc)`. `DocumentViewModel.EditText` / `AddTextLayer` apply them, and `CheckFontsAsync`
 (run when a document opens) lists missing fonts in `MissingFonts` and the status-bar notice.
-`STRAYTA_SELFTEST=text` runs only the text steps of the self-test.
+`STRAYTA_SELFTEST=text` runs only the text and Type tool steps of the self-test (`STRAYTA_TYPE_SAMPLES=dir` also writes
+sample files, `STRAYTA_CORPUS` edits corpus type layers).
+
+### Type tool
+
+- `Strayta.Text.TextEditor` is the editing logic without UI: caret and anchor on grapheme-cluster boundaries, typing
+  over the selection (the style before the caret, or a style picked at the caret for what comes next), Backspace /
+  Delete by character, word or line, `Move(CaretMove, extend)` by character, word, laid-out line (keeping the
+  horizontal position for ↑ / ↓), paragraph and text, word / line / paragraph selection, `ApplyStyle` /
+  `ApplyParagraphStyle` over the selection, `Replace` (box, transform, anti-aliasing), and an undo history for the edit
+  (a run of typing is one step). Tests: `tests/Strayta.Text.Tests/TextEditorTests.cs`.
+- `Editing/TypeSession.cs` holds one edit on the canvas: it draws each change straight into the layer (no history),
+  and handles the box's handles and ⌘-drag. `DocumentViewModel.TypeTool.cs` starts, commits (one `InsertEdit` "Type"
+  or `TextEdit` "Edit Type Layer") and cancels sessions; any other edit, another tool, layer or document, Free Transform
+  and saving commit first. While a session is open Edit › Undo / Redo step through the typing.
+- `Controls/ImageCanvas.Type.cs` turns pointer and keys into edits, takes text from `TextInput` and an input-method
+  client (composition drawn at the caret), and draws the caret, selection and box. `MainWindow.IsTyping` keeps the
+  single-key shortcuts (tools, spring-loaded keys, Delete, X / D, crop and transform keys) from firing while typing.
+- `ViewModels/TypeOptions.cs` backs the options bar, the Character and Paragraph panels and the Properties panel: it
+  reads the selection's styles (mixed values: NaN / null / -1) and writes to the session, the selected layer or the
+  new-text defaults. Points = text units × the layer's vertical scale × 72 / resolution.
+- `LiveContent` redraws type through its new transform after Free Transform, turned crops and Image Size when its
+  fonts are installed.
+
+Keystroke to screen, measured by the self-test (`TYPEBENCH`, an M-series Mac under load): the text engine takes
+0.2 ms per keystroke for 40 px text and 3.5 ms for a 90 px line on a 1920×1080 document (keystroke to frame ~5–9 ms
+median), 10 ms for 250 px text on 4000×3000 (~12–18 ms median).
 
 ## Measuring
 
@@ -138,6 +164,10 @@ dotnet run --project tools/Strayta.Inspect -- textsamples out/ <Main dir> <corpu
 (`TextFidelity`: share of drawn pixels within 16/255, similarity 1 − Σ|Δ|/Σmax, best whole-pixel offset).
 
 ## Not done yet
+
+- Type tool: no vertical type tool or type masks, no warp dialog, no ⌘-drag transform handles on point text (Free
+  Transform works), no Option-drag / Alt-click box dialog; the input-method composition is drawn as an overlay rather
+  than laid out inline; Optical kerning is stored as metrics.
 
 - Hinting: Photoshop hints small Sharp/Smooth type (TrueType instructions move stems and dots by up to a pixel at
   12 px); glyphs here are unhinted.

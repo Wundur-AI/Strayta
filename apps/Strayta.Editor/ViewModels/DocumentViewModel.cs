@@ -144,10 +144,11 @@ public sealed partial class DocumentViewModel : Dock.Model.Mvvm.Controls.Documen
     [ObservableProperty] public partial bool IsBusy { get; set; }
     [ObservableProperty] public partial bool HasReference { get; set; }
 
-    public bool CanUndo => _undo.CanUndo;
-    public bool CanRedo => _undo.CanRedo;
-    public string UndoText => _undo.UndoDescription is { } d ? $"Undo {d}" : "Undo";
-    public string RedoText => _undo.RedoDescription is { } d ? $"Redo {d}" : "Redo";
+    // While typing, Undo and Redo step through the typing (DocumentViewModel.TypeTool.cs).
+    public bool CanUndo => TypeSession is { } t ? t.Editor.CanUndo : _undo.CanUndo;
+    public bool CanRedo => TypeSession is { } t ? t.Editor.CanRedo : _undo.CanRedo;
+    public string UndoText => TypeSession is not null ? "Undo Typing" : _undo.UndoDescription is { } d ? $"Undo {d}" : "Undo";
+    public string RedoText => TypeSession is not null ? "Redo Typing" : _undo.RedoDescription is { } d ? $"Redo {d}" : "Redo";
 
     /// <summary>True for formats and modes the PSD writer supports.</summary>
     public bool CanSave => Model.ColorMode is ColorMode.Rgb or ColorMode.Grayscale;
@@ -166,12 +167,18 @@ public sealed partial class DocumentViewModel : Dock.Model.Mvvm.Controls.Documen
 
     public void Apply(IEdit edit)
     {
+        if (TypeSession is not null && !_typeCommitting) CommitType(); // any other edit commits the typing first
         _undo.Push(edit);
         AfterChange(edit);
     }
 
     public void Undo()
     {
+        if (TypeSession is { } typing)
+        {
+            typing.Editor.Undo(); // inside a type edit, undo steps back through the typing
+            return;
+        }
         if (IsTransforming)
         {
             CancelTransform(); // like Photoshop, undo inside Free Transform steps back out of it
@@ -187,6 +194,11 @@ public sealed partial class DocumentViewModel : Dock.Model.Mvvm.Controls.Documen
 
     public void Redo()
     {
+        if (TypeSession is { } typing)
+        {
+            typing.Editor.Redo();
+            return;
+        }
         if (_undo.Redo() is { } edit) AfterChange(edit);
     }
 
@@ -731,6 +743,7 @@ public sealed partial class DocumentViewModel : Dock.Model.Mvvm.Controls.Documen
     {
         if (!CanSave) throw new NotSupportedException($"Saving {Model.ColorMode} documents is not supported yet.");
         if (IsTransforming) await CommitTransformAsync();
+        CommitType(); // DocumentViewModel.TypeTool.cs
         IsBusy = true;
         try
         {

@@ -56,7 +56,7 @@ public partial class MainWindow
     /// </summary>
     private void OnSelectionKey(object? sender, KeyEventArgs e)
     {
-        if (e.Handled || FocusManager?.GetFocusedElement() is TextBox) return;
+        if (e.Handled || IsTyping) return;
         var cmd = Application.Current?.PlatformSettings?.HotkeyConfiguration.CommandModifiers ?? KeyModifiers.Control;
         var mods = e.KeyModifiers;
         bool delete = e.Key is Key.Back or Key.Delete;

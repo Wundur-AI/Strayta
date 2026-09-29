@@ -28,6 +28,7 @@ public sealed partial class DocumentViewModel
     public bool BeginFreeTransform()
     {
         if (IsTransforming) return true;
+        CommitType(); // ⌘T while typing transforms the committed type (DocumentViewModel.TypeTool.cs)
         var node = SelectedLayer?.Node;
         var targets = node is LayerGroup g ? g.Descendants().Prepend(g).ToList() : node is null ? [] : [node];
         var content = targets.OfType<PixelLayer>().Select(Resampler.ContentBounds).Where(b => !b.IsEmpty).ToList();

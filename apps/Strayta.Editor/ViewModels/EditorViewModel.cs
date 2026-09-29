@@ -120,6 +120,7 @@ public sealed partial class EditorViewModel : ObservableObject
 
     partial void OnActiveDocumentChanged(DocumentViewModel? oldValue, DocumentViewModel? newValue)
     {
+        oldValue?.CommitType(); // typing ends when another document comes forward (DocumentViewModel.TypeTool.cs)
         if (oldValue is not null) oldValue.PropertyChanged -= OnDocumentPropertyChanged;
         if (newValue is not null) newValue.PropertyChanged += OnDocumentPropertyChanged;
         DocumentChanged?.Invoke();

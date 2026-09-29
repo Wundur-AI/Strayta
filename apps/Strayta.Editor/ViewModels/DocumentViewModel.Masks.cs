@@ -29,6 +29,7 @@ public sealed partial class DocumentViewModel
         oldValue?.RefreshTarget();
         newValue?.RefreshTarget();
         UpdateProperties();
+        OnTypeSelectionChanged(newValue); // DocumentViewModel.TypeTool.cs
     }
 
     partial void OnEditMaskChanged(bool value)

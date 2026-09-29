@@ -31,6 +31,12 @@ public sealed partial class LayerPanel : PropertiesPanel
     /// <summary>The layer mask section, or null when the layer has no mask.</summary>
     [ObservableProperty] public partial MaskPanel? Mask { get; private set; }
 
+    /// <summary>A type layer shows its font, size, color and alignment too, as in Photoshop.</summary>
+    public bool IsType => Node is PixelLayer && Node.Tags.Contains("text");
+
+    /// <summary>The type settings (they act on the selected type layer, or on the characters being typed).</summary>
+    public TypeOptions Type => Document.Editor.Type;
+
     /// <summary>W and H change together, keeping the current proportions (the chain between them).</summary>
     [ObservableProperty] public partial bool LinkSize { get; set; } = true;
 

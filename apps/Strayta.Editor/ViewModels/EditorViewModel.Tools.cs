@@ -44,6 +44,8 @@ public sealed partial class EditorViewModel
             new ToolGroup(this, "Y", new ToolInfo(CanvasTool.HistoryBrush, "History Brush", "IconHistoryBrush")), // EditorViewModel.History.cs
             new ToolGroup(this, "E", new ToolInfo(CanvasTool.Eraser, "Eraser", "IconEraser")),
             _fillGroup,
+            // Photoshop has Pen and Type here, then Path Selection and Shape (EditorViewModel.Type.cs).
+            new ToolGroup(this, "T", new ToolInfo(CanvasTool.Type, "Horizontal Type", "IconType")),
             new ToolGroup(this, "H", new ToolInfo(CanvasTool.Hand, "Hand", "IconHand")),
             new ToolGroup(this, "Z", new ToolInfo(CanvasTool.Zoom, "Zoom", "IconZoom")),
         ];
@@ -55,6 +57,7 @@ public sealed partial class EditorViewModel
         NotifyEverydayTools(); // EditorViewModel.Everyday.cs
         NotifyRetouchTools(); // EditorViewModel.Retouch.cs
         SyncCropTool(); // EditorViewModel.Crop.cs
+        SyncTypeTool(); // EditorViewModel.Type.cs
     }
 
     /// <summary>A tool-group shortcut: the key alone picks the group's current tool, with Shift it steps through the group.</summary>
