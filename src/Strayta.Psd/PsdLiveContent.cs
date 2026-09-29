@@ -15,7 +15,14 @@ namespace Strayta.Psd;
 /// <param name="Height">Content height.</param>
 /// <param name="Warped">A warp other than none is applied on top of the corners.</param>
 /// <param name="HasFilters">Smart filters ('filterFX') change the pixels after placing.</param>
-public sealed record PsdSmartObject(string UniqueId, (double X, double Y)[] Corners, double Width, double Height, bool Warped, bool HasFilters);
+public sealed record PsdSmartObject(string UniqueId, (double X, double Y)[] Corners, double Width, double Height, bool Warped, bool HasFilters)
+{
+    /// <summary>The warp ("quiltWarp" when it has one, else "warp"), or null when none.</summary>
+    public Core.WarpSpec? Warp { get; init; }
+
+    /// <summary>The whole placed-layer descriptor.</summary>
+    public Descriptor? Descriptor { get; init; }
+}
 
 /// <summary>A file embedded in the document for a smart object ('liFD' entry of a 'lnk2' / 'lnk3' / 'lnkD' block).</summary>
 /// <param name="FileType">Mac file type, e.g. "8BPB" (PSB), "8BPS" (PSD), "png ", "JPEG".</param>
@@ -214,10 +221,61 @@ public static class PsdLiveContent
         if (corners is null || d.Text("Idnt") is not { } id || d.Object("Sz  ") is not { } size) return null;
         double w = size.Number("Wdth") ?? 0, h = size.Number("Hght") ?? 0;
         if (w <= 0 || h <= 0) return null;
-        var warp = d.Object("warp");
-        bool warped = warp is not null && (warp.Enum("warpStyle") is { } style && style != "warpNone" || warp.Has("customEnvelopeWarp"));
-        return new PsdSmartObject(id, corners, w, h, warped, d.Has("filterFX"));
+        var warp = ReadWarp(d.Object("quiltWarp")) is { IsNone: false } quilt ? quilt : ReadWarp(d.Object("warp"));
+        if (warp is { IsNone: true }) warp = null;
+        return new PsdSmartObject(id, corners, w, h, warp is not null, d.Has("filterFX")) { Warp = warp, Descriptor = d };
     }
+
+    /// <summary>
+    /// Reads a warp descriptor ("warp" / "quiltWarp" in 'SoLd', or the one after 'PlLd' and type data): "warpStyle",
+    /// "warpValue", "warpPerspective", "warpPerspectiveOther", "warpRotate" (Ornt), "bounds" (Top/Left/Btom/Rght),
+    /// "uOrder"/"vOrder", for split meshes "deformNumRows"/"deformNumCols", "warpValues" (newer styles such as the
+    /// cylinder), and for custom warps "customEnvelopeWarp" with "meshPoints" (an object array of Hrzn/Vrtc) and,
+    /// when split, "quiltSliceX"/"quiltSliceY".
+    /// </summary>
+    public static Core.WarpSpec? ReadWarp(Descriptor? warp)
+    {
+        if (warp is null) return null;
+        var b = warp.Object("bounds");
+        var bounds = (b?.Number("Left") ?? 0, b?.Number("Top ") ?? 0, b?.Number("Rght") ?? 0, b?.Number("Btom") ?? 0);
+        int rows = (int)(warp.Number("deformNumRows") ?? 4), cols = (int)(warp.Number("deformNumCols") ?? 4);
+        List<(double, double)>? mesh = null;
+        double[]? slicesX = null, slicesY = null;
+        if (warp.Object("customEnvelopeWarp") is { } env)
+        {
+            if (env["meshPoints"] is ObjectArrayValue points && points.Columns["Hrzn"] is UnitFloatsValue hx && points.Columns["Vrtc"] is UnitFloatsValue vy
+                && hx.Values.Count == vy.Values.Count)
+                mesh = hx.Values.Zip(vy.Values).ToList();
+            slicesX = Slices(env["quiltSliceX"], "quiltSliceX");
+            slicesY = Slices(env["quiltSliceY"], "quiltSliceY");
+        }
+        if (mesh is not null && mesh.Count != rows * cols)
+        {
+            if (mesh.Count == 16) (rows, cols) = (4, 4);
+            else mesh = null;
+        }
+        var values = warp.List("warpValues")?.Select(v => v switch { DoubleValue d => d.Value, UnitFloatValue u => u.Value, IntegerValue i => i.Value, _ => 0 }).ToArray();
+        return new Core.WarpSpec
+        {
+            Style = warp.Enum("warpStyle") ?? "warpNone",
+            Value = warp.Number("warpValue") ?? 0,
+            Perspective = warp.Number("warpPerspective") ?? 0,
+            PerspectiveOther = warp.Number("warpPerspectiveOther") ?? 0,
+            Vertical = warp.Enum("warpRotate") == "Vrtc",
+            Bounds = bounds,
+            Rows = rows,
+            Columns = cols,
+            Mesh = mesh,
+            SlicesX = slicesX,
+            SlicesY = slicesY,
+            Values = values,
+        };
+    }
+
+    private static double[]? Slices(DescriptorValue? value, string key) =>
+        value is ObjectArrayValue { Columns: var c } && c[key] is UnitFloatsValue u ? u.Values.ToArray()
+        : value is ListValue l ? l.Items.Select(i => i is UnitFloatValue f ? f.Value : i is DoubleValue d ? d.Value : 0).ToArray()
+        : null;
 
     private static (double X, double Y)[]? Corners(IReadOnlyList<DescriptorValue>? list)
     {
