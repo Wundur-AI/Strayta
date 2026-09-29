@@ -56,6 +56,7 @@ public sealed partial class DocumentViewModel : Dock.Model.Mvvm.Controls.Documen
         RebuildLayers();
         WarmPreviews();
         InitHistoryStates(); // snapshots, history-state limit, History Brush (DocumentViewModel.HistoryStates.cs)
+        _ = CheckFontsAsync(); // missing fonts of type layers (DocumentViewModel.Text.cs)
     }
 
     private static int _untitledCount;

@@ -185,6 +185,7 @@ public static class PsdCanvas
             tx, ty,
         ];
         for (int i = 0; i < 6; i++) BinaryPrimitives.WriteDoubleBigEndian(o.AsSpan(2 + i * 8), mapped[i]);
+        if (Text.PsdTypeLayer.IsRegenerated(data)) Text.PsdTypeLayer.MarkRegenerated(o);
         return o;
     }
 }

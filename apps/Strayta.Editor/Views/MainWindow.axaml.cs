@@ -51,6 +51,8 @@ public partial class MainWindow : Window, IEditorDialogs
             };
         if (Environment.GetEnvironmentVariable("STRAYTA_SELFTEST") == "selection")
             Opened += async (_, _) => await SelfTest.RunSelectionGapsOnlyAsync(Editor); // SelfTest.SelectionGaps.cs
+        if (Environment.GetEnvironmentVariable("STRAYTA_SELFTEST") == "text")
+            Opened += async (_, _) => await SelfTest.RunTextOnlyAsync(Editor); // SelfTest.Text.cs
         if (Environment.GetEnvironmentVariable("STRAYTA_SELFTEST") == "1")
             Opened += async (_, _) => await SelfTest.RunAsync(Editor, AskNewDocumentAsync);
         if (Environment.GetEnvironmentVariable("STRAYTA_TRANSFORMBENCH") == "new")

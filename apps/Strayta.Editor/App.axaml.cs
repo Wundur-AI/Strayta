@@ -17,6 +17,7 @@ public partial class App : Application
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
             _ = Task.Run(Warmup.Run);
+            _ = Strayta.Text.FontCatalog.WarmUp(); // index the installed fonts for type layers in the background
             var window = new MainWindow();
             desktop.MainWindow = window;
             foreach (var path in desktop.Args ?? [])

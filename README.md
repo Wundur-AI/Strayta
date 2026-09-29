@@ -14,6 +14,7 @@ layered image documents, starting with Photoshop PSD/PSB files.
 | `Strayta.Imaging` | Opens standard images (PNG, JPEG, WebP, GIF, BMP, ICO; HEIC on macOS) as documents, and writes PNG at the image's own bit depth. Uses SkiaSharp for decoding, keeping it out of the core engine. |
 | `Strayta.Rendering` | Compositing engine that renders a Core document to pixels (`IRenderer`; CPU today). |
 | `Strayta.Segmentation` | Local AI selection (SAM 2.1, BiRefNet) on ONNX Runtime, producing Core selections. Used by the editor only. |
+| `Strayta.Text` | Text engine for type layers: installed fonts by PostScript name, shaping (HarfBuzz), Photoshop's line layout, hit testing and rendering. The type model is in `Strayta.Core.Text`, its PSD form in `Strayta.Psd.Text`; see [docs/text-engine.md](docs/text-engine.md). |
 
 `Strayta.Core` depends on nothing else in the repo. Format and rendering
 packages depend only on Core.
@@ -150,6 +151,10 @@ dotnet test
   scales from the center), sides to stretch, outside to rotate (Shift snaps to 15°), inside to move; or type
   X/Y/W/H/angle in the options bar. Enter or double-click applies (bicubic, area-filtered when shrinking,
   masks follow), Esc cancels.
+- Type layers are read as text (content, character and paragraph styles, point or box text) and can be edited
+  through the text engine's API (no Type tool UI yet): edited layers are redrawn with the installed fonts and saved
+  as Photoshop text; unedited ones keep Photoshop's pixels. Fonts a document uses that are not installed are named
+  in the status bar. See [docs/text-engine.md](docs/text-engine.md).
 - Type, smart objects, shapes and fill layers stay editable through Free Transform, turned crops and Image Size:
   the file's type transform, smart object corners (`SoLd`/`PlLd`), vector mask points and live shape boxes
   (`vogk`) move with them. Smart objects are redrawn from their embedded file (sharp when enlarged; warped ones and
@@ -242,6 +247,8 @@ Sources, exact revisions, checksums, attributions and license texts are in [mode
 dotnet run --project tools/Strayta.Inspect -- info file.psd --export out/   # layer tree + PNGs
 dotnet run --project tools/Strayta.Inspect -- scan ~/psd-corpus             # parse everything, summarize
 dotnet run --project tools/Strayta.Inspect -- fidelity ~/psd-corpus         # render and score vs composite
+dotnet run --project tools/Strayta.Inspect -- text file.psd                 # type layers' text, styles, paragraphs
+dotnet run --project tools/Strayta.Inspect -- textfid ~/psd-corpus          # draw type layers, score vs Photoshop's pixels
 ```
 
 ## Test corpus
@@ -254,7 +261,8 @@ outside the repo. Point the tests at them with:
 export STRAYTA_CORPUS=/path/to/psd-corpus
 ```
 
-Tests that need the corpus are skipped when it is not set.
+Tests that need the corpus are skipped when it is not set. Type layer tests also read the folders in
+`STRAYTA_TEXT_CORPUS` (separated like `PATH`), and fonts from `STRAYTA_FONT_DIRS` besides the installed ones.
 
 ### How layer styles are composited
 

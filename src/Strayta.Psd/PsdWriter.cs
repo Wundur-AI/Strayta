@@ -13,6 +13,12 @@ public sealed class PsdWriteOptions
     /// document's existing <see cref="Document.Composite"/> is written.
     /// </summary>
     public Raster? Composite { get; init; }
+
+    /// <summary>
+    /// Keep the document-level text engine data ('Txt2') even when type layers were edited. By default it is dropped
+    /// then, since it still describes the old text; this switch exists to check how Photoshop treats a stale copy.
+    /// </summary>
+    public bool KeepDocumentTextData { get; init; }
 }
 
 /// <summary>
@@ -86,7 +92,7 @@ public static class PsdWriter
         w.Bytes(colorModeData);
 
         WriteResources(w, doc, source);
-        WriteLayerAndMaskInfo(w, doc, source, psb, compositeAlpha);
+        WriteLayerAndMaskInfo(w, doc, source, psb, compositeAlpha, options);
         WriteComposite(w, doc, composite, colorChannels, extraChannels, psb);
     }
 
@@ -152,7 +158,7 @@ public static class PsdWriter
         string Name,
         List<(string Key, byte[] Data)> Blocks);
 
-    private static void WriteLayerAndMaskInfo(BigEndianWriter w, Document doc, PsdFile? source, bool psb, bool compositeAlpha)
+    private static void WriteLayerAndMaskInfo(BigEndianWriter w, Document doc, PsdFile? source, bool psb, bool compositeAlpha, PsdWriteOptions? options)
     {
         var records = new List<Record>();
         foreach (var child in doc.Root.Children) Flatten(child, doc, psb, records);
@@ -180,9 +186,14 @@ public static class PsdWriter
         // Patterns layers refer to that the file does not carry yet are appended to its pattern block (PsdPatterns.cs).
         var patternKey = PsdPatterns.KeyFor(doc.BitDepth);
         var newPatterns = NewReferencedPatterns(doc, source, records);
+        // The document's cached text engine data ('Txt2') describes every type layer as it was; once Strayta has
+        // rewritten a layer's text it would disagree, so it is left out and Photoshop rebuilds it from the layers.
+        bool textEdited = options?.KeepDocumentTextData != true
+            && records.Any(r => r.Blocks.Any(b => b.Key == "TySh" && Text.PsdTypeLayer.IsRegenerated(b.Data)));
         foreach (var block in source?.GlobalBlocks ?? [])
         {
             if (block.Key is "Layr" or "Lr16" or "Lr32") continue;
+            if (textEdited && block.Key == "Txt2") continue;
             var data = RequireData(block, "document");
             if (newPatterns.Count > 0 && block.Key == patternKey)
             {
@@ -302,7 +313,7 @@ public static class PsdWriter
                 var (maskData, maskChannels) = Mask(layer.Mask, src, psb);
                 channels.AddRange(maskChannels);
                 records.Add(new Record(rect, channels, PsdBlocks.BlendKeyOf(layer.BlendMode), Opacity(layer.Opacity), layer.Clipped,
-                    Flags(layer, src, layer.TransparencyLocked), maskData, src?.BlendingRanges ?? DefaultRanges(doc), layer.Name, Blocks(layer, src, doc)));
+                    Flags(layer, src, layer.TransparencyLocked), maskData, src?.BlendingRanges is { Length: > 0 } ranges ? ranges : DefaultRanges(doc), layer.Name, Blocks(layer, src, doc)));
                 break;
             }
 

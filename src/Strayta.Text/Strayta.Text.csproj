@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <!-- The SkiaSharp Avalonia ships (font lookup, glyph outlines, rasterizing) and the HarfBuzzSharp that
+         SkiaSharp.HarfBuzz 3.119.4 pairs with it (text shaping). Both MIT. -->
+    <PackageReference Include="SkiaSharp" Version="3.119.4" />
+    <PackageReference Include="HarfBuzzSharp" Version="8.3.1.5" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Strayta.Core\Strayta.Core.csproj" />
+  </ItemGroup>
+</Project>
