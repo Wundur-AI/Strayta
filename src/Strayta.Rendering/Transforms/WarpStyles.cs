@@ -61,12 +61,14 @@ public static class WarpStyles
         {
             case "warpArc":
             {
-                // Concentric arcs about a center below (above for a negative bend): the middle line becomes an arc of
-                // angle π·b with its length kept; the edges point at the center. The placement rescales the result.
+                // Concentric arcs about a center below (above for a negative bend) spanning π·|b|: the edge nearest the
+                // center keeps its length, the others grow with their radius, and the sides point at the center. The
+                // placement rescales the result into the transform box.
                 if (Math.Abs(b) < 1e-9) return (u, v);
-                double theta = Math.PI * b, radius = w / theta;
-                double r = radius + (0.5 - v) * h, phi = cu * theta;
-                double x = w / 2 + r * Math.Sin(phi), y = h / 2 + radius - r * Math.Cos(phi);
+                double theta = Math.PI * Math.Abs(b), inner = w / theta, phi = cu * theta;
+                double r = inner + (b > 0 ? 1 - v : v) * h;
+                double x = w / 2 + r * Math.Sin(phi);
+                double y = b > 0 ? inner + h - r * Math.Cos(phi) : r * Math.Cos(phi) - inner;
                 return (x / w, y / h);
             }
             case "warpArcLower": return (u, v + b * 0.5 * s * v);

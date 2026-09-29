@@ -95,7 +95,12 @@ public sealed partial class DocumentViewModel
         {
             var host = Model;
             var (data, type, newName) = await Task.Run(() => SmartObjects.Encode(content, name, fileType));
-            var image = await Task.Run(() => SmartObjects.Flatten(content, null));
+            var image = await Task.Run(() =>
+            {
+                // The edited layers, not the composite the content was opened with.
+                using var renderer = new CpuRenderer();
+                return renderer.Render(content).ToRaster(content.ColorMode, content.BitDepth);
+            });
             var updated = PsdSmartObjects.WithLinkedFile(file, entry.WithData(data, newName, type));
             await ApplyContentAsync(uniqueId, updated, SmartObjects.Convert(image, host), content.Width, content.Height, "Update Smart Object");
             return true;

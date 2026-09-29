@@ -172,9 +172,22 @@ dotnet test
   in the status bar. See [docs/text-engine.md](docs/text-engine.md).
 - Type, smart objects, shapes and fill layers stay editable through Free Transform, turned crops and Image Size:
   the file's type transform, smart object corners (`SoLd`/`PlLd`), vector mask points and live shape boxes
-  (`vogk`) move with them. Smart objects are redrawn from their embedded file (sharp when enlarged; warped ones and
-  ones with smart filters are resampled), solid color fills are filled again, and type and shapes show their
-  resampled pixels until Photoshop redraws them.
+  (`vogk`) move with them. Smart objects are redrawn from their embedded or linked file through their warp and smart
+  filters (sharp when enlarged), solid color fills are filled again, and type and shapes show their resampled pixels
+  until Photoshop redraws them.
+- Smart objects (Layer › Smart Objects): Edit Contents (or double-click the thumbnail) opens the embedded PSB/PSD or
+  image in its own tab ("Layer.psb"); ⌘S there writes it back into the parent (`lnk2` entry replaced under the same ID,
+  its size and content ID updated) and redraws every instance through its corners, perspective and warp as one step
+  "Update Smart Object"; a content of another size keeps the instance's scale. Replace Contents…, New Smart Object via
+  Copy (its own embedded copy), Convert to Smart Object (the layer or group into an embedded PSB the size of what it
+  draws), Export Contents…, Rasterize; linked smart objects open their file, are watched and redrawn when it changes
+  (Update Modified Content, Relink to File…). Warps are drawn as Photoshop does (measured on its stored pixels): custom
+  and split (quilt) Bézier meshes, the cylinder, and the named styles (Arc, Flag, Bulge, ...; approximations), with the
+  warp's control points fitted into the transform box, sent through the corner (perspective) map, and the patches
+  evaluated there (`Strayta.Rendering.Transforms.SmartObjectPlacement`). Smart filters (`filterFX`) are listed under
+  the layer with eyes; Gaussian, Motion and Box Blur, Unsharp Mask, Add Noise and High Pass are drawn in order with
+  their blend mode and opacity, double-click edits one, and the Filter menu on a smart object adds one. Other filters
+  are kept and the layer keeps Photoshop's pixels (warning icon). Unedited smart objects save byte for byte.
 - Crop tool (C): a box around the whole canvas; drag its edges (Shift keeps the shape, Option from the center),
   drag inside to move the image under it, outside to turn it (the box shrinks so no empty corners appear), or use
   Straighten to draw a line to level. Ratio presets and W x H x Resolution (crops to exact pixels and sets the
@@ -195,7 +208,7 @@ dotnet test
   threshold). Each dialog has a zoomable, draggable preview, sliders with number fields, and Preview for the canvas,
   which follows every slider step at screen resolution and settles at full resolution; Option turns Cancel into
   Reset. Filters apply to the selected layer (limited to the selection, soft edges blended) or its targeted mask, as
-  one undo step; type, shape and smart-object layers are rasterized first after a prompt. Last Filter (⌃⌘F) repeats
+  one undo step; type and shape layers are rasterized first after a prompt, and smart objects get a smart filter. Last Filter (⌃⌘F) repeats
   the last one. The filters live in `Strayta.Rendering.Filters` (`FilterEngine`) for use without the editor.
 - File > Export As writes PNG (with transparency) or JPEG (quality, flattened on a matte) with Strayta's own
   encoders.
@@ -264,6 +277,8 @@ dotnet run --project tools/Strayta.Inspect -- scan ~/psd-corpus             # pa
 dotnet run --project tools/Strayta.Inspect -- fidelity ~/psd-corpus         # render and score vs composite
 dotnet run --project tools/Strayta.Inspect -- text file.psd                 # type layers' text, styles, paragraphs
 dotnet run --project tools/Strayta.Inspect -- textfid ~/psd-corpus          # draw type layers, score vs Photoshop's pixels
+dotnet run --project tools/Strayta.Inspect -- smart ~/psd-corpus            # smart objects' placement, warps, embedded files
+dotnet run --project tools/Strayta.Inspect -- smartfid ~/psd-corpus         # redraw smart objects from content, score vs Photoshop's pixels
 ```
 
 ## Test corpus
