@@ -75,6 +75,7 @@ public sealed partial class ImageCanvas
             return true;
         }
         t.BeginDrag(handle, p.X, p.Y);
+        BeginTransformSnap(handle); // ImageCanvas.Snapping.cs
         _transformLast = p;
         return true;
     }
@@ -87,7 +88,9 @@ public sealed partial class ImageCanvas
         if (t.IsDragging)
         {
             _transformLast = p;
-            t.DragTo(p.X, p.Y, e.KeyModifiers.HasFlag(KeyModifiers.Shift), e.KeyModifiers.HasFlag(KeyModifiers.Alt));
+            var snapped = SnapTransformPoint(t, p, e.KeyModifiers); // handles and the moved box snap (ImageCanvas.Snapping.cs)
+            t.DragTo(snapped.X, snapped.Y, e.KeyModifiers.HasFlag(KeyModifiers.Shift), e.KeyModifiers.HasFlag(KeyModifiers.Alt));
+            SnapTransformMove(t, e.KeyModifiers);
         }
         else if (!_spaceHeld && Tool != CanvasTool.Hand)
         {

@@ -126,7 +126,8 @@ public sealed partial class ImageCanvas
         }
         if (TypeEditAt?.Invoke(p.X, p.Y) == true) return true;
         _typeGesture = TypeGesture.Create;
-        _typeFrom = _typeTo = p;
+        _dragSnapper = BeginSnap(); // the text's point or box corners snap (ImageCanvas.Snapping.cs)
+        _typeFrom = _typeTo = SnapDrag(p, e.KeyModifiers);
         return true;
     }
 
@@ -153,7 +154,7 @@ public sealed partial class ImageCanvas
         switch (_typeGesture)
         {
             case TypeGesture.Create:
-                _typeTo = p;
+                _typeTo = SnapDrag(p, e.KeyModifiers);
                 InvalidateVisual();
                 return true;
             case TypeGesture.Select when TypeSession is { } s:
@@ -176,7 +177,7 @@ public sealed partial class ImageCanvas
         if (_typeGesture == TypeGesture.Create)
         {
             var a = _typeFrom;
-            var b = ToImage(e.GetPosition(this));
+            var b = SnapDrag(ToImage(e.GetPosition(this)), e.KeyModifiers);
             // A drag of a few screen points is still a click.
             bool drag = Math.Abs(b.X - a.X) * Zoom > 4 || Math.Abs(b.Y - a.Y) * Zoom > 4;
             TextRect? box = drag ? new TextRect(Math.Min(a.X, b.X), Math.Min(a.Y, b.Y), Math.Max(a.X, b.X), Math.Max(a.Y, b.Y)) : null;

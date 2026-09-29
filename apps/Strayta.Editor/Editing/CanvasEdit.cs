@@ -15,7 +15,7 @@ namespace Strayta.Editor.Editing;
 /// </summary>
 public sealed class CanvasEdit : IEdit
 {
-    private sealed record DocState(int Width, int Height, double Resolution, Raster? Composite, object? Source, SelectionMask? Selection);
+    private sealed record DocState(int Width, int Height, double Resolution, Raster? Composite, object? Source, SelectionMask? Selection, IReadOnlyList<Guide> Guides);
     private sealed record NodeState(LayerGeometry Geometry, object? Source, string[] Tags, LayerEffects? Effects);
 
     // What Rasterize Layer removes (its record drops the matching blocks, vector masks included).
@@ -34,7 +34,7 @@ public sealed class CanvasEdit : IEdit
         _doc = doc;
         _setSelection = setSelection;
         Description = description;
-        _before = new DocState(doc.Width, doc.Height, doc.Resolution, doc.Composite, doc.SourceData, selection);
+        _before = new DocState(doc.Width, doc.Height, doc.Resolution, doc.Composite, doc.SourceData, selection, doc.Guides);
         if (change is null)
         {
             _after = _before with { Resolution = resolution };
@@ -78,7 +78,7 @@ public sealed class CanvasEdit : IEdit
         var movedSelection = change.Perspective is { } p
             ? SelectionTransform.Apply(selection, p, canvas)
             : SelectionTransform.Apply(selection, change.Map, canvas, change.Method);
-        _after = new DocState(newW, newH, resolution, change.Composite, docSource, movedSelection);
+        _after = new DocState(newW, newH, resolution, change.Composite, docSource, movedSelection, PsdGuides.Remap(doc.Guides, newW, newH, map));
     }
 
     public string Description { get; }
@@ -98,6 +98,7 @@ public sealed class CanvasEdit : IEdit
         _doc.Resolution = doc.Resolution;
         _doc.Composite = doc.Composite;
         _doc.SourceData = doc.Source;
+        _doc.Guides = doc.Guides;
         foreach (var entry in _nodes)
         {
             var state = pick(entry);

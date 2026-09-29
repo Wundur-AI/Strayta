@@ -199,6 +199,17 @@ dotnet test
   the last one. The filters live in `Strayta.Rendering.Filters` (`FilterEngine`) for use without the editor.
 - File > Export As writes PNG (with transparency) or JPEG (quality, flattened on a matte) with Strayta's own
   encoders.
+- Rulers, guides and grid (View menu): Rulers (⌘R) follow zoom and pan with a pointer marker; right-click a ruler for
+  Pixels, Inches, Centimeters, Millimeters, Points, Picas or Percent (at the document's resolution); drag the corner to
+  move the zero point, double-click it to reset. Drag guides out of a ruler (Option swaps the direction, Shift lands on
+  ticks), move them with the Move tool or ⌘ over any tool, drag them back onto a ruler to delete; Show › Guides (⌘;),
+  Lock Guides (⌥⌘;), Clear Guides, New Guide…, New Guide Layout… (columns, rows, gutters, margins). Guides are saved in
+  the PSD (resource 1032), follow crops and Image Size, and every change is undoable. Show › Grid (⌘') draws gridlines
+  with subdivisions (Guides & Grid Settings…). Snap (⇧⌘;) and Snap To (Guides, Grid, Layers, Document Bounds) apply to
+  the Move tool, Free Transform, marquee, crop, text box, guide and origin drags within 8 screen pixels; Control
+  suspends it. Tools snap through `Editing.Snapper` (`DocumentViewModel.CreateSnapper`, `ImageCanvas.BeginSnap`).
+  Show/snap settings and units are kept per user (view.json). Window › Info (F8): pointer position in ruler units, RGB
+  under the pointer (0–32768 for 16-bit), selection / box / transform W×H, document size.
 - Interaction renders a screen-resolution preview; full resolution follows when you pause.
 - View > Photoshop Composite / Difference compare Strayta's render with the image stored in the file.
 

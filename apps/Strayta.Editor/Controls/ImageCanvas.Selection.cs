@@ -4,6 +4,7 @@ using Avalonia.Media;
 using Avalonia.Media.Immutable;
 using Avalonia.Threading;
 using Strayta.Core.Selection;
+using Strayta.Editor.Editing;
 using PixelRect = Strayta.Core.PixelRect;
 using Vector2 = System.Numerics.Vector2;
 
@@ -126,8 +127,10 @@ public sealed partial class ImageCanvas
         _altForMode = has && alt;
         _shiftReleased = _altReleased = _dragged = false;
         _selectStartScreen = e.GetPosition(this);
-        _selectStart = _selectEnd = ToImage(_selectStartScreen);
         _shapeTool = Tool;
+        // Marquee corners snap (View › Snap, ImageCanvas.Snapping.cs); lasso points do not.
+        _dragSnapper = Tool is CanvasTool.RectSelect or CanvasTool.EllipseSelect ? BeginSnap() : Snapper.Off;
+        _selectStart = _selectEnd = SnapDrag(ToImage(_selectStartScreen), mods);
         _objectLasso = Tool == CanvasTool.ObjectSelect && ObjectLassoMode; // ImageCanvas.ObjectFinder.cs
         _lasso.Clear();
         _lasso.Add(new Vector2((float)_selectStart.X, (float)_selectStart.Y));
@@ -161,7 +164,7 @@ public sealed partial class ImageCanvas
                 _lasso.Add(new Vector2((float)p.X, (float)p.Y));
             }
         }
-        _selectEnd = ToImage(pos);
+        _selectEnd = SnapDrag(ToImage(pos), mods);
         _shapeBox = MarqueeBox(mods);
         InvalidateVisual();
     }
@@ -171,7 +174,7 @@ public sealed partial class ImageCanvas
         _selecting = false;
         if (_dragged)
         {
-            _selectEnd = ToImage(e.GetPosition(this));
+            _selectEnd = SnapDrag(ToImage(e.GetPosition(this)), e.KeyModifiers);
             _shapeBox = MarqueeBox(e.KeyModifiers);
         }
         var gesture = _shapeTool == CanvasTool.Lasso

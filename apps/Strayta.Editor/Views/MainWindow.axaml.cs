@@ -179,6 +179,7 @@ public partial class MainWindow : Window, IEditorDialogs
         AddFilterMenu(menu, Item); // MainWindow.Filters.cs
         AddRetouchMenus(menu, Item); // MainWindow.Retouch.cs
         AddTypeMenus(menu, Item); // MainWindow.Type.cs
+        AddGuideMenus(menu, Item); // rulers, guides, grid, snapping, Info (MainWindow.Guides.cs)
         NativeMenu.SetMenu(this, menu);
 
         // Enter, Esc and arrow keys drive an open Free Transform before any other single-key shortcut.
