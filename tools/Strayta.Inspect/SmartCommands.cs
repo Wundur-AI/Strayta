@@ -23,8 +23,13 @@ internal static class SmartCommands
             foreach (var b in file.GlobalBlocks.Where(b => b.Key is "lnk2" or "lnk3" or "lnkD" or "lnkE"))
             {
                 Console.WriteLine($"  [{b.Key}] {b.Data?.Length:N0} bytes");
-                foreach (var e in PsdLiveContent.ReadLinkedFiles(b.Data ?? []))
-                    Console.WriteLine($"    {e.UniqueId} \"{e.Name}\" {e.FileType} {e.Data.Length:N0} bytes");
+                foreach (var e in PsdLinkedFiles.Read(b.Data ?? []))
+                {
+                    bool same = PsdLinkedFiles.Write([e with { Raw = null }]).AsSpan(8).StartsWith(e.Raw);
+                    Console.WriteLine($"    {e.Kind} v{e.Version} {e.UniqueId} \"{e.Name}\" '{e.FileType}' {e.Data?.Length ?? e.ExternalSize:N0} bytes child \"{e.ChildDocumentId}\" mod {e.AssetModTime} lock {e.AssetLocked} tail {Convert.ToHexString(e.Tail)} re-encodes {(same ? "identically" : "DIFFERENTLY")}");
+                    if (e.OpenDescriptor is { } od) Console.WriteLine("      open " + od.ToString().Replace("\n", "\n      "));
+                    if (e.LinkDescriptor is { } ld) Console.WriteLine("      link " + ld.ToString().Replace("\n", "\n      "));
+                }
             }
             foreach (var r in smart)
             {
@@ -36,8 +41,17 @@ internal static class SmartCommands
                     Console.WriteLine("     " + d.ToString().Replace("\n", "\n     "));
                 }
                 catch (Exception e) { Console.WriteLine($"     unreadable: {e.Message}"); }
+                Console.WriteLine($"     SoLd head {Convert.ToHexString(block.Data!.AsSpan(0, 12))}");
+                try
+                {
+                    var d = DescriptorReader.ReadVersioned(block.Data!, 8);
+                    Console.WriteLine($"     SoLd class '{d.ClassId}' name '{d.Name}' types: " + string.Join(", ", d.Items.Select(kv => $"{kv.Key.TrimEnd()}={kv.Value.GetType().Name}{(kv.Value is ObjectValue ov ? "(" + ov.Value.ClassId + ":" + string.Join("/", ov.Value.Items.Select(i => i.Key.TrimEnd() + "=" + i.Value.GetType().Name)) + ")" : "")}")));
+                }
+                catch (PsdFormatException) { }
                 if (r.FindBlock("PlLd")?.Data is { } pl)
                 {
+                    int head = 8 + 1 + pl[8] + 16 + 64 + 8;
+                    Console.WriteLine($"     PlLd head {Convert.ToHexString(pl.AsSpan(0, Math.Min(head, pl.Length)))}");
                     try
                     {
                         int at = 8 + 1 + pl[8] + 16 + 64;

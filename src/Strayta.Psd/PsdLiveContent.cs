@@ -298,56 +298,8 @@ public static class PsdLiveContent
         return null;
     }
 
-    /// <summary>
-    /// The embedded ('liFD') entries of a linked-files block. Each entry: an 8-byte length, the kind ('liFD' embedded,
-    /// 'liFE' external, 'liFA' alias), a 4-byte version, the unique ID (Pascal string), the original file name
-    /// (Unicode string), file type and creator (4 bytes each), the data length (8 bytes), a flag and, when set, a
-    /// versioned descriptor of open-file settings, then for 'liFD' the file itself. Entries are padded to 4 bytes.
-    /// </summary>
-    public static IEnumerable<PsdEmbeddedFile> ReadLinkedFiles(byte[] data)
-    {
-        long at = 0;
-        while (at + 16 <= data.Length)
-        {
-            long length = BinaryPrimitives.ReadInt64BigEndian(data.AsSpan((int)at));
-            long start = at + 8, end = start + length;
-            if (length <= 0 || end > data.Length) yield break;
-            var entry = ReadEntry(data, (int)start, (int)end);
-            if (entry is not null) yield return entry;
-            at = start + ((length + 3) & ~3L);
-        }
-    }
-
-    private static PsdEmbeddedFile? ReadEntry(byte[] data, int at, int end)
-    {
-        try
-        {
-            string kind = Encoding.ASCII.GetString(data, at, 4);
-            if (kind != "liFD") return null;
-            at += 8; // kind, version
-            int idLength = data[at];
-            string id = Encoding.ASCII.GetString(data, at + 1, idLength);
-            at += 1 + idLength;
-            int nameChars = BinaryPrimitives.ReadInt32BigEndian(data.AsSpan(at));
-            string name = Encoding.BigEndianUnicode.GetString(data, at + 4, nameChars * 2).TrimEnd('\0');
-            at += 4 + nameChars * 2;
-            string type = Encoding.ASCII.GetString(data, at, 4);
-            at += 8; // type, creator
-            long size = BinaryPrimitives.ReadInt64BigEndian(data.AsSpan(at));
-            at += 8;
-            bool hasDescriptor = data[at++] != 0;
-            if (hasDescriptor)
-            {
-                var reader = new DescriptorReader(data, at + 4);
-                reader.ReadDescriptor();
-                at = reader.Position;
-            }
-            if (size < 0 || at + size > end) return null;
-            return new PsdEmbeddedFile(id, name, type, data.AsSpan(at, (int)size).ToArray());
-        }
-        catch (Exception e) when (e is PsdFormatException or ArgumentException)
-        {
-            return null;
-        }
-    }
+    /// <summary>The embedded ('liFD') entries of a linked-files block; see <see cref="PsdLinkedFiles"/> for the layout.</summary>
+    public static IEnumerable<PsdEmbeddedFile> ReadLinkedFiles(byte[] data) =>
+        PsdLinkedFiles.Read(data).Where(e => e.Kind == "liFD" && e.Data is not null)
+            .Select(e => new PsdEmbeddedFile(e.UniqueId, e.Name, e.FileType, e.Data!));
 }

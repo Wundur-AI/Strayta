@@ -185,7 +185,7 @@
 
                 <!-- Thumbnail, or an icon for groups and adjustments -->
                 <Panel DockPanel.Dock="Left" Margin="6,0,0,0" VerticalAlignment="Center">
-                  <Border Classes="thumb" Classes.target="{Binding IsPixelTarget}" PointerPressed="OnLayerThumbPressed"
+                  <Border Classes="thumb" Classes.target="{Binding IsPixelTarget}" PointerPressed="OnLayerThumbPressed" DoubleTapped="OnLayerThumbDoubleTapped"
                           IsVisible="{Binding PlaceholderIcon, Converter={x:Static ObjectConverters.IsNull}}">
                     <Panel>
                       <Image Source="{Binding Thumbnail}" Stretch="Uniform" RenderOptions.BitmapInterpolationMode="HighQuality" />
@@ -255,6 +255,23 @@
                     </Border>
                     <TextBlock Grid.Column="2" Text="{Binding Name}" Margin="{Binding Indent}" VerticalAlignment="Center"
                                Classes="muted" TextTrimming="CharacterEllipsis" Background="Transparent" DoubleTapped="OnFxDoubleTapped" />
+                  </Grid>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+            <!-- A smart object's smart filters, each with its eye; double-click edits one (LayersView.SmartObjects.cs) -->
+            <ItemsControl ItemsSource="{Binding SmartFilterRows}" IsVisible="{Binding HasSmartFilters}">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="vm:SmartFilterRowViewModel">
+                  <Grid ColumnDefinitions="30,20,*" Height="20" Background="Transparent" DoubleTapped="OnSmartFilterDoubleTapped" ToolTip.Tip="{Binding Tip}">
+                    <Border Classes="hit eye" PointerPressed="OnSmartFilterEyePressed" ToolTip.Tip="Show or hide">
+                      <Path Classes="icon small" Width="11" Height="11" Data="{StaticResource IconEye}" Opacity="{Binding EyeOpacity}"
+                            HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                    <Path Grid.Column="1" Classes="icon small" Width="11" Height="11" Data="{StaticResource IconWarning}" Stroke="{DynamicResource St.Warning}"
+                          IsVisible="{Binding IsUnknown}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    <TextBlock Grid.Column="2" Text="{Binding Name}" Margin="{Binding Indent}" VerticalAlignment="Center"
+                               Classes="muted" TextTrimming="CharacterEllipsis" />
                   </Grid>
                 </DataTemplate>
               </ItemsControl.ItemTemplate>

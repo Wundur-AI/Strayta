@@ -41,6 +41,7 @@ public sealed partial class EditorViewModel
         if (ActiveDocument is not { } doc || FilterDialogProvider is not { } dialogs || !Enum.TryParse<FilterKind>(kind, out var k)) return;
         var initial = _filterSettings.GetValueOrDefault(k) ?? FilterSessionViewModel.DefaultFilter(k);
         if (initial is AddNoiseFilter noise) initial = noise with { Seed = Random.Shared.Next() }; // a new pattern each time
+        if (await FilterSmartObjectAsync(doc, dialogs, k, initial, showDialog: true)) return; // a smart filter (EditorViewModel.SmartObjects.cs)
         if (!await PrepareFilterTargetAsync(doc, dialogs) || !doc.BeginFilter(initial.Name)) return;
 
         using var session = new FilterSessionViewModel(doc, k, initial);
@@ -71,6 +72,7 @@ public sealed partial class EditorViewModel
     {
         if (ActiveDocument is not { } doc || LastFilter is not { } filter || FilterDialogProvider is not { } dialogs) return;
         if (filter is AddNoiseFilter noise) filter = noise with { Seed = Random.Shared.Next() };
+        if (await FilterSmartObjectAsync(doc, dialogs, FilterSessionViewModel.KindOf(filter), filter, showDialog: false)) return;
         if (!await PrepareFilterTargetAsync(doc, dialogs) || !doc.BeginFilter(filter.Name)) return;
         await doc.ApplyFilterAsync(filter);
     }

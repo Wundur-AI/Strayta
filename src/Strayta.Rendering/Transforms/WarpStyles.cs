@@ -61,15 +61,13 @@ public static class WarpStyles
         {
             case "warpArc":
             {
-                // Concentric arcs: the middle line becomes an arc of angle π·b with the same length.
+                // Concentric arcs about a center below (above for a negative bend): the middle line becomes an arc of
+                // angle π·b with its length kept; the edges point at the center. The placement rescales the result.
                 if (Math.Abs(b) < 1e-9) return (u, v);
-                double theta = Math.PI * b, radius = w / theta; // in width units: radius / w = 1 / theta
-                double r = radius + (0.5 - v) * h * Math.Sign(theta);
-                double phi = cu * theta;
-                double x = r * Math.Sin(phi), y = -(r * Math.Cos(phi) - radius);
-                // Keep the arc's chord centered on the box.
-                double sag = radius - radius * Math.Cos(theta / 2);
-                return (0.5 + x / w, 0.5 + y * Math.Sign(theta) * Math.Sign(theta) / h + (theta > 0 ? sag / 2 / h : -sag / 2 / h));
+                double theta = Math.PI * b, radius = w / theta;
+                double r = radius + (0.5 - v) * h, phi = cu * theta;
+                double x = w / 2 + r * Math.Sin(phi), y = h / 2 + radius - r * Math.Cos(phi);
+                return (x / w, y / h);
             }
             case "warpArcLower": return (u, v + b * 0.5 * s * v);
             case "warpArcUpper": return (u, v - b * 0.5 * s * (1 - v));
@@ -78,8 +76,8 @@ public static class WarpStyles
             case "warpShellLower": return (0.5 + cu * (1 - 0.5 * b * v * (1 - s)), v + b * 0.5 * s * v);
             case "warpShellUpper": return (0.5 + cu * (1 - 0.5 * b * (1 - v) * (1 - s)), v - b * 0.5 * s * (1 - v));
             case "warpFlag": return (u, v - b * 0.25 * Math.Sin(2 * Math.PI * u));
-            case "warpWave": return (u, v - b * 0.25 * Math.Sin(2 * Math.PI * u) * (1 - 2 * cv * 0.5));
-            case "warpFish": return (u, v + b * 0.5 * s * (2 * v - 1) * (1 - u) * 2 * 0.5);
+            case "warpWave": return (u, v - b * 0.25 * Math.Sin(2 * Math.PI * u) * (1 - 2 * v));
+            case "warpFish": return (u, v + b * 0.5 * s * (2 * v - 1) * (1 - u));
             case "warpRise": return (u, v - b * 0.5 * Math.Sin(Math.PI * cu));
             case "warpFisheye":
             {

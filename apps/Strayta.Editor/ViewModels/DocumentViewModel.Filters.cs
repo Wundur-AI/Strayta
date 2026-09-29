@@ -54,7 +54,7 @@ public sealed partial class DocumentViewModel
         if (EditMask && SelectedLayer?.Node.GetMask() is not null) return null;
         if (SelectedLayer?.Node is not { Visible: true } node || !RasterizeEdit.CanRasterize(node)) return null;
         return node.Tags.Contains("text") ? "This type layer must be rasterized before proceeding. Its text will no longer be editable."
-            : node.Tags.Contains("smart-object") ? "This smart object must be rasterized before proceeding. Its contents will no longer be editable (Strayta has no Smart Filters yet)."
+            : node.Tags.Contains("smart-object") ? "This smart object must be rasterized before proceeding. Its contents will no longer be editable."
             : node.Tags.Contains("shape") ? "This shape layer must be rasterized before proceeding. It will no longer be editable as a shape."
             : "This layer must be rasterized before proceeding. Its fill will no longer be editable.";
     }

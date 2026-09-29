@@ -19,6 +19,9 @@ public sealed class PsdWriteOptions
     /// then, since it still describes the old text; this switch exists to check how Photoshop treats a stale copy.
     /// </summary>
     public bool KeepDocumentTextData { get; init; }
+
+    /// <summary>Write the Large Document Format (.psb) whatever the size, as Photoshop does for smart object contents.</summary>
+    public bool Psb { get; init; }
 }
 
 /// <summary>
@@ -62,7 +65,7 @@ public static class PsdWriter
             throw new NotSupportedException($"Saving {doc.BitDepth}-bit documents is not supported yet.");
 
         var source = doc.SourceData as PsdFile;
-        bool psb = source?.Header.IsPsb == true || doc.Width > 30_000 || doc.Height > 30_000;
+        bool psb = options?.Psb == true || source?.Header.IsPsb == true || doc.Width > 30_000 || doc.Height > 30_000;
         var composite = options?.Composite ?? doc.Composite;
         int colorChannels = doc.ColorMode.ColorChannelCount();
         bool compositeAlpha = composite?.Alpha is not null;
