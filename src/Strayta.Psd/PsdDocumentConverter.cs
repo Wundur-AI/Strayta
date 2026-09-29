@@ -9,6 +9,7 @@ internal static class PsdDocumentConverter
     public static Document Convert(PsdFile file)
     {
         float globalAngle = PsdEffects.GlobalAngleOf(file);
+        var context = PsdEffects.ContextOf(file);
         var h = file.Header;
         var doc = new Document(h.Width, h.Height, h.ColorMode, h.BitDepth)
         {
@@ -23,7 +24,8 @@ internal static class PsdDocumentConverter
 
         if (PsdResolution.Read(file.FindResource(PsdResolution.ResourceId)?.Data) is { } ppi) doc.Resolution = ppi;
         doc.Composite = BuildComposite(file);
-        BuildLayerTree(file, doc.Root, globalAngle);
+        doc.Patterns.AddRange(context.Patterns);
+        BuildLayerTree(file, doc.Root, context);
         return doc;
     }
 
@@ -82,7 +84,7 @@ internal static class PsdDocumentConverter
         return result;
     }
 
-    private static void BuildLayerTree(PsdFile file, LayerGroup root, float globalAngle)
+    private static void BuildLayerTree(PsdFile file, LayerGroup root, PsdEffectContext effectContext)
     {
         // Records run bottom to top. A bounding divider opens a group; the folder record above it closes it.
         var stack = new Stack<LayerGroup>();
@@ -100,7 +102,7 @@ internal static class PsdDocumentConverter
                 case PsdSectionType.ClosedFolder:
                     var group = stack.Count > 1 ? stack.Pop() : new LayerGroup();
                     var divider = group.SourceData as PsdLayerRecord;
-                    ApplyCommon(group, record, globalAngle);
+                    ApplyCommon(group, record, effectContext);
                     group.SourceData = new PsdGroupRecords(record, divider);
                     group.Expanded = record.SectionType == PsdSectionType.OpenFolder;
                     group.Mask = BuildMask(record);
@@ -114,12 +116,12 @@ internal static class PsdDocumentConverter
                     if (PsdAdjustments.Read(record) is var (kind, adjustment))
                     {
                         var adj = new AdjustmentLayer { Kind = kind, Adjustment = adjustment, Mask = BuildMask(record) };
-                        ApplyCommon(adj, record, globalAngle);
+                        ApplyCommon(adj, record, effectContext);
                         stack.Peek().Add(adj);
                     }
                     else
                     {
-                        stack.Peek().Add(BuildPixelLayer(record, file.Header, globalAngle));
+                        stack.Peek().Add(BuildPixelLayer(record, file.Header, effectContext));
                     }
                     break;
             }
@@ -133,7 +135,7 @@ internal static class PsdDocumentConverter
         }
     }
 
-    private static void ApplyCommon(LayerNode node, PsdLayerRecord record, float globalAngle)
+    private static void ApplyCommon(LayerNode node, PsdLayerRecord record, PsdEffectContext effectContext)
     {
         node.SourceData = record;
         node.Name = record.Name;
@@ -153,12 +155,12 @@ internal static class PsdDocumentConverter
             _ => null,
         };
         if (tag is not null) node.Tags.Add(tag);
-        node.Effects = PsdEffects.Read(record, globalAngle);
+        node.Effects = PsdEffects.Read(record, effectContext);
         if (node.Effects is not null) node.Tags.Add("effects");
         if (record.FindBlock("vmsk") is not null || record.FindBlock("vsms") is not null) node.Tags.Add("vector-mask");
     }
 
-    private static PixelLayer BuildPixelLayer(PsdLayerRecord record, PsdHeader header, float globalAngle)
+    private static PixelLayer BuildPixelLayer(PsdLayerRecord record, PsdHeader header, PsdEffectContext effectContext)
     {
         var layer = new PixelLayer
         {
@@ -166,7 +168,7 @@ internal static class PsdDocumentConverter
             TransparencyLocked = record.TransparencyLocked,
             Mask = BuildMask(record),
         };
-        ApplyCommon(layer, record, globalAngle);
+        ApplyCommon(layer, record, effectContext);
 
         if (!record.Rect.IsEmpty)
         {

@@ -65,7 +65,7 @@ public sealed record RenderResult(RenderBuffer Image, IReadOnlyList<string> Warn
 /// blend modes, layer masks, clipping groups, isolated groups and pass-through groups.
 /// Colors are blended in the document's own encoding (gamma-encoded for 8/16-bit, linear for 32-bit).
 /// </summary>
-public sealed class Compositor
+public sealed partial class Compositor
 {
     private readonly Document _doc;
     private readonly RenderOptions _options;
@@ -128,7 +128,7 @@ public sealed class Compositor
     }
 
     private static bool IsDirectPassThrough(LayerGroup g) =>
-        g.BlendMode == BlendMode.PassThrough && g.Opacity >= 1f && g.Mask is not { Disabled: false };
+        g.BlendMode == BlendMode.PassThrough && g.Opacity >= 1f && g.Mask is not { Disabled: false } && !EffectRenderer.HasRenderable(g.Effects);
 
     private RenderBuffer RunSteps(List<Unit> steps)
     {
@@ -309,7 +309,8 @@ public sealed class Compositor
                 RenderChildren(group.Children, isolated);
                 var groupSource = new BufferSource(isolated, group.Mask, MaskStroke(group)) { Bounds = bounds };
                 var mode = group.BlendMode == BlendMode.PassThrough ? BlendMode.Normal : group.BlendMode;
-                Composite(target, groupSource, mode, group.Opacity, 1f, clip: null, clipOpacity: 1f);
+                if (EffectRenderer.HasRenderable(group.Effects)) CompositeWithEffects(group, groupSource, target, clip: null, clipOpacity: 1f);
+                else Composite(target, groupSource, mode, group.Opacity, 1f, clip: null, clipOpacity: 1f);
 
                 foreach (var node in unit.Clipped.Where(IsVisible))
                 {
@@ -330,6 +331,11 @@ public sealed class Compositor
         var bounds = GroupBounds(group).Intersect(target.Bounds);
         if (bounds.IsEmpty) return;
         var mask = group.Mask is { Disabled: false } m ? m : null;
+        if (EffectRenderer.HasRenderable(group.Effects))
+        {
+            RenderGroupWithEffects(group, bounds, target, clip, clipOpacity);
+            return;
+        }
 
         if (group.BlendMode == BlendMode.PassThrough && clip is null)
         {
@@ -364,6 +370,7 @@ public sealed class Compositor
             var rect = node switch
             {
                 PixelLayer p => Inflate(LayerSource.VisibleBounds(p, _doc.Bounds, _options.ActiveStroke), EffectRenderer.Reach(p.Effects)),
+                LayerGroup g when EffectRenderer.HasRenderable(g.Effects) => Inflate(GroupBounds(g), EffectRenderer.Reach(g.Effects)),
                 AdjustmentLayer a => AdjustmentReach(a, _doc.Bounds),
                 _ => PixelRect.Empty,
             };
@@ -658,8 +665,7 @@ public sealed class Compositor
         }
         foreach (var fx in node.Effects?.Visible.OfType<UnsupportedEffect>() ?? [])
             warnings.Add($"{fx.Name} on \"{node.Name}\" is not rendered yet.");
-        if (node is LayerGroup && EffectRenderer.HasRenderable(node.Effects))
-            warnings.Add($"Layer styles on group \"{node.Name}\" are not rendered yet.");
+        GroupEffectWarnings(node, warnings);
         if (node.Tags.Contains("vector-mask") && node.Tags.Contains("fill"))
             warnings.Add($"Vector mask edges on \"{node.Name}\" are approximated.");
     }

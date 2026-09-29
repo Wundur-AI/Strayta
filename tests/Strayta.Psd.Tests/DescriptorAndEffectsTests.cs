@@ -100,12 +100,18 @@ public class EffectParsingTests
     }
 
     [Fact]
-    public void Unsupported_effects_are_reported()
+    public void Unreadable_effects_are_reported_and_sparse_ones_take_photoshop_defaults()
     {
         var d = new DescriptorWriter().Descriptor("null", w => w
-            .Object("ebbl", "ebbl", 1, s => s.Bool("enab", true)), count: 1).ToArray();
+            .Object("GrFl", "GrFl", 1, s => s.Bool("enab", true)), count: 1).ToArray();
         var effect = Assert.Single(ReadLayer(DescriptorWriter.EffectsBlock(d)).Effects!.Items);
-        Assert.Equal("Bevel & Emboss", Assert.IsType<UnsupportedEffect>(effect).Name);
+        Assert.Equal("Gradient Overlay (unreadable gradient)", Assert.IsType<UnsupportedEffect>(effect).Name);
+
+        // A bevel that names only its switch is Photoshop's default bevel.
+        d = new DescriptorWriter().Descriptor("null", w => w
+            .Object("ebbl", "ebbl", 1, s => s.Bool("enab", true)), count: 1).ToArray();
+        var bevel = Assert.IsType<BevelEffect>(Assert.Single(ReadLayer(DescriptorWriter.EffectsBlock(d)).Effects!.Items));
+        Assert.Equal(new BevelEffect { UseGlobalLight = false }, bevel); // no 'uglg': its own angle and altitude
     }
 
     [Fact]

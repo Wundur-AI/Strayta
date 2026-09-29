@@ -39,25 +39,32 @@ internal sealed class FieldSource : Source
 }
 
 /// <summary>
-/// Renders a layer together with its layer styles, in Photoshop's stacking order (the order of its Layer Style
-/// dialog, read bottom up): drop shadow and outer glow below the layer; gradient overlay, color overlay, inner glow,
-/// inner shadow and stroke above it. Effects follow the layer's shape (pixel transparency × layer mask) and are not
-/// affected by fill opacity. Hidden effects, and all of them when the master switch is off, are skipped.
+/// Renders a layer (or a group's flattened content) together with its layer styles, in Photoshop's stacking order
+/// (the order of its Layer Style dialog, read bottom up): drop shadow and outer glow below the layer; pattern overlay,
+/// gradient overlay, color overlay, satin, inner glow, inner shadow, stroke and bevel &amp; emboss above it. Effects
+/// follow the layer's shape (pixel transparency × layer mask) and are not affected by fill opacity. Hidden effects,
+/// and all of them when the master switch is off, are skipped. Several effects of one kind draw in list order, the
+/// last on top.
 /// </summary>
-internal static class EffectRenderer
+internal static partial class EffectRenderer
 {
     /// <summary>How far outside the layer's pixels its effects can reach.</summary>
     public static int Reach(LayerEffects? effects)
     {
         if (effects is null) return 0;
         float reach = 0;
-        foreach (var e in effects.Visible)
+        var visible = effects.Visible.ToList();
+        float stroke = visible.OfType<StrokeEffect>().Where(s => s.Position != StrokePosition.Inside)
+            .Select(s => s.Position == StrokePosition.Center ? s.Size / 2f : s.Size).DefaultIfEmpty(0f).Max();
+        foreach (var e in visible)
         {
             reach = MathF.Max(reach, e switch
             {
                 DropShadowEffect d => d.Distance + d.Size,
                 OuterGlowEffect g => g.Size,
                 StrokeEffect { Position: not StrokePosition.Inside } s => s.Size,
+                BevelEffect { Style: BevelStyle.OuterBevel or BevelStyle.Emboss or BevelStyle.PillowEmboss } b => b.Size + b.Soften + 2,
+                BevelEffect { Style: BevelStyle.StrokeEmboss } b => stroke + b.Soften + 2,
                 _ => 0f,
             });
         }
@@ -67,14 +74,17 @@ internal static class EffectRenderer
     public static bool HasRenderable(LayerEffects? effects) =>
         effects?.Visible.Any(e => e is not UnsupportedEffect) == true;
 
+    /// <param name="layer">The layer (or group) whose effects, opacity, fill opacity and blend mode apply.</param>
+    /// <param name="content">The layer's pixels (for a group, its flattened content), which the effects follow.</param>
+    /// <param name="targetBounds">Where the result can go (the canvas, or the buffer being rendered into).</param>
     /// <param name="composite">
     /// Composites a source with (blend mode, opacity, fill). An effect's own opacity acts as fill, which
     /// matters for Photoshop's special-eight blend modes; the layer's opacity fades everything.
     /// </param>
-    public static void Render(PixelLayer layer, LayerSource content, PixelRect targetBounds,
+    public static void Render(LayerNode layer, Source content, PixelRect targetBounds,
         Action<Source, BlendMode, float, float> composite)
     {
-        var effects = layer.Effects!.Visible.ToList();
+        var effects = layer.Effects!.Visible.Where(e => e is not UnsupportedEffect).ToList();
         int reach = Reach(layer.Effects);
         var area = new PixelRect(content.Bounds.Left - reach, content.Bounds.Top - reach,
             content.Bounds.Right + reach, content.Bounds.Bottom + reach).Intersect(targetBounds);
@@ -86,15 +96,16 @@ internal static class EffectRenderer
         {
             if (y < area.Top || y >= area.Bottom) continue;
             int x0 = Math.Max(content.Bounds.Left, area.Left), x1 = Math.Min(content.Bounds.Right, area.Right);
+            if (x1 <= x0) continue;
             content.FillRow(y, x0, x1, Span<float>.Empty, shape.AsSpan((y - area.Top) * w + (x0 - area.Left), x1 - x0));
         }
 
-
+        var field = new EffectField(shape, w, h, area, content.Bounds, targetBounds);
         float layerOpacity = layer.Opacity;
 
         foreach (var shadow in effects.OfType<DropShadowEffect>())
         {
-            var alpha = Shadow(shape, w, h, shadow);
+            var alpha = Shadow(field, shadow);
             if (shadow.Knockout && layer.FillOpacity < 1f)
                 for (int i = 0; i < alpha.Length; i++) alpha[i] *= 1f - shape[i];
             composite(new FieldSource(area, alpha, shadow.Color), shadow.BlendMode, layerOpacity, shadow.Opacity);
@@ -102,67 +113,123 @@ internal static class EffectRenderer
 
         foreach (var glow in effects.OfType<OuterGlowEffect>())
         {
-            var alpha = FieldOps.Blur(FieldOps.Dilate(shape, w, h, glow.Spread * glow.Size), w, h, glow.Size * (1f - glow.Spread));
-            composite(new FieldSource(area, alpha, glow.Color), glow.BlendMode, layerOpacity, glow.Opacity);
+            var (alpha, rgb) = OuterGlow(field, glow);
+            composite(new FieldSource(area, alpha, glow.Color, rgb), glow.BlendMode, layerOpacity, glow.Opacity);
         }
 
         composite(content, layer.BlendMode, layerOpacity, layer.FillOpacity);
 
+        foreach (var overlay in effects.OfType<PatternOverlayEffect>())
+        {
+            if (overlay.Fill is not { Pattern.Pixels: not null } fill) continue;
+            var (rgb, alpha) = PatternFillField(fill, shape, field);
+            composite(new FieldSource(area, alpha, default, rgb), overlay.BlendMode, layerOpacity, overlay.Opacity);
+        }
+
         foreach (var overlay in effects.OfType<GradientOverlayEffect>())
         {
-            var (rgb, alpha) = GradientFill(overlay, shape, area);
+            var fill = new GradientFill(overlay.Gradient)
+            {
+                Style = overlay.Style, Angle = overlay.Angle, Scale = overlay.Scale, Reverse = overlay.Reverse,
+                AlignWithLayer = overlay.AlignWithLayer, OffsetX = overlay.OffsetX, OffsetY = overlay.OffsetY,
+            };
+            var (rgb, alpha) = GradientFillField(fill, shape, field, shape);
             composite(new FieldSource(area, alpha, default, rgb), overlay.BlendMode, layerOpacity, overlay.Opacity);
         }
 
         foreach (var overlay in effects.OfType<ColorOverlayEffect>())
             composite(new FieldSource(area, shape, overlay.Color), overlay.BlendMode, layerOpacity, overlay.Opacity);
 
+        foreach (var satin in effects.OfType<SatinEffect>())
+            composite(new FieldSource(area, Satin(field, satin), satin.Color), satin.BlendMode, layerOpacity, satin.Opacity);
+
         foreach (var glow in effects.OfType<InnerGlowEffect>())
         {
-            var outside = Outside(shape, w, h, glow.Choke * glow.Size, glow.Size * (1f - glow.Choke), 0, 0);
-            var alpha = new float[shape.Length];
-            for (int i = 0; i < alpha.Length; i++) alpha[i] = shape[i] * (glow.FromCenter ? 1f - outside[i] : outside[i]);
-            composite(new FieldSource(area, alpha, glow.Color), glow.BlendMode, layerOpacity, glow.Opacity);
+            var (alpha, rgb) = InnerGlow(field, glow);
+            composite(new FieldSource(area, alpha, glow.Color, rgb), glow.BlendMode, layerOpacity, glow.Opacity);
         }
 
         foreach (var shadow in effects.OfType<InnerShadowEffect>())
+            composite(new FieldSource(area, InnerShadow(field, shadow), shadow.Color), shadow.BlendMode, layerOpacity, shadow.Opacity);
+
+        float[]? strokes = null;
+        foreach (var stroke in effects.OfType<StrokeEffect>())
         {
-            var (dx, dy) = Offset(shadow.Angle, shadow.Distance);
-            var outside = Outside(shape, w, h, shadow.Choke * shadow.Size, shadow.Size * (1f - shadow.Choke), dx, dy);
-            for (int i = 0; i < outside.Length; i++) outside[i] *= shape[i];
-            composite(new FieldSource(area, outside, shadow.Color), shadow.BlendMode, layerOpacity, shadow.Opacity);
+            var alpha = Stroke(field, stroke);
+            if (strokes is null) strokes = (float[])alpha.Clone();
+            else for (int i = 0; i < alpha.Length; i++) strokes[i] = MathF.Max(strokes[i], alpha[i]);
+
+            switch (stroke.FillType)
+            {
+                case StrokeFillType.Gradient when stroke.GradientFill is { } gradient:
+                {
+                    var (rgb, a) = GradientFillField(gradient, alpha, field, shape, stroke);
+                    composite(new FieldSource(area, a, default, rgb), stroke.BlendMode, layerOpacity, stroke.Opacity);
+                    break;
+                }
+                case StrokeFillType.Pattern when stroke.PatternFill is { Pattern.Pixels: not null } pattern:
+                {
+                    var (rgb, a) = PatternFillField(pattern, alpha, field);
+                    composite(new FieldSource(area, a, default, rgb), stroke.BlendMode, layerOpacity, stroke.Opacity);
+                    break;
+                }
+                case StrokeFillType.Gradient or StrokeFillType.Pattern:
+                    break; // no gradient, or a pattern the file does not contain: nothing to draw
+                default:
+                    composite(new FieldSource(area, alpha, stroke.Color), stroke.BlendMode, layerOpacity, stroke.Opacity);
+                    break;
+            }
         }
 
-        foreach (var stroke in effects.OfType<StrokeEffect>())
-            composite(new FieldSource(area, Stroke(shape, w, h, stroke), stroke.Color), stroke.BlendMode, layerOpacity, stroke.Opacity);
+        foreach (var bevel in effects.OfType<BevelEffect>())
+        {
+            if (Bevel(field, bevel, strokes) is not var (highlight, shadow)) continue;
+            composite(new FieldSource(area, shadow, bevel.ShadowColor), bevel.ShadowMode, layerOpacity, bevel.ShadowOpacity);
+            composite(new FieldSource(area, highlight, bevel.HighlightColor), bevel.HighlightMode, layerOpacity, bevel.HighlightOpacity);
+        }
     }
 
     /// <summary>Spread grows the shape, the rest of the size blurs it, then it is offset away from the light.</summary>
-    private static float[] Shadow(float[] shape, int w, int h, DropShadowEffect s)
+    private static float[] Shadow(EffectField f, DropShadowEffect s)
     {
-        var grown = FieldOps.Dilate(shape, w, h, s.Spread * s.Size);
-        var blurred = FieldOps.Blur(grown, w, h, s.Size * (1f - s.Spread));
+        var grown = FieldOps.Dilate(f.Shape, f.W, f.H, s.Spread * s.Size);
+        var blurred = FieldOps.Blur(grown, f.W, f.H, s.Size * (1f - s.Spread));
         var (dx, dy) = Offset(s.Angle, s.Distance);
-
-        var shifted = new float[shape.Length];
-        for (int y = 0; y < h; y++)
-        {
-            int sy = y - dy;
-            if (sy < 0 || sy >= h) continue;
-            for (int x = 0; x < w; x++)
-            {
-                int sx = x - dx;
-                if (sx >= 0 && sx < w) shifted[y * w + x] = blurred[sy * w + sx];
-            }
-        }
+        var shifted = Shift(blurred, f.W, f.H, dx, dy, outside: 0f);
+        Quality(shifted, s.Contour, s.AntiAliased, s.Noise, f);
         return shifted;
     }
 
+    private static float[] InnerShadow(EffectField f, InnerShadowEffect s)
+    {
+        var (dx, dy) = Offset(s.Angle, s.Distance);
+        var outside = Outside(f.Shape, f.W, f.H, s.Choke * s.Size, s.Size * (1f - s.Choke), dx, dy);
+        Quality(outside, s.Contour, s.AntiAliased, s.Noise, f);
+        for (int i = 0; i < outside.Length; i++) outside[i] *= f.Shape[i];
+        return outside;
+    }
+
     /// <summary>Shadows fall away from the light: the offset for a light at <paramref name="angle"/> degrees.</summary>
-    private static (int Dx, int Dy) Offset(float angle, float distance)
+    internal static (int Dx, int Dy) Offset(float angle, float distance)
     {
         double a = angle * Math.PI / 180.0;
         return ((int)Math.Round(-Math.Cos(a) * distance), (int)Math.Round(Math.Sin(a) * distance));
+    }
+
+    /// <summary>The field moved by (dx, dy); what comes in from beyond the edge is <paramref name="outside"/>.</summary>
+    internal static float[] Shift(float[] src, int w, int h, int dx, int dy, float outside)
+    {
+        var result = new float[src.Length];
+        Parallel.For(0, h, y =>
+        {
+            int sy = y - dy;
+            for (int x = 0; x < w; x++)
+            {
+                int sx = x - dx;
+                result[y * w + x] = sx >= 0 && sx < w && sy >= 0 && sy < h ? src[sy * w + sx] : outside;
+            }
+        });
+        return result;
     }
 
     /// <summary>
@@ -183,18 +250,8 @@ internal static class EffectRenderer
             for (int i = 0; i < inside.Length; i++) inside[i] = 1f - grown[i];
         }
         var blurred = FieldOps.Blur(inside, w, h, blur);
-
-        var result = new float[shape.Length];
-        for (int y = 0; y < h; y++)
-        {
-            int sy = y - dy;
-            for (int x = 0; x < w; x++)
-            {
-                int sx = x - dx;
-                float v = sx >= 0 && sx < w && sy >= 0 && sy < h ? blurred[sy * w + sx] : 0f;
-                result[y * w + x] = 1f - v;
-            }
-        }
+        var result = Shift(blurred, w, h, dx, dy, outside: 0f);
+        for (int i = 0; i < result.Length; i++) result[i] = 1f - result[i];
         return result;
     }
 
@@ -202,86 +259,55 @@ internal static class EffectRenderer
     /// Distances are measured between pixel centers, so the edge of the shape sits half a pixel closer
     /// than the nearest inside pixel: a pixel is covered while distance - 0.5 is within the stroke width.
     /// </summary>
-    private static float[] Stroke(float[] shape, int w, int h, StrokeEffect s)
+    private static float[] Stroke(EffectField f, StrokeEffect s)
     {
+        var shape = f.Shape;
         var alpha = new float[shape.Length];
         float outer = s.Position switch { StrokePosition.Outside => s.Size, StrokePosition.Center => s.Size / 2f, _ => 0f };
         float inner = s.Position switch { StrokePosition.Inside => s.Size, StrokePosition.Center => s.Size / 2f, _ => 0f };
 
         if (outer > 0f)
         {
-            var toShape = FieldOps.DistanceTo(shape, w, h, v => v >= 0.5f);
+            var toShape = f.DistanceToShape;
             for (int i = 0; i < alpha.Length; i++)
                 alpha[i] = Math.Clamp(outer + 1f - toShape[i], 0f, 1f) * (1f - shape[i]);
         }
         if (inner > 0f)
         {
-            var toOutside = FieldOps.DistanceTo(shape, w, h, v => v < 0.5f);
+            var toOutside = f.DistanceToOutside;
             for (int i = 0; i < alpha.Length; i++)
                 alpha[i] += Math.Clamp(inner + 1f - toOutside[i], 0f, 1f) * shape[i];
         }
         return alpha;
     }
+}
 
-    /// <summary>
-    /// Evaluates a gradient overlay over the layer's shape. When aligned with the layer, the gradient spans
-    /// the bounding box of the layer's visible pixels.
-    /// </summary>
-    private static (float[] Rgb, float[] Alpha) GradientFill(GradientOverlayEffect g, float[] shape, PixelRect area)
-    {
-        int w = area.Width, h = area.Height;
-        var box = g.AlignWithLayer ? ShapeBounds(shape, w, h) : new PixelRect(-area.Left, -area.Top, -area.Left + 1, -area.Top + 1);
-        if (!g.AlignWithLayer) box = new PixelRect(0, 0, w, h);
-        float bw = box.Width, bh = box.Height;
-        float cx = box.Left + bw / 2f + g.OffsetX * bw;
-        float cy = box.Top + bh / 2f + g.OffsetY * bh;
+/// <summary>
+/// The layer's shape over the area its effects cover, with the distance fields several effects share computed once.
+/// </summary>
+internal sealed class EffectField(float[] shape, int w, int h, PixelRect area, PixelRect contentBounds, PixelRect target)
+{
+    public float[] Shape { get; } = shape;
+    public int W { get; } = w;
+    public int H { get; } = h;
 
-        double a = g.Angle * Math.PI / 180.0;
-        float dirX = (float)Math.Cos(a), dirY = (float)-Math.Sin(a);
-        float length = (MathF.Abs(bw * dirX) + MathF.Abs(bh * dirY)) * g.Scale;
-        float radius = MathF.Sqrt(bw * bw + bh * bh) / 2f * g.Scale;
-        if (length <= 0f) length = 1f;
-        if (radius <= 0f) radius = 1f;
+    /// <summary>The field's place in the document.</summary>
+    public PixelRect Area { get; } = area;
 
-        var rgb = new float[w * h * 3];
-        var alpha = new float[w * h];
-        Parallel.For(0, h, y =>
-        {
-            for (int x = 0; x < w; x++)
-            {
-                int i = y * w + x;
-                if (shape[i] <= 0f) continue;
-                float px = x + 0.5f - cx, py = y + 0.5f - cy;
-                float along = px * dirX + py * dirY, across = -px * dirY + py * dirX;
-                float t = g.Style switch
-                {
-                    GradientStyle.Radial => MathF.Sqrt(px * px + py * py) / radius,
-                    GradientStyle.Reflected => MathF.Abs(along) / (length / 2f),
-                    GradientStyle.Diamond => (MathF.Abs(along) + MathF.Abs(across)) / (length / 2f),
-                    GradientStyle.Angle => (float)((Math.Atan2(-across, along) / (2 * Math.PI) + 1) % 1),
-                    _ => along / length + 0.5f,
-                };
-                if (g.Reverse) t = 1f - t;
-                var (color, opacity) = g.Gradient.Sample(t);
-                rgb[i * 3] = color.R;
-                rgb[i * 3 + 1] = color.G;
-                rgb[i * 3 + 2] = color.B;
-                alpha[i] = shape[i] * opacity;
-            }
-        });
-        return (rgb, alpha);
-    }
+    /// <summary>The layer's own bounds in the document (where "Link with Layer" patterns start).</summary>
+    public PixelRect ContentBounds { get; } = contentBounds;
 
-    private static PixelRect ShapeBounds(float[] shape, int w, int h)
-    {
-        int l = w, t = h, r = 0, b = 0;
-        for (int y = 0; y < h; y++)
-            for (int x = 0; x < w; x++)
-                if (shape[y * w + x] > 0.01f)
-                {
-                    l = Math.Min(l, x); r = Math.Max(r, x + 1);
-                    t = Math.Min(t, y); b = Math.Max(b, y + 1);
-                }
-        return r > l ? new PixelRect(l, t, r, b) : new PixelRect(0, 0, w, h);
-    }
+    /// <summary>What is being rendered (normally the canvas): the extent of gradients not aligned with the layer.</summary>
+    public PixelRect Target { get; } = target;
+
+    /// <summary>Distance from each pixel center to the nearest pixel at least half inside the shape.</summary>
+    public float[] DistanceToShape => _toShape ??= FieldOps.DistanceTo(Shape, W, H, v => v >= 0.5f);
+
+    /// <summary>Distance from each pixel center to the nearest pixel less than half inside the shape.</summary>
+    public float[] DistanceToOutside => _toOutside ??= FieldOps.DistanceTo(Shape, W, H, v => v < 0.5f);
+
+    /// <summary>Signed distance to the shape's edge, positive inside; see <see cref="EffectRenderer.SignedDistance(float[], int, int)"/>.</summary>
+    public float[] SignedDistance => _signed ??= EffectRenderer.SignedDistance(Shape, DistanceToShape, DistanceToOutside);
+
+    private float[]? _toShape, _toOutside, _signed;
 }

@@ -12,10 +12,10 @@ namespace Strayta.Psd;
 /// </summary>
 /// <remarks>
 /// An edited effect that was read from a file is written by patching its original descriptor: only the settings the
-/// model holds are replaced, so contour, noise, anti-aliasing, technique and any keys this library does not know stay
-/// exactly as Photoshop wrote them. New effects get Photoshop's complete default descriptor. The top level keeps the
-/// source's 'Scl ' (Scale Effects) and other keys, and effects that were removed from the layer stay in the block
-/// marked not present, as Photoshop does, so its dialog still remembers their settings.
+/// model holds are replaced, and a setting whose value did not change keeps its original value (and unit), so keys
+/// this library does not know stay exactly as Photoshop wrote them. New effects get Photoshop's complete default
+/// descriptor. The top level keeps the source's 'Scl ' (Scale Effects) and other keys, and effects that were removed
+/// from the layer stay in the block marked not present, as Photoshop does, so its dialog still remembers their settings.
 /// <para>
 /// When a layer's effects are rewritten, the legacy 'lrFX' block (Photoshop 5 effects) and the older multi-effect
 /// 'lmfx' block are dropped: Photoshop reads 'lfx2' whenever it is present, 'lfx2' now holds every effect (including
@@ -42,7 +42,10 @@ public static class PsdEffectsWriter
         InnerGlowEffect => "IrGl",
         ColorOverlayEffect => "SoFi",
         GradientOverlayEffect => "GrFl",
+        PatternOverlayEffect => "patternFill",
         StrokeEffect => "FrFX",
+        BevelEffect => "ebbl",
+        SatinEffect => "ChFX",
         UnsupportedEffect { SourceData: PsdEffectSource s } => s.Type,
         _ => null,
     };
@@ -51,10 +54,10 @@ public static class PsdEffectsWriter
     /// Replaces the layer's effect blocks in <paramref name="blocks"/> (copied from <paramref name="source"/>) when its
     /// effects differ from what the source record holds; unchanged layers keep their original bytes.
     /// </summary>
-    /// <param name="sourceGlobalAngle">The source file's global light angle, which reading the source record needs.</param>
-    internal static void Refresh(LayerNode node, PsdLayerRecord? source, float sourceGlobalAngle, List<(string Key, byte[] Data)> blocks)
+    /// <param name="sourceContext">The source file's global light, which reading the source record needs.</param>
+    internal static void Refresh(LayerNode node, PsdLayerRecord? source, PsdEffectContext sourceContext, List<(string Key, byte[] Data)> blocks)
     {
-        var original = source is null ? null : PsdEffects.Read(source, sourceGlobalAngle);
+        var original = source is null ? null : PsdEffects.Read(source, sourceContext);
         if (Equals(original, node.Effects)) return;
 
         int at = -1;
@@ -180,8 +183,11 @@ public static class PsdEffectsWriter
         if (d.Has("present")) d.Set("present", new BoolValue(true));
         if (effect is UnsupportedEffect) return d.Build();
 
-        d.Set("Md  ", new EnumValue("BlnM", PsdEffects.DescriptorKeyOf(effect.BlendMode)));
-        d.Unit("Opct", "#Prc", Percent(effect.Opacity));
+        if (effect is not BevelEffect)
+        {
+            d.Set("Md  ", new EnumValue("BlnM", PsdEffects.DescriptorKeyOf(effect.BlendMode)));
+            d.Unit("Opct", "#Prc", Percent(effect.Opacity));
+        }
 
         switch (effect)
         {
@@ -192,6 +198,7 @@ public static class PsdEffectsWriter
                 d.Unit("Dstn", "#Pxl", e.Distance);
                 d.Unit("Ckmt", "#Pxl", Percent(e.Spread));
                 d.Unit("blur", "#Pxl", e.Size);
+                Quality(d, e.Noise, e.AntiAliased, e.Contour);
                 d.Set("layerConceals", new BoolValue(e.Knockout));
                 break;
             case InnerShadowEffect e:
@@ -201,38 +208,27 @@ public static class PsdEffectsWriter
                 d.Unit("Dstn", "#Pxl", e.Distance);
                 d.Unit("Ckmt", "#Pxl", Percent(e.Choke));
                 d.Unit("blur", "#Pxl", e.Size);
+                Quality(d, e.Noise, e.AntiAliased, e.Contour);
                 break;
             case OuterGlowEffect e:
-                d.Color("Clr ", e.Color);
-                d.Unit("Ckmt", "#Pxl", Percent(e.Spread));
-                d.Unit("blur", "#Pxl", e.Size);
+                Glow(d, e.Color, e.Gradient, e.Technique, e.Spread, e.Size, e.Noise, e.Jitter, e.AntiAliased, e.Contour, e.Range);
                 break;
             case InnerGlowEffect e:
-                d.Color("Clr ", e.Color);
-                d.Unit("Ckmt", "#Pxl", Percent(e.Choke));
-                d.Unit("blur", "#Pxl", e.Size);
+                Glow(d, e.Color, e.Gradient, e.Technique, e.Choke, e.Size, e.Noise, e.Jitter, e.AntiAliased, e.Contour, e.Range);
                 d.Set("glwS", new EnumValue("IGSr", e.FromCenter ? "SrcC" : "SrcE"));
                 break;
             case ColorOverlayEffect e:
                 d.Color("Clr ", e.Color);
                 break;
             case GradientOverlayEffect e:
-                if (source?.Object("Grad") is not { } grad || PsdEffects.GradientOf(grad) != e.Gradient)
-                    d.Set("Grad", new ObjectValue(GradientDescriptor(e.Gradient)));
-                d.Unit("Angl", "#Ang", e.Angle);
-                d.Set("Type", new EnumValue("GrdT", e.Style switch
+                GradientSettings(d, new GradientFill(e.Gradient)
                 {
-                    GradientStyle.Radial => "Rdl ",
-                    GradientStyle.Angle => "Angl",
-                    GradientStyle.Reflected => "Rflc",
-                    GradientStyle.Diamond => "Dmnd",
-                    _ => "Lnr ",
-                }));
-                d.Set("Rvrs", new BoolValue(e.Reverse));
-                d.Set("Algn", new BoolValue(e.AlignWithLayer));
-                d.Unit("Scl ", "#Prc", Percent(e.Scale));
-                d.Set("Ofst", new ObjectValue(Object("Pnt ",
-                    ("Hrzn", new UnitFloatValue("#Prc", Percent(e.OffsetX))), ("Vrtc", new UnitFloatValue("#Prc", Percent(e.OffsetY))))));
+                    Style = e.Style, Angle = e.Angle, Scale = e.Scale, Reverse = e.Reverse, AlignWithLayer = e.AlignWithLayer,
+                    OffsetX = e.OffsetX, OffsetY = e.OffsetY,
+                });
+                break;
+            case PatternOverlayEffect e:
+                if (e.Fill is { } fill) PatternSettings(d, fill, "Algn", before: "Scl ");
                 break;
             case StrokeEffect e:
                 d.Set("Styl", new EnumValue("FStl", e.Position switch
@@ -241,12 +237,139 @@ public static class PsdEffectsWriter
                     StrokePosition.Center => "CtrF",
                     _ => "OutF",
                 }));
-                d.Set("PntT", new EnumValue("FrFl", "SClr"));
+                string paint = e.FillType switch
+                {
+                    StrokeFillType.Gradient => "GrFl",
+                    StrokeFillType.Pattern => "Ptrn",
+                    _ => "SClr",
+                };
+                // Photoshop stores only the settings of the chosen fill type ('Scl ' is the gradient's or the pattern's),
+                // so a stroke that changes its fill type drops the old type's settings.
+                if (d.EnumValue("PntT") is { } before && before != paint)
+                    d.Remove("Grad", "Angl", "Type", "Rvrs", "Dthr", "Algn", "Ofst", "Ptrn", "Lnkd", "phase", "Scl ");
+                d.Set("PntT", new EnumValue("FrFl", paint));
                 d.Unit("Sz  ", "#Pxl", e.Size);
                 d.Color("Clr ", e.Color);
+                if (e.FillType == StrokeFillType.Gradient && e.GradientFill is { } gradient) GradientSettings(d, gradient);
+                if (e.FillType == StrokeFillType.Pattern && e.PatternFill is { } pattern) PatternSettings(d, pattern, "Lnkd", before: null);
+                break;
+            case BevelEffect e:
+                Bevel(d, e);
+                break;
+            case SatinEffect e:
+                d.Color("Clr ", e.Color);
+                d.Set("AntA", new BoolValue(e.AntiAliased));
+                d.Set("Invr", new BoolValue(e.Invert));
+                d.Unit("lagl", "#Ang", e.Angle);
+                d.Unit("Dstn", "#Pxl", e.Distance);
+                d.Unit("blur", "#Pxl", e.Size);
+                d.Contour("MpgS", e.Contour);
                 break;
         }
         return d.Build();
+    }
+
+    /// <summary>Outer and inner glow: a solid color or a gradient (which replaces the color), and the Quality settings.</summary>
+    private static void Glow(Builder d, RgbColor color, Gradient? gradient, GlowTechnique technique, float spread, float size,
+        float noise, float jitter, bool antiAliased, Contour contour, float range)
+    {
+        if (gradient is null) d.Color("Clr ", color);
+        else
+        {
+            d.Gradient("Grad", gradient, replacing: "Clr ");
+            d.Remove("Clr ");
+        }
+        if (d.Has("GlwT") || technique == GlowTechnique.Precise)
+            d.Set("GlwT", new EnumValue("BETE", technique == GlowTechnique.Precise ? "PrBL" : "SfBL"));
+        d.Unit("Ckmt", "#Pxl", Percent(spread));
+        d.Unit("blur", "#Pxl", size);
+        Quality(d, noise, antiAliased, contour);
+        if (d.Has("ShdN") || jitter != 0) d.Unit("ShdN", "#Prc", Percent(jitter));
+        if (d.Has("Inpr") || range != 0.5f) d.Unit("Inpr", "#Prc", Percent(range));
+    }
+
+    /// <summary>
+    /// Noise, anti-aliasing and contour: set when the descriptor has them (Photoshop CC always writes them) or when
+    /// they differ from the defaults, so older files that lack them are not given keys they never had.
+    /// </summary>
+    private static void Quality(Builder d, float noise, bool antiAliased, Contour contour)
+    {
+        if (d.Has("Nose") || noise != 0) d.Unit("Nose", "#Prc", Percent(noise));
+        if (d.Has("AntA") || antiAliased) d.Set("AntA", new BoolValue(antiAliased));
+        if (d.Has("TrnS") || !contour.Equals(Contour.Linear)) d.Contour("TrnS", contour);
+    }
+
+    private static void GradientSettings(Builder d, GradientFill g)
+    {
+        bool fresh = !d.Has("Grad"); // a stroke that just became a gradient stroke gets Photoshop's full key set
+        d.Gradient("Grad", g.Gradient, replacing: null);
+        d.Unit("Angl", "#Ang", g.Angle);
+        d.Set("Type", new EnumValue("GrdT", PsdEffects.GradientTypeOf(g.Style)));
+        d.Set("Rvrs", new BoolValue(g.Reverse));
+        if (fresh && !d.Has("Dthr")) d.Set("Dthr", new BoolValue(false));
+        d.Set("Algn", new BoolValue(g.AlignWithLayer));
+        d.Unit("Scl ", "#Prc", Percent(g.Scale));
+        d.Set("Ofst", new ObjectValue(Object("Pnt ",
+            ("Hrzn", new UnitFloatValue("#Prc", Percent(g.OffsetX))), ("Vrtc", new UnitFloatValue("#Prc", Percent(g.OffsetY))))));
+    }
+
+    /// <summary>A pattern reference ('Ptrn': name and id) with its scale, link and phase.</summary>
+    private static void PatternSettings(Builder d, PatternFill fill, string linkKey, string? before)
+    {
+        d.Pattern("Ptrn", fill.Pattern, before);
+        d.Unit("Scl ", "#Prc", Percent(fill.Scale));
+        d.Set(linkKey, new BoolValue(fill.LinkWithLayer));
+        d.Set("phase", new ObjectValue(Object("Pnt ", ("Hrzn", new DoubleValue(fill.PhaseX)), ("Vrtc", new DoubleValue(fill.PhaseY)))));
+    }
+
+    private static void Bevel(Builder d, BevelEffect e)
+    {
+        d.Set("hglM", new EnumValue("BlnM", PsdEffects.DescriptorKeyOf(e.HighlightMode)));
+        d.Color("hglC", e.HighlightColor);
+        d.Unit("hglO", "#Prc", Percent(e.HighlightOpacity));
+        d.Set("sdwM", new EnumValue("BlnM", PsdEffects.DescriptorKeyOf(e.ShadowMode)));
+        d.Color("sdwC", e.ShadowColor);
+        d.Unit("sdwO", "#Prc", Percent(e.ShadowOpacity));
+        d.Set("bvlT", new EnumValue("bvlT", e.Technique switch
+        {
+            BevelTechnique.ChiselHard => "PrBL",
+            BevelTechnique.ChiselSoft => "Slmt",
+            _ => "SfBL",
+        }));
+        d.Set("bvlS", new EnumValue("BESl", e.Style switch
+        {
+            BevelStyle.OuterBevel => "OtrB",
+            BevelStyle.Emboss => "Embs",
+            BevelStyle.PillowEmboss => "PlEb",
+            BevelStyle.StrokeEmboss => "strokeEmboss",
+            _ => "InrB",
+        }));
+        d.Set("uglg", new BoolValue(e.UseGlobalLight));
+        if (!e.UseGlobalLight || !d.Has("lagl")) d.Unit("lagl", "#Ang", e.Angle);
+        if (!e.UseGlobalLight || !d.Has("Lald")) d.Unit("Lald", "#Ang", e.Altitude);
+        d.Unit("srgR", "#Prc", Percent(e.Depth));
+        d.Unit("blur", "#Pxl", e.Size);
+        if (d.EnumValue("bvlD")?.TrimEnd() != (e.Up ? "In" : "Out")) d.Set("bvlD", new EnumValue("BESs", e.Up ? "In  " : "Out "));
+        d.Contour("TrnS", e.GlossContour);
+        d.Set("antialiasGloss", new BoolValue(e.GlossAntiAliased));
+        d.Unit("Sftn", "#Pxl", e.Soften);
+        d.Set("useShape", new BoolValue(e.UseContour));
+        if (e.UseContour || d.Has("MpgS") || !e.Contour.Equals(Contour.Linear) || e.ContourAntiAliased || e.ContourRange != 0.5f)
+        {
+            d.Contour("MpgS", e.Contour);
+            d.Set("AntA", new BoolValue(e.ContourAntiAliased));
+            d.Unit("Inpr", "#Prc", Percent(e.ContourRange));
+        }
+        d.Set("useTexture", new BoolValue(e.UseTexture));
+        if (e.Texture is { } texture)
+        {
+            d.Pattern("Ptrn", texture.Pattern, before: null);
+            d.Unit("Scl ", "#Prc", Percent(texture.Scale));
+            d.Unit("textureDepth", "#Prc", Percent(e.TextureDepth));
+            d.Set("InvT", new BoolValue(e.TextureInvert));
+            d.Set("Algn", new BoolValue(texture.LinkWithLayer));
+            d.Set("phase", new ObjectValue(Object("Pnt ", ("Hrzn", new DoubleValue(texture.PhaseX)), ("Vrtc", new DoubleValue(texture.PhaseY)))));
+        }
     }
 
     /// <summary>Percentages as Photoshop's dialog keeps them: rounded to a thousandth of a percent.</summary>
@@ -272,6 +395,13 @@ public static class PsdEffectsWriter
                 [("Opct", new UnitFloatValue("#Prc", Percent(o.Opacity)))])).ToList())));
     }
 
+    /// <summary>A contour ('ShpC'): name and points, corner points marked with 'Cnty' false as Photoshop does.</summary>
+    private static Descriptor ContourDescriptor(Contour c) => Object("ShpC",
+        ("Nm  ", new TextValue(c.Name)),
+        ("Crv ", new ListValue(c.Points.Select(p => (DescriptorValue)new ObjectValue(p.Corner
+            ? Object("CrPt", ("Hrzn", new DoubleValue(p.X)), ("Vrtc", new DoubleValue(p.Y)), ("Cnty", new BoolValue(false)))
+            : Object("CrPt", ("Hrzn", new DoubleValue(p.X)), ("Vrtc", new DoubleValue(p.Y))))).ToList())));
+
     private static Descriptor Rgb(RgbColor c) => Object("RGBC",
         ("Rd  ", new DoubleValue(Channel(c.R))), ("Grn ", new DoubleValue(Channel(c.G))), ("Bl  ", new DoubleValue(Channel(c.B))));
 
@@ -290,19 +420,13 @@ public static class PsdEffectsWriter
 
     // ---- Photoshop's defaults --------------------------------------------------------------------------
 
-    private static DescriptorValue LinearContour() => new ObjectValue(Object("ShpC",
-        ("Nm  ", new TextValue("Linear")),
-        ("Crv ", new ListValue([
-            new ObjectValue(Object("CrPt", ("Hrzn", new DoubleValue(0)), ("Vrtc", new DoubleValue(0)))),
-            new ObjectValue(Object("CrPt", ("Hrzn", new DoubleValue(255)), ("Vrtc", new DoubleValue(255)))),
-        ]))));
-
     private static DescriptorValue Pixels(double v) => new UnitFloatValue("#Pxl", v);
     private static DescriptorValue Percents(double v) => new UnitFloatValue("#Prc", v);
+    private static DescriptorValue Degrees(double v) => new UnitFloatValue("#Ang", v);
 
     /// <summary>
-    /// The complete descriptor Photoshop CC writes for a new effect of each kind (key order included), with its
-    /// dialog defaults. The modeled settings are then written over it.
+    /// The complete descriptor Photoshop CC writes for a new effect of each kind (key order included, as found in
+    /// Photoshop-authored files), with its dialog defaults. The modeled settings are then written over it.
     /// </summary>
     private static Descriptor Defaults(string type)
     {
@@ -312,40 +436,59 @@ public static class PsdEffectsWriter
         };
         void Add(string key, DescriptorValue value) => items.Add((key, value));
         void Mode(string m) => Add("Md  ", new EnumValue("BlnM", m));
-        void Color(double r, double g, double b) =>
-            Add("Clr ", new ObjectValue(Object("RGBC", ("Rd  ", new DoubleValue(r)), ("Grn ", new DoubleValue(g)), ("Bl  ", new DoubleValue(b)))));
+        void Color(string key, double r, double g, double b) =>
+            Add(key, new ObjectValue(Object("RGBC", ("Rd  ", new DoubleValue(r)), ("Grn ", new DoubleValue(g)), ("Bl  ", new DoubleValue(b)))));
+        var linear = new ObjectValue(ContourDescriptor(Contour.Linear));
 
         switch (type)
         {
             case "DrSh" or "IrSh":
-                Mode("Mltp"); Color(0, 0, 0); Add("Opct", Percents(35));
-                Add("uglg", new BoolValue(true)); Add("lagl", new UnitFloatValue("#Ang", 120));
+                Mode("Mltp"); Color("Clr ", 0, 0, 0); Add("Opct", Percents(35));
+                Add("uglg", new BoolValue(true)); Add("lagl", Degrees(120));
                 Add("Dstn", Pixels(5)); Add("Ckmt", Pixels(0)); Add("blur", Pixels(5)); Add("Nose", Percents(0));
-                Add("AntA", new BoolValue(false)); Add("TrnS", LinearContour());
+                Add("AntA", new BoolValue(false)); Add("TrnS", linear);
                 if (type == "DrSh") Add("layerConceals", new BoolValue(true));
                 break;
             case "OrGl" or "IrGl":
-                Mode("Scrn"); Color(255, 255, 190); Add("Opct", Percents(75));
+                Mode("Scrn"); Color("Clr ", 255, 255, 190); Add("Opct", Percents(75));
                 Add("GlwT", new EnumValue("BETE", "SfBL")); Add("Ckmt", Pixels(0)); Add("blur", Pixels(5)); Add("Nose", Percents(0));
-                Add("ShdN", Percents(0)); Add("AntA", new BoolValue(false)); Add("TrnS", LinearContour()); Add("Inpr", Percents(50));
+                Add("ShdN", Percents(0)); Add("AntA", new BoolValue(false)); Add("TrnS", linear); Add("Inpr", Percents(50));
                 if (type == "IrGl") Add("glwS", new EnumValue("IGSr", "SrcE"));
                 break;
             case "SoFi":
-                Mode("Nrml"); Color(255, 0, 0); Add("Opct", Percents(100));
+                Mode("Nrml"); Color("Clr ", 255, 0, 0); Add("Opct", Percents(100));
                 break;
             case "GrFl":
                 Mode("Nrml"); Add("Opct", Percents(100));
                 Add("Grad", new ObjectValue(GradientDescriptor(new Gradient(
                     [new(0, 0.5f, RgbColor.Black), new(1, 0.5f, new RgbColor(1, 1, 1))],
                     [new(0, 0.5f, 1), new(1, 0.5f, 1)]) { Name = "Black, White" })));
-                Add("Angl", new UnitFloatValue("#Ang", 90)); Add("Type", new EnumValue("GrdT", "Lnr "));
+                Add("Angl", Degrees(90)); Add("Type", new EnumValue("GrdT", "Lnr "));
                 Add("Rvrs", new BoolValue(false)); Add("Dthr", new BoolValue(false)); Add("Algn", new BoolValue(true));
                 Add("Scl ", Percents(100));
                 Add("Ofst", new ObjectValue(Object("Pnt ", ("Hrzn", Percents(0)), ("Vrtc", Percents(0)))));
                 break;
+            case "patternFill":
+                Mode("Nrml"); Add("Opct", Percents(100)); Add("Scl ", Percents(100)); Add("Algn", new BoolValue(true));
+                Add("phase", new ObjectValue(Object("Pnt ", ("Hrzn", new DoubleValue(0)), ("Vrtc", new DoubleValue(0)))));
+                break;
             case "FrFX":
                 Add("Styl", new EnumValue("FStl", "OutF")); Add("PntT", new EnumValue("FrFl", "SClr")); Mode("Nrml");
-                Add("Opct", Percents(100)); Add("Sz  ", Pixels(3)); Color(255, 0, 0); Add("overprint", new BoolValue(false));
+                Add("Opct", Percents(100)); Add("Sz  ", Pixels(3)); Color("Clr ", 255, 0, 0); Add("overprint", new BoolValue(false));
+                break;
+            case "ebbl":
+                Add("hglM", new EnumValue("BlnM", "Scrn")); Color("hglC", 255, 255, 255); Add("hglO", Percents(75));
+                Add("sdwM", new EnumValue("BlnM", "Mltp")); Color("sdwC", 0, 0, 0); Add("sdwO", Percents(75));
+                Add("bvlT", new EnumValue("bvlT", "SfBL")); Add("bvlS", new EnumValue("BESl", "InrB"));
+                Add("uglg", new BoolValue(true)); Add("lagl", Degrees(120)); Add("Lald", Degrees(30));
+                Add("srgR", Percents(100)); Add("blur", Pixels(5)); Add("bvlD", new EnumValue("BESs", "In  "));
+                Add("TrnS", linear); Add("antialiasGloss", new BoolValue(false)); Add("Sftn", Pixels(0));
+                Add("useShape", new BoolValue(false)); Add("useTexture", new BoolValue(false));
+                break;
+            case "ChFX":
+                Mode("Mltp"); Color("Clr ", 0, 0, 0); Add("AntA", new BoolValue(true)); Add("Invr", new BoolValue(true));
+                Add("Opct", Percents(50)); Add("lagl", Degrees(19)); Add("Dstn", Pixels(11)); Add("blur", Pixels(14));
+                Add("MpgS", linear);
                 break;
             default:
                 throw new NotSupportedException($"No defaults for effect type '{type}'.");
@@ -362,12 +505,23 @@ public static class PsdEffectsWriter
 
         private DescriptorValue? Get(string key) => _items.FirstOrDefault(kv => kv.Key == key).Value;
 
+        public string? EnumValue(string key) => Get(key) is EnumValue e ? e.Value : null;
+
         public void Set(string key, DescriptorValue value)
         {
             int i = _items.FindIndex(kv => kv.Key == key);
             if (i >= 0) _items[i] = new(key, value);
             else _items.Add(new(key, value));
         }
+
+        /// <summary>Sets a key that is new here in front of <paramref name="before"/> (or at the end).</summary>
+        private void SetBefore(string key, DescriptorValue value, string? before)
+        {
+            if (Has(key) || before is null || _items.FindIndex(kv => kv.Key == before) is var at && at < 0) Set(key, value);
+            else _items.Insert(at, new(key, value));
+        }
+
+        public void Remove(params string[] keys) => _items.RemoveAll(kv => keys.Contains(kv.Key));
 
         /// <summary>A number in the unit the source used for it (Photoshop is not always consistent), else <paramref name="unit"/>.</summary>
         public void Unit(string key, string unit, double value) => Set(key, Get(key) switch
@@ -382,6 +536,30 @@ public static class PsdEffectsWriter
         {
             if (Get(key) is ObjectValue o && Close(PsdEffects.ColorOf(o.Value), color)) return;
             Set(key, new ObjectValue(Rgb(color)));
+        }
+
+        /// <summary>Keeps the source's contour object when it already describes this contour.</summary>
+        public void Contour(string key, Contour contour)
+        {
+            if (Get(key) is ObjectValue o && PsdEffects.ContourOf(o.Value).Equals(contour)) return;
+            Set(key, new ObjectValue(ContourDescriptor(contour)));
+        }
+
+        /// <summary>Keeps the source's gradient object (a preset keeps its own keys) when it is this gradient.</summary>
+        public void Gradient(string key, Gradient gradient, string? replacing)
+        {
+            if (Get(key) is ObjectValue o && PsdEffects.GradientOf(o.Value) == gradient) return;
+            var value = new ObjectValue(GradientDescriptor(gradient));
+            if (!Has(key) && replacing is not null && _items.FindIndex(kv => kv.Key == replacing) is var at and >= 0)
+                _items.Insert(at, new(key, value));
+            else Set(key, value);
+        }
+
+        /// <summary>A pattern reference ('Ptrn' with 'Nm  ' and 'Idnt'), kept when it already names this pattern.</summary>
+        public void Pattern(string key, Pattern pattern, string? before)
+        {
+            if (Get(key) is ObjectValue o && o.Value.Text("Idnt") == pattern.Id && o.Value.Text("Nm  ") == pattern.Name) return;
+            SetBefore(key, new ObjectValue(Object("Ptrn", ("Nm  ", new TextValue(pattern.Name)), ("Idnt", new TextValue(pattern.Id)))), before);
         }
 
         private static bool Close(RgbColor a, RgbColor b) =>

@@ -15,15 +15,22 @@ public sealed record PsdEffectsSource(Descriptor Descriptor);
 /// </summary>
 public sealed record PsdEffectSource(string Type, Descriptor Descriptor);
 
+/// <summary>
+/// What reading effects needs from the rest of the file: the global light (effects marked "use global light" take
+/// it) and the document's patterns, which pattern effects refer to by id.
+/// </summary>
+public sealed record PsdEffectContext(float GlobalAngle, float GlobalAltitude, IReadOnlyList<Pattern> Patterns)
+{
+    public static PsdEffectContext Default { get; } = new(120f, 30f, []);
+
+    /// <summary>The document's pattern with this id, or a pattern without pixels that keeps the reference.</summary>
+    internal Pattern Resolve(string id, string name) =>
+        Patterns.FirstOrDefault(p => p.Id == id) ?? new Pattern(id, name);
+}
+
 /// <summary>Reads layer styles from the 'lfx2' / 'lmfx' descriptor blocks.</summary>
 public static class PsdEffects
 {
-    private static readonly Dictionary<string, string> UnsupportedNames = new()
-    {
-        ["IrSh"] = "Inner Shadow", ["IrGl"] = "Inner Glow", ["ebbl"] = "Bevel & Emboss", ["ChFX"] = "Satin",
-        ["patternFill"] = "Pattern Overlay",
-    };
-
     /// <summary>
     /// Photoshop CC stores the effects that can be added several times as lists under these keys; one of each can
     /// also appear under the effect's own key (older files, or files from other applications).
@@ -42,13 +49,21 @@ public static class PsdEffects
     public static float GlobalAltitudeOf(PsdFile file) =>
         file.FindResource(1049)?.Data is { Length: >= 4 } altitude ? System.Buffers.Binary.BinaryPrimitives.ReadInt32BigEndian(altitude) : 30f;
 
+    /// <summary>The global light and the patterns of <paramref name="file"/>, for reading its effects.</summary>
+    public static PsdEffectContext ContextOf(PsdFile file) => new(GlobalAngleOf(file), GlobalAltitudeOf(file), PsdPatterns.Read(file));
+
+    /// <inheritdoc cref="Read(PsdLayerRecord, PsdEffectContext)"/>
+    /// <param name="record">The layer record.</param>
+    /// <param name="globalAngle">Document light angle (image resource 1037), used when an effect says "use global light".</param>
+    public static LayerEffects? Read(PsdLayerRecord record, float globalAngle) =>
+        Read(record, PsdEffectContext.Default with { GlobalAngle = globalAngle });
+
     /// <summary>
     /// Reads the effects shown in the Layers panel: those marked "present", whether their eye is open
     /// (<see cref="LayerEffect.Enabled"/>) or not. Effects that are only remembered by the dialog are left out, and a
     /// layer without any present effect has none (null). The master switch becomes <see cref="LayerEffects.Enabled"/>.
     /// </summary>
-    /// <param name="globalAngle">Document light angle (image resource 1037), used when an effect says "use global light".</param>
-    public static LayerEffects? Read(PsdLayerRecord record, float globalAngle)
+    public static LayerEffects? Read(PsdLayerRecord record, PsdEffectContext context)
     {
         var block = record.FindBlock("lmfx") ?? record.FindBlock("lfx2");
         if (block?.Data is not { Length: > 8 } data) return null;
@@ -64,8 +79,6 @@ public static class PsdEffects
         }
 
         // 'Scl ' records the "Scale Effects" ratio; stored sizes already include it (verified against real files).
-        const float scale = 1f;
-
         var items = new List<LayerEffect>();
         foreach (var (key, value) in d.Items)
         {
@@ -80,7 +93,7 @@ public static class PsdEffects
             {
                 // Files from before 'present' existed list only the effects on the layer.
                 if (fx.Bool("present") == false) continue;
-                if (Parse(type, fx, scale, globalAngle) is { } effect)
+                if (Parse(type, fx, context) is { } effect)
                     items.Add(effect with { Enabled = fx.Bool("enab") == true, SourceData = new PsdEffectSource(type, fx) });
             }
         }
@@ -91,12 +104,12 @@ public static class PsdEffects
         };
     }
 
-    private static LayerEffect? Parse(string type, Descriptor fx, float scale, float globalAngle)
+    private static LayerEffect? Parse(string type, Descriptor fx, PsdEffectContext context)
     {
         var mode = BlendModeOf(fx.Enum("Md  "));
-        float opacity = (float)(fx.Number("Opct") ?? 100) / 100f;
+        float opacity = Percent(fx, "Opct", 100);
         bool global = fx.Bool("uglg") == true;
-        float angle = global ? globalAngle : (float)(fx.Number("lagl") ?? 120);
+        float angle = global ? context.GlobalAngle : (float)(fx.Number("lagl") ?? 120);
 
         switch (type)
         {
@@ -106,10 +119,11 @@ public static class PsdEffects
                     BlendMode = mode, Opacity = opacity,
                     Color = ColorOf(fx.Object("Clr ")),
                     Angle = angle, UseGlobalLight = global,
-                    Distance = (float)(fx.Number("Dstn") ?? 0) * scale,
-                    Spread = (float)(fx.Number("Ckmt") ?? 0) / 100f,
-                    Size = (float)(fx.Number("blur") ?? 0) * scale,
+                    Distance = Pixels(fx, "Dstn", 0),
+                    Spread = Percent(fx, "Ckmt", 0),
+                    Size = Pixels(fx, "blur", 0),
                     Knockout = fx.Bool("layerConceals") ?? true,
+                    Contour = ContourOf(fx.Object("TrnS")), AntiAliased = fx.Bool("AntA") ?? false, Noise = Percent(fx, "Nose", 0),
                 };
 
             case "IrSh":
@@ -118,79 +132,214 @@ public static class PsdEffects
                     BlendMode = mode, Opacity = opacity,
                     Color = ColorOf(fx.Object("Clr ")),
                     Angle = angle, UseGlobalLight = global,
-                    Distance = (float)(fx.Number("Dstn") ?? 0) * scale,
-                    Choke = (float)(fx.Number("Ckmt") ?? 0) / 100f,
-                    Size = (float)(fx.Number("blur") ?? 0) * scale,
+                    Distance = Pixels(fx, "Dstn", 0),
+                    Choke = Percent(fx, "Ckmt", 0),
+                    Size = Pixels(fx, "blur", 0),
+                    Contour = ContourOf(fx.Object("TrnS")), AntiAliased = fx.Bool("AntA") ?? false, Noise = Percent(fx, "Nose", 0),
                 };
 
-            case "OrGl" when fx.Has("Clr "):
+            case "OrGl":
                 return new OuterGlowEffect
                 {
                     BlendMode = mode, Opacity = opacity,
                     Color = ColorOf(fx.Object("Clr ")),
-                    Spread = (float)(fx.Number("Ckmt") ?? 0) / 100f,
-                    Size = (float)(fx.Number("blur") ?? 0) * scale,
+                    Gradient = GlowGradientOf(fx),
+                    Spread = Percent(fx, "Ckmt", 0),
+                    Size = Pixels(fx, "blur", 0),
+                    Technique = TechniqueOf(fx), Contour = ContourOf(fx.Object("TrnS")), AntiAliased = fx.Bool("AntA") ?? false,
+                    Noise = Percent(fx, "Nose", 0), Range = Percent(fx, "Inpr", 50), Jitter = Percent(fx, "ShdN", 0),
                 };
 
-            case "IrGl" when fx.Has("Clr "):
+            case "IrGl":
                 return new InnerGlowEffect
                 {
                     BlendMode = mode, Opacity = opacity,
                     Color = ColorOf(fx.Object("Clr ")),
-                    Choke = (float)(fx.Number("Ckmt") ?? 0) / 100f,
-                    Size = (float)(fx.Number("blur") ?? 0) * scale,
+                    Gradient = GlowGradientOf(fx),
+                    Choke = Percent(fx, "Ckmt", 0),
+                    Size = Pixels(fx, "blur", 0),
                     FromCenter = fx.Enum("glwS") == "SrcC",
+                    Technique = TechniqueOf(fx), Contour = ContourOf(fx.Object("TrnS")), AntiAliased = fx.Bool("AntA") ?? false,
+                    Noise = Percent(fx, "Nose", 0), Range = Percent(fx, "Inpr", 50), Jitter = Percent(fx, "ShdN", 0),
                 };
 
             case "SoFi":
                 return new ColorOverlayEffect { BlendMode = mode, Opacity = opacity, Color = ColorOf(fx.Object("Clr ")) };
 
-            case "GrFl" when GradientOf(fx.Object("Grad")) is { } gradient:
+            case "GrFl" when GradientFillOf(fx) is { } fill:
                 return new GradientOverlayEffect
                 {
                     BlendMode = mode, Opacity = opacity,
-                    Gradient = gradient,
-                    Style = fx.Enum("Type") switch
-                    {
-                        "Rdl " => GradientStyle.Radial,
-                        "Angl" => GradientStyle.Angle,
-                        "Rflc" => GradientStyle.Reflected,
-                        "Dmnd" => GradientStyle.Diamond,
-                        _ => GradientStyle.Linear,
-                    },
-                    Angle = (float)(fx.Number("Angl") ?? 90),
-                    Scale = (float)(fx.Number("Scl ") ?? 100) / 100f,
-                    Reverse = fx.Bool("Rvrs") ?? false,
-                    AlignWithLayer = fx.Bool("Algn") ?? true,
-                    OffsetX = (float)(fx.Object("Ofst")?.Number("Hrzn") ?? 0) / 100f,
-                    OffsetY = (float)(fx.Object("Ofst")?.Number("Vrtc") ?? 0) / 100f,
+                    Gradient = fill.Gradient, Style = fill.Style, Angle = fill.Angle, Scale = fill.Scale, Reverse = fill.Reverse,
+                    AlignWithLayer = fill.AlignWithLayer, OffsetX = fill.OffsetX, OffsetY = fill.OffsetY,
                 };
 
-            case "FrFX" when fx.Enum("PntT") is null or "SClr":
+            case "GrFl":
+                return new UnsupportedEffect("Gradient Overlay (unreadable gradient)");
+
+            case "patternFill":
+                return new PatternOverlayEffect { BlendMode = mode, Opacity = opacity, Fill = PatternFillOf(fx, "Algn", context) };
+
+            case "FrFX":
                 return new StrokeEffect
                 {
                     BlendMode = mode, Opacity = opacity,
                     Color = ColorOf(fx.Object("Clr ")),
-                    Size = (float)(fx.Number("Sz  ") ?? 1) * scale,
+                    Size = Pixels(fx, "Sz  ", 1),
                     Position = fx.Enum("Styl") switch
                     {
                         "InsF" => StrokePosition.Inside,
                         "CtrF" => StrokePosition.Center,
                         _ => StrokePosition.Outside,
                     },
+                    FillType = fx.Enum("PntT") switch
+                    {
+                        "GrFl" => StrokeFillType.Gradient,
+                        "Ptrn" => StrokeFillType.Pattern,
+                        _ => StrokeFillType.Color,
+                    },
+                    // Photoshop keeps only the chosen fill type's settings; 'Scl ' belongs to whichever it is.
+                    GradientFill = fx.Enum("PntT") == "GrFl" ? GradientFillOf(fx) : null,
+                    PatternFill = fx.Enum("PntT") == "Ptrn" ? PatternFillOf(fx, "Lnkd", context) : null,
                 };
 
-            case "FrFX":
-                return new UnsupportedEffect("Gradient or pattern stroke");
-            case "OrGl":
-                return new UnsupportedEffect("Gradient outer glow");
-            case "IrGl":
-                return new UnsupportedEffect("Gradient inner glow");
-            case "GrFl":
-                return new UnsupportedEffect("Gradient Overlay (unreadable gradient)");
+            case "ebbl":
+                return ReadBevel(fx, context);
+
+            case "ChFX":
+                return new SatinEffect
+                {
+                    BlendMode = mode, Opacity = opacity,
+                    Color = ColorOf(fx.Object("Clr ")),
+                    Angle = (float)(fx.Number("lagl") ?? 19),
+                    Distance = Pixels(fx, "Dstn", 11),
+                    Size = Pixels(fx, "blur", 14),
+                    Contour = ContourOf(fx.Object("MpgS")),
+                    AntiAliased = fx.Bool("AntA") ?? false,
+                    Invert = fx.Bool("Invr") ?? false,
+                };
+
             default:
-                return UnsupportedNames.TryGetValue(type, out var name) ? new UnsupportedEffect(name) : null;
+                return null;
         }
+    }
+
+    private static BevelEffect ReadBevel(Descriptor fx, PsdEffectContext context)
+    {
+        bool global = fx.Bool("uglg") == true;
+        return new BevelEffect
+        {
+            Style = fx.Enum("bvlS") switch
+            {
+                "OtrB" => BevelStyle.OuterBevel,
+                "Embs" => BevelStyle.Emboss,
+                "PlEb" => BevelStyle.PillowEmboss,
+                "strokeEmboss" => BevelStyle.StrokeEmboss,
+                _ => BevelStyle.InnerBevel,
+            },
+            Technique = fx.Enum("bvlT") switch
+            {
+                "PrBL" => BevelTechnique.ChiselHard,
+                "Slmt" => BevelTechnique.ChiselSoft,
+                _ => BevelTechnique.Smooth,
+            },
+            Depth = Percent(fx, "srgR", 100),
+            Up = fx.Enum("bvlD")?.TrimEnd() != "Out",
+            Size = Pixels(fx, "blur", 5),
+            Soften = Pixels(fx, "Sftn", 0),
+            UseGlobalLight = global,
+            Angle = global ? context.GlobalAngle : (float)(fx.Number("lagl") ?? 120),
+            Altitude = global ? context.GlobalAltitude : (float)(fx.Number("Lald") ?? 30),
+            GlossContour = ContourOf(fx.Object("TrnS")),
+            GlossAntiAliased = fx.Bool("antialiasGloss") ?? false,
+            HighlightMode = fx.Enum("hglM") is { } hm ? BlendModeOf(hm) : BlendMode.Screen,
+            HighlightColor = fx.Object("hglC") is { } hc ? ColorOf(hc) : new RgbColor(1, 1, 1),
+            HighlightOpacity = Percent(fx, "hglO", 75),
+            ShadowMode = fx.Enum("sdwM") is { } sm ? BlendModeOf(sm) : BlendMode.Multiply,
+            ShadowColor = ColorOf(fx.Object("sdwC")),
+            ShadowOpacity = Percent(fx, "sdwO", 75),
+            UseContour = fx.Bool("useShape") ?? false,
+            Contour = ContourOf(fx.Object("MpgS")),
+            ContourAntiAliased = fx.Bool("AntA") ?? false,
+            ContourRange = Percent(fx, "Inpr", 50),
+            UseTexture = fx.Bool("useTexture") ?? false,
+            Texture = PatternFillOf(fx, "Algn", context),
+            TextureDepth = Percent(fx, "textureDepth", 100),
+            TextureInvert = fx.Bool("InvT") ?? false,
+        };
+    }
+
+    private static float Percent(Descriptor fx, string key, double fallback) => (float)(fx.Number(key) ?? fallback) / 100f;
+    private static float Pixels(Descriptor fx, string key, double fallback) => (float)(fx.Number(key) ?? fallback);
+
+    private static GlowTechnique TechniqueOf(Descriptor fx) => fx.Enum("GlwT") == "PrBL" ? GlowTechnique.Precise : GlowTechnique.Softer;
+
+    /// <summary>A glow is a gradient glow when it stores a gradient instead of a color.</summary>
+    private static Gradient? GlowGradientOf(Descriptor fx) => fx.Has("Clr ") ? null : GradientOf(fx.Object("Grad"));
+
+    /// <summary>A contour ('ShpC'): its name and curve points (0..255), with corner points marked by 'Cnty' false.</summary>
+    public static Contour ContourOf(Descriptor? c)
+    {
+        if (c is null) return Contour.Linear;
+        if (c.List("Crv ") is not { Count: >= 2 } curve) return Contour.Linear with { Name = c.Text("Nm  ") ?? "Linear" };
+        var points = curve.OfType<ObjectValue>().Select(o => new ContourPoint(
+            (float)(o.Value.Number("Hrzn") ?? 0), (float)(o.Value.Number("Vrtc") ?? 0), o.Value.Bool("Cnty") == false)).ToList();
+        return new Contour(points) { Name = c.Text("Nm  ") ?? "Custom" };
+    }
+
+    /// <summary>
+    /// The gradient settings stored with a gradient overlay or gradient stroke ('Grad', 'Type', 'Angl', 'Scl ',
+    /// 'Rvrs', 'Algn', 'Ofst'), or null without a readable gradient.
+    /// </summary>
+    public static GradientFill? GradientFillOf(Descriptor fx)
+    {
+        if (GradientOf(fx.Object("Grad")) is not { } gradient) return null;
+        return new GradientFill(gradient)
+        {
+            Style = GradientStyleOf(fx.Enum("Type")),
+            Angle = (float)(fx.Number("Angl") ?? 90),
+            Scale = Percent(fx, "Scl ", 100),
+            Reverse = fx.Bool("Rvrs") ?? false,
+            AlignWithLayer = fx.Bool("Algn") ?? true,
+            OffsetX = (float)(fx.Object("Ofst")?.Number("Hrzn") ?? 0) / 100f,
+            OffsetY = (float)(fx.Object("Ofst")?.Number("Vrtc") ?? 0) / 100f,
+        };
+    }
+
+    internal static GradientStyle GradientStyleOf(string? type) => type switch
+    {
+        "Rdl " => GradientStyle.Radial,
+        "Angl" => GradientStyle.Angle,
+        "Rflc" => GradientStyle.Reflected,
+        "Dmnd" => GradientStyle.Diamond,
+        "shapeburst" => GradientStyle.ShapeBurst,
+        _ => GradientStyle.Linear,
+    };
+
+    internal static string GradientTypeOf(GradientStyle style) => style switch
+    {
+        GradientStyle.Radial => "Rdl ",
+        GradientStyle.Angle => "Angl",
+        GradientStyle.Reflected => "Rflc",
+        GradientStyle.Diamond => "Dmnd",
+        GradientStyle.ShapeBurst => "shapeburst",
+        _ => "Lnr ",
+    };
+
+    /// <summary>
+    /// The pattern settings of a pattern overlay, pattern stroke or bevel texture ('Ptrn' with its name and id,
+    /// 'Scl ', the link key, 'phase'), or null when no pattern is named.
+    /// </summary>
+    private static PatternFill? PatternFillOf(Descriptor fx, string linkKey, PsdEffectContext context)
+    {
+        if (fx.Object("Ptrn") is not { } ptrn || ptrn.Text("Idnt") is not { } id) return null;
+        return new PatternFill(context.Resolve(id, ptrn.Text("Nm  ") ?? ""))
+        {
+            Scale = Percent(fx, "Scl ", 100),
+            LinkWithLayer = fx.Bool(linkKey) ?? true,
+            PhaseX = (float)(fx.Object("phase")?.Number("Hrzn") ?? 0),
+            PhaseY = (float)(fx.Object("phase")?.Number("Vrtc") ?? 0),
+        };
     }
 
     /// <summary>Reads 'RGBC' (0..255 or the newer 0..1 float keys), 'HSBC', 'Grsc' and 'CMYC' colors.</summary>

@@ -176,11 +176,21 @@ public static class PsdWriter
 
         if (layersInBlock)
             WriteBlock(s, doc.BitDepth == 16 ? "Lr16" : "Lr32", layerInfo, psb);
+        // Patterns the document gained (a new pattern effect, a pasted style) are added to the 'Patt' block.
+        var newPatterns = PsdPatterns.Missing(doc, source);
+        bool patternsWritten = newPatterns.Count == 0;
         foreach (var block in source?.GlobalBlocks ?? [])
         {
             if (block.Key is "Layr" or "Lr16" or "Lr32") continue;
-            WriteBlock(s, block.Key, RequireData(block, "document"), psb, block.Signature);
+            var data = RequireData(block, "document");
+            if (block.Key == "Patt" && !patternsWritten)
+            {
+                data = [.. data, .. PsdPatterns.Encode(newPatterns)];
+                patternsWritten = true;
+            }
+            WriteBlock(s, block.Key, data, psb, block.Signature);
         }
+        if (!patternsWritten) WriteBlock(s, "Patt", PsdPatterns.Encode(newPatterns), psb);
 
         while (section.Length % 4 != 0) section.WriteByte(0);
         w.Length(section.Length, psb);
@@ -326,8 +336,11 @@ public static class PsdWriter
             blocks.Add((b.Key, RequireData(b, $"layer \"{node.Name}\"")));
         }
         // Edited layer styles replace the stored effect blocks; unedited ones keep their bytes.
-        float sourceAngle = doc.SourceData is PsdFile file ? PsdEffects.GlobalAngleOf(file) : 120f;
-        PsdEffectsWriter.Refresh(node, src, sourceAngle, blocks);
+        // Patterns compare by id, so the source's pattern pixels are not needed to tell whether effects changed.
+        var context = doc.SourceData is PsdFile file
+            ? new PsdEffectContext(PsdEffects.GlobalAngleOf(file), PsdEffects.GlobalAltitudeOf(file), [])
+            : PsdEffectContext.Default;
+        PsdEffectsWriter.Refresh(node, src, context, blocks);
         return blocks;
     }
 
