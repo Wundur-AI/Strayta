@@ -114,11 +114,14 @@
               <MenuFlyout Placement="TopEdgeAlignedLeft">
                 <MenuItem Header="Blending Options…" Tag="BlendingOptions" Click="OnLayerStyleMenu" />
                 <Separator />
+                <MenuItem Header="Bevel &amp; Emboss…" Tag="BevelEmboss" Click="OnLayerStyleMenu" />
                 <MenuItem Header="Stroke…" Tag="Stroke" Click="OnLayerStyleMenu" />
                 <MenuItem Header="Inner Shadow…" Tag="InnerShadow" Click="OnLayerStyleMenu" />
                 <MenuItem Header="Inner Glow…" Tag="InnerGlow" Click="OnLayerStyleMenu" />
+                <MenuItem Header="Satin…" Tag="Satin" Click="OnLayerStyleMenu" />
                 <MenuItem Header="Color Overlay…" Tag="ColorOverlay" Click="OnLayerStyleMenu" />
                 <MenuItem Header="Gradient Overlay…" Tag="GradientOverlay" Click="OnLayerStyleMenu" />
+                <MenuItem Header="Pattern Overlay…" Tag="PatternOverlay" Click="OnLayerStyleMenu" />
                 <MenuItem Header="Outer Glow…" Tag="OuterGlow" Click="OnLayerStyleMenu" />
                 <MenuItem Header="Drop Shadow…" Tag="DropShadow" Click="OnLayerStyleMenu" />
               </MenuFlyout>

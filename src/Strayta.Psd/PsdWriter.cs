@@ -201,9 +201,11 @@ public static class PsdWriter
     /// <summary>Document patterns that some layer's data mentions by ID and that the source file's pattern blocks lack.</summary>
     private static List<Pattern> NewReferencedPatterns(Document doc, PsdFile? source, List<Record> records)
     {
-        if (doc.Patterns.Count == 0) return [];
+        // Layer styles carry their patterns too (a style pasted from another document, a built-in pattern).
+        var candidates = doc.Patterns.Concat(PsdEffectsWriter.PatternsUsed(doc)).ToList();
+        if (candidates.Count == 0) return [];
         var stored = source is null ? [] : PsdPatterns.Read(source).Select(p => p.Id).ToHashSet();
-        return doc.Patterns
+        return candidates
             .Where(p => !stored.Contains(p.Id) && records.Any(r => r.Blocks.Any(b => PsdPatterns.Mentions(b.Data, p.Id))))
             .DistinctBy(p => p.Id)
             .ToList();
@@ -348,8 +350,11 @@ public static class PsdWriter
             blocks.Add((b.Key, RequireData(b, $"layer \"{node.Name}\"")));
         }
         // Edited layer styles replace the stored effect blocks; unedited ones keep their bytes.
-        float sourceAngle = doc.SourceData is PsdFile file ? PsdEffects.GlobalAngleOf(file) : 120f;
-        PsdEffectsWriter.Refresh(node, src, sourceAngle, blocks);
+        // Patterns compare by id, so the source's pattern pixels are not needed to tell whether effects changed.
+        var context = doc.SourceData is PsdFile file
+            ? new PsdEffectContext(PsdEffects.GlobalAngleOf(file), PsdEffects.GlobalAltitudeOf(file), [])
+            : PsdEffectContext.Default;
+        PsdEffectsWriter.Refresh(node, src, context, blocks);
         return blocks;
     }
 

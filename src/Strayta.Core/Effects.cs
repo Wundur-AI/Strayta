@@ -79,7 +79,14 @@ public sealed record Gradient(IReadOnlyList<GradientColorStop> Colors, IReadOnly
     }
 }
 
-public enum GradientStyle { Linear, Radial, Angle, Reflected, Diamond }
+/// <summary>
+/// How a gradient is laid out. <see cref="ShapeBurst"/> follows the shape's outline (from its edge inwards) and is
+/// offered only for strokes, as in Photoshop.
+/// </summary>
+public enum GradientStyle { Linear, Radial, Angle, Reflected, Diamond, ShapeBurst }
+
+/// <summary>A glow's Technique: Softer blurs the shape; Precise measures the exact distance to its edge.</summary>
+public enum GlowTechnique { Softer, Precise }
 
 /// <summary>
 /// Layer styles attached to a layer. Sizes and distances are in document pixels, already scaled.
@@ -149,6 +156,12 @@ public sealed record DropShadowEffect : LayerEffect
     public float Size { get; init; }
     /// <summary>The layer's own shape hides the shadow beneath it when fill opacity is reduced.</summary>
     public bool Knockout { get; init; } = true;
+
+    /// <summary>Reshapes the shadow's falloff (Photoshop's Quality › Contour).</summary>
+    public Contour Contour { get; init; } = Contour.Linear;
+    public bool AntiAliased { get; init; }
+    /// <summary>0..1: grain mixed into the shadow's opacity.</summary>
+    public float Noise { get; init; }
 }
 
 /// <summary>A shadow cast inside the layer's edges, as if the layer were a hole: the outside, offset and blurred.</summary>
@@ -163,6 +176,12 @@ public sealed record InnerShadowEffect : LayerEffect
     /// <summary>0..1 fraction of <see cref="Size"/> that is solid before the blur starts.</summary>
     public float Choke { get; init; }
     public float Size { get; init; }
+
+    /// <summary>Reshapes the shadow's falloff (Photoshop's Quality › Contour).</summary>
+    public Contour Contour { get; init; } = Contour.Linear;
+    public bool AntiAliased { get; init; }
+    /// <summary>0..1: grain mixed into the shadow's opacity.</summary>
+    public float Noise { get; init; }
 }
 
 public sealed record OuterGlowEffect : LayerEffect
@@ -170,6 +189,19 @@ public sealed record OuterGlowEffect : LayerEffect
     public RgbColor Color { get; init; }
     public float Spread { get; init; }
     public float Size { get; init; }
+
+    /// <summary>A gradient glow (Photoshop's gradient swatch): colors run from the edge outwards. Null for a solid <c>Color</c>.</summary>
+    public Gradient? Gradient { get; init; }
+    public GlowTechnique Technique { get; init; }
+    /// <summary>Reshapes the falloff (Quality › Contour).</summary>
+    public Contour Contour { get; init; } = Contour.Linear;
+    public bool AntiAliased { get; init; }
+    /// <summary>0..1: grain mixed into the glow's opacity.</summary>
+    public float Noise { get; init; }
+    /// <summary>0.01..1: the part of the glow the contour applies to (Photoshop's default 50%).</summary>
+    public float Range { get; init; } = 0.5f;
+    /// <summary>0..1: randomizes where a gradient glow samples its colors.</summary>
+    public float Jitter { get; init; }
 }
 
 /// <summary>A glow inside the layer, from its edges inwards or from its center outwards.</summary>
@@ -181,6 +213,19 @@ public sealed record InnerGlowEffect : LayerEffect
     public float Size { get; init; }
     /// <summary>Photoshop's "Center" source: the glow fills the middle and fades towards the edges.</summary>
     public bool FromCenter { get; init; }
+
+    /// <summary>A gradient glow (Photoshop's gradient swatch): colors run from the edge outwards. Null for a solid <c>Color</c>.</summary>
+    public Gradient? Gradient { get; init; }
+    public GlowTechnique Technique { get; init; }
+    /// <summary>Reshapes the falloff (Quality › Contour).</summary>
+    public Contour Contour { get; init; } = Contour.Linear;
+    public bool AntiAliased { get; init; }
+    /// <summary>0..1: grain mixed into the glow's opacity.</summary>
+    public float Noise { get; init; }
+    /// <summary>0.01..1: the part of the glow the contour applies to (Photoshop's default 50%).</summary>
+    public float Range { get; init; } = 0.5f;
+    /// <summary>0..1: randomizes where a gradient glow samples its colors.</summary>
+    public float Jitter { get; init; }
 }
 
 public sealed record ColorOverlayEffect : LayerEffect
@@ -204,16 +249,24 @@ public sealed record GradientOverlayEffect : LayerEffect
 
 public enum StrokePosition { Outside, Inside, Center }
 
+/// <summary>What a stroke is filled with (Photoshop's Fill Type).</summary>
+public enum StrokeFillType { Color, Gradient, Pattern }
+
 public sealed record StrokeEffect : LayerEffect
 {
     public RgbColor Color { get; init; }
     public float Size { get; init; }
     public StrokePosition Position { get; init; }
+    public StrokeFillType FillType { get; init; }
+    /// <summary>The gradient of a gradient stroke (kept when the fill type changes, as Photoshop's dialog does).</summary>
+    public GradientFill? GradientFill { get; init; }
+    /// <summary>The pattern of a pattern stroke.</summary>
+    public PatternFill? PatternFill { get; init; }
 }
 
 /// <summary>
-/// An effect that was read but cannot be rendered or edited yet (bevel, satin, pattern overlay, gradient strokes and
-/// glows). It stays on the layer, and in the saved file, as it was; only its visibility can change.
+/// An effect that was read but cannot be rendered or edited (an unreadable or unknown effect). It stays on the layer,
+/// and in the saved file, as it was; only its visibility can change.
 /// </summary>
 public sealed record UnsupportedEffect(string Name) : LayerEffect;
 

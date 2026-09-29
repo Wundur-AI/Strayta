@@ -17,6 +17,8 @@ internal static partial class SelfTest
     private sealed class ScriptedLayerStyleDialogs : ILayerStyleDialogs
     {
         public Func<LayerStyleViewModel, Task<bool>>? Script { get; set; }
+        public Func<GlobalLightViewModel, Task<bool>>? GlobalLightScript { get; set; }
+        public Func<ScaleEffectsViewModel, Task<bool>>? ScaleScript { get; set; }
         public LayerStyleViewModel? Last { get; private set; }
 
         public async Task<bool> RunLayerStyleAsync(LayerStyleViewModel session)
@@ -24,6 +26,12 @@ internal static partial class SelfTest
             Last = session;
             return Script is null ? false : await Script(session);
         }
+
+        public async Task<bool> RunGlobalLightAsync(GlobalLightViewModel session) =>
+            GlobalLightScript is not null && await GlobalLightScript(session);
+
+        public async Task<bool> RunScaleEffectsAsync(ScaleEffectsViewModel session) =>
+            ScaleScript is not null && await ScaleScript(session);
     }
 
     private static async Task RunLayerStyleStepsAsync(EditorViewModel editor, Action<bool, string> check)
@@ -33,6 +41,7 @@ internal static partial class SelfTest
         try
         {
             await LayerStyleStepsAsync(editor, dialogs, check);
+            await LayerStyleEffectStepsAsync(editor, dialogs, check); // SelfTest.LayerStyleEffects.cs
         }
         catch (Exception ex)
         {
@@ -187,10 +196,11 @@ internal static partial class SelfTest
 
     /// <summary>
     /// STRAYTA_STYLEBENCH=new: a generated 4000×3000 document with a 3200×2400 layer (a disc on a transparent field,
-    /// so the shadow shows), then the drop shadow slider drags; STRAYTA_STYLEBENCH=1 uses the first opened file's
+    /// so the shadow shows), then the drop shadow slider drags (STRAYTA_STYLEBENCH=bevel: Bevel &amp; Emboss Size and Depth
+    /// with Chisel Hard); STRAYTA_STYLEBENCH=1 uses the first opened file's
     /// selected (or largest) layer.
     /// </summary>
-    public static async Task RunLayerStyleBenchmarkAsync(EditorViewModel editor, bool synthetic)
+    public static async Task RunLayerStyleBenchmarkAsync(EditorViewModel editor, bool synthetic, bool bevel = false)
     {
         DocumentViewModel? doc;
         if (synthetic)
@@ -228,6 +238,6 @@ internal static partial class SelfTest
                 .OrderByDescending(i => ((PixelLayer)i.Node).Bounds.Width * ((PixelLayer)i.Node).Bounds.Height).FirstOrDefault();
         }
         await Task.Delay(1500); // let the view fit the image and the preview caches warm up
-        await doc.RunLayerStyleBenchmarkAsync();
+        await doc.RunLayerStyleBenchmarkAsync(bevel);
     }
 }

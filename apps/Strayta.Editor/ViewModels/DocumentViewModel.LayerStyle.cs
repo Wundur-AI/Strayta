@@ -9,13 +9,12 @@ namespace Strayta.Editor.ViewModels;
 public sealed partial class DocumentViewModel
 {
     /// <summary>
-    /// Why the selected layer cannot take a layer style, or null if it can. Styles on groups are kept and saved but not
-    /// drawn yet, and adjustment layers have no pixels for effects to follow, so both are refused for now.
+    /// Why the selected layer cannot take a layer style, or null if it can. Groups can (their effects follow the
+    /// group's flattened content); adjustment layers have no pixels for effects to follow.
     /// </summary>
     private string? LayerStyleProblem(LayerNode? node) => node switch
     {
         null => "Select a layer to give it a layer style.",
-        LayerGroup => "Layer styles on groups are not supported yet.",
         AdjustmentLayer => "Adjustment layers cannot have layer styles.",
         _ => null,
     };
@@ -50,18 +49,45 @@ public sealed partial class DocumentViewModel
             Notice = problem;
             return;
         }
-        var pasted = style with { Effects = LayerStyleEdit.WithGlobalAngle(style.Effects, Model.GlobalLightAngle) };
+        var pasted = style with { Effects = style.Effects.WithGlobalLight(Model.GlobalLightAngle, Model.GlobalLightAltitude) };
+        // A group keeps Pass Through when the copied layer was plain Normal; a layer cannot take Pass Through.
+        if (node is LayerGroup && pasted.BlendMode == BlendMode.Normal && node.BlendMode == BlendMode.PassThrough) pasted = pasted with { BlendMode = BlendMode.PassThrough };
+        if (node is not LayerGroup && pasted.BlendMode == BlendMode.PassThrough) pasted = pasted with { BlendMode = BlendMode.Normal };
         var before = LayerStyleState.Of(node);
         if (pasted == before) return;
         Apply(new LayerStyleEdit("Paste Layer Style", Model, [(node, before, pasted)]));
     }
 
-    /// <summary>Layer › Layer Style › Clear Layer Style: removes the effects (the blending options stay).</summary>
+    /// <summary>
+    /// Layer › Layer Style › Clear Layer Style. In Photoshop a layer style is the effects together with the Blending
+    /// Options (Copy and Paste Layer Style carry both), and clearing it resets both: the effects go, and the blend
+    /// mode, opacity and fill opacity return to their defaults (Normal, or Pass Through for a group; 100%). (In
+    /// Photoshop, removing only the effects is dragging the Layers panel's "Effects" row to the trash.)
+    /// </summary>
     public void ClearLayerStyle()
     {
-        if (SelectedLayer?.Node is not { Effects: not null } node) return;
+        if (SelectedLayer?.Node is not { } node) return;
         var before = LayerStyleState.Of(node);
-        Apply(new LayerStyleEdit("Clear Layer Style", Model, [(node, before, before with { Effects = null })]));
+        var cleared = new LayerStyleState(null, 1f, 1f, node is LayerGroup ? BlendMode.PassThrough : BlendMode.Normal);
+        if (cleared == before) return;
+        Apply(new LayerStyleEdit("Clear Layer Style", Model, [(node, before, cleared)]));
+    }
+
+    /// <summary>
+    /// Layer › Layer Style › Global Light…: a session that moves the document's light (angle and altitude) and every
+    /// effect that uses it, previewed live; OK is one "Global Light" undo step.
+    /// </summary>
+    public GlobalLightViewModel BeginGlobalLight() => new(this);
+
+    /// <summary>Layer › Layer Style › Scale Effects… on the selected layer, or null (with a notice) when it has none.</summary>
+    public ScaleEffectsViewModel? BeginScaleEffects()
+    {
+        if (SelectedLayer?.Node is not { Effects: not null } node)
+        {
+            Notice = "The selected layer has no layer effects to scale.";
+            return null;
+        }
+        return new ScaleEffectsViewModel(this, node);
     }
 
     /// <summary>The eye of one effect in the Layers panel (undoable, as in Photoshop).</summary>
@@ -91,17 +117,26 @@ public sealed partial class DocumentViewModel
     /// screen, the preview render time and when full resolution follows; then cancels and checks nothing changed
     /// (STRAYTA_STYLEBENCH).
     /// </summary>
-    public async Task RunLayerStyleBenchmarkAsync()
+    public async Task RunLayerStyleBenchmarkAsync(bool bevel = false)
     {
-        var before = SelectedLayer?.Node is { } selected ? LayerStyleState.Of(selected) : null; // opening already previews the new shadow
-        var session = BeginLayerStyle(LayerStylePage.DropShadow) ?? throw new InvalidOperationException(Notice);
+        var before = SelectedLayer?.Node is { } selected ? LayerStyleState.Of(selected) : null; // opening already previews the new effect
+        var session = BeginLayerStyle(bevel ? LayerStylePage.BevelEmboss : LayerStylePage.DropShadow) ?? throw new InvalidOperationException(Notice);
         var layer = session.Layer;
-        var shadow = (ShadowEntry)session.SelectedEntry!;
-        foreach (var (name, drag) in new (string, Action<int>)[]
-                 {
-                     ("Size", i => shadow.Size = 10 + i % 120),
-                     ("Distance", i => shadow.Distance = 5 + i % 60),
-                 })
+        string effectName = bevel ? "bevel" : "drop shadow";
+        var drags = new List<(string, Action<int>)>();
+        if (session.SelectedEntry is BevelEntry b)
+        {
+            b.TechniqueIndex = 1; // Chisel Hard: the exact distance field, the heavier technique
+            drags.Add(("Size", i => b.Size = 5 + i % 60));
+            drags.Add(("Depth", i => b.Depth = 100 + i % 400));
+        }
+        else
+        {
+            var shadow = (ShadowEntry)session.SelectedEntry!;
+            drags.Add(("Size", i => shadow.Size = 10 + i % 120));
+            drags.Add(("Distance", i => shadow.Distance = 5 + i % 60));
+        }
+        foreach (var (name, drag) in drags)
         {
             int frames = 0;
             var times = new List<double>();
@@ -134,7 +169,7 @@ public sealed partial class DocumentViewModel
             renders.Sort();
             double Pick(List<double> v, double q) => v.Count == 0 ? double.NaN : v[(int)(v.Count * q)];
             var bounds = (layer as PixelLayer)?.Bounds;
-            Console.WriteLine($"STYLEBENCH drop shadow {name} layer={bounds?.Width}x{bounds?.Height} doc={Model.Width}x{Model.Height} " +
+            Console.WriteLine($"STYLEBENCH {effectName} {name} layer={bounds?.Width}x{bounds?.Height} doc={Model.Width}x{Model.Height} " +
                               $"input={inputMs:F0}ms frames={frames} fps={frames / (inputMs / 1000):F1} median-frame={Pick(times, 0.5):F0}ms " +
                               $"p90={Pick(times, 0.9):F0}ms median-render={Pick(renders, 0.5):F1}ms factor={PreviewDocument.FactorForZoom(_viewZoom)} " +
                               (settle == fullShown.Task ? $"full-res={fullShown.Task.Result:F0}ms after input (incl. 400 ms idle delay)" : "full-res did not appear within 10 s"));

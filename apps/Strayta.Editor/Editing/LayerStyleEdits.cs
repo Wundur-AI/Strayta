@@ -17,23 +17,26 @@ public sealed record LayerStyleState(LayerEffects? Effects, float Opacity, float
 }
 
 /// <summary>
-/// One undo step that changes layer styles: the Layer Style dialog (its layer, plus every layer whose shadows follow
-/// the global light when the dialog moved it), Paste and Clear Layer Style, and showing or hiding effects.
+/// One undo step that changes layer styles: the Layer Style dialog (its layer, plus every layer whose effects follow
+/// the global light when the dialog moved it), Global Light, Scale Effects, Paste and Clear Layer Style, and showing
+/// or hiding effects.
 /// </summary>
 public sealed class LayerStyleEdit : IEdit
 {
     private readonly IReadOnlyList<(LayerNode Node, LayerStyleState Before, LayerStyleState After)> _changes;
     private readonly Document _document;
-    private readonly float _angleBefore, _angleAfter;
+    private readonly float _angleBefore, _angleAfter, _altitudeBefore, _altitudeAfter;
 
     public LayerStyleEdit(string description, Document document,
-        IReadOnlyList<(LayerNode Node, LayerStyleState Before, LayerStyleState After)> changes, float? globalAngle = null)
+        IReadOnlyList<(LayerNode Node, LayerStyleState Before, LayerStyleState After)> changes, float? globalAngle = null, float? globalAltitude = null)
     {
         Description = description;
         _document = document;
         _changes = changes;
         _angleBefore = document.GlobalLightAngle;
         _angleAfter = globalAngle ?? document.GlobalLightAngle;
+        _altitudeBefore = document.GlobalLightAltitude;
+        _altitudeAfter = globalAltitude ?? document.GlobalLightAltitude;
     }
 
     public string Description { get; }
@@ -46,33 +49,13 @@ public sealed class LayerStyleEdit : IEdit
     {
         foreach (var (node, _, after) in _changes) after.ApplyTo(node);
         _document.GlobalLightAngle = _angleAfter;
+        _document.GlobalLightAltitude = _altitudeAfter;
     }
 
     public void Undo()
     {
         foreach (var (node, before, _) in _changes) before.ApplyTo(node);
         _document.GlobalLightAngle = _angleBefore;
-    }
-
-    /// <summary>
-    /// <paramref name="effects"/> with every shadow that uses the global light turned to <paramref name="angle"/>, or
-    /// the same instance when none changes (so unchanged layers keep their identity and their saved bytes).
-    /// </summary>
-    public static LayerEffects? WithGlobalAngle(LayerEffects? effects, float angle)
-    {
-        if (effects is null) return null;
-        bool changed = false;
-        var items = effects.Items.Select(e =>
-        {
-            LayerEffect turned = e switch
-            {
-                DropShadowEffect { UseGlobalLight: true } d when d.Angle != angle => d with { Angle = angle },
-                InnerShadowEffect { UseGlobalLight: true } s when s.Angle != angle => s with { Angle = angle },
-                _ => e,
-            };
-            changed |= !ReferenceEquals(turned, e);
-            return turned;
-        }).ToList();
-        return changed ? effects with { Items = items } : effects;
+        _document.GlobalLightAltitude = _altitudeBefore;
     }
 }

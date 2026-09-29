@@ -129,12 +129,21 @@ dotnet test
   Option-click on the button hides instead (Hide Selection / Hide All).
 - Adjustment layers (Layer > New Adjustment Layer): Levels, Curves, Hue/Saturation, Brightness/Contrast, Invert,
   Threshold, Posterize, edited live in the Properties panel.
-- Layer styles (Layer > Layer Style, the panel's fx button, or double-click a layer row): Blending Options, Drop
-  Shadow, Inner Shadow, Outer Glow, Inner Glow, Color Overlay, Gradient Overlay and Stroke, previewed live on the
-  canvas; Cancel restores, OK is one undo step. Use Global Light moves every shadow that shares it. Copy / Paste /
-  Clear Layer Style; the fx badge lists a layer's effects with an eye each. Styles are saved as Photoshop's `lfx2`
-  block, patched so settings Strayta does not edit (contour, noise, ...) are kept. Bevel & Emboss, Satin, Pattern
-  Overlay and gradient strokes and glows are kept and can be shown or hidden, not edited or rendered.
+- Layer styles (Layer > Layer Style, the panel's fx button, or double-click a layer row) on layers and groups (a
+  group's effects follow its flattened content): Blending Options and every Photoshop effect: Bevel & Emboss (Inner,
+  Outer, Emboss, Pillow and Stroke Emboss; Smooth, Chisel Hard and Soft; depth, direction, size, soften, angle and
+  altitude on a light dial, gloss contour, highlight and shadow modes, colors and opacities; Contour and Texture
+  sub-pages), Stroke (color, gradient with Shape Burst, or pattern), Inner Shadow, Inner Glow, Satin, Color Overlay,
+  Gradient Overlay (the Gradient Editor's picker), Pattern Overlay (built-in, your own or the document's patterns), Outer
+  Glow and Drop Shadow. Shadows, glows and satin have contours (presets or a drawn curve), anti-aliasing and noise;
+  glows a color or gradient, Softer or Precise, range and jitter. "+" adds another Drop Shadow, Inner Shadow, Color
+  Overlay, Gradient Overlay or Stroke (up to ten, as in Photoshop CC). Everything previews live on the canvas; Cancel
+  restores, OK is one undo step. Global Light (the dialog's checkbox, or Layer > Layer Style > Global Light…) moves every
+  shadow and bevel that shares it; Scale Effects… scales a style's sizes. Copy / Paste / Clear Layer Style (clearing
+  also resets blend mode, opacity and fill, as Photoshop does); the fx badge lists a layer's effects with an eye each.
+  Styles are saved as Photoshop's `lfx2` block, patched so settings Strayta does not know are kept, with the patterns
+  they use stored in the file. The bevel is drawn as lighting on a height field built from the layer's shape; its
+  exact look has not been compared with Photoshop renders yet (no Photoshop-rendered bevel in the test corpus).
 - Full undo/redo. Save / Save As write PSD, keeping everything Strayta does not edit (text, smart objects,
   unedited layer styles, ...) exactly as it was.
 - Edit > Free Transform (⌘T) on a layer or group: drag corners to scale (proportional; Shift frees it, Option
@@ -196,7 +205,8 @@ elliptical tip) on a generated 4000×3000 document.
 `STRAYTA_CROPBENCH=1` times Image Size, a crop box drag and turned and straight crops (`=new` on a generated
 4000×3000 layered document).
 `STRAYTA_STYLEBENCH=1` drags the Layer Style dialog's drop shadow Size and Distance sliders on the selected layer
-(`=new` on a generated 4000×3000 document with a 3200×2400 layer).
+(`=new` on a generated 4000×3000 document with a 3200×2400 layer; `=bevel` drags a Chisel Hard bevel's Size and Depth
+there).
 `STRAYTA_SEGBENCH=1` times Object Selection and Select Subject (encoder, per-prompt latency, memory) on the
 first opened file; `STRAYTA_THEME=Light|Dark` sets the starting appearance.
 

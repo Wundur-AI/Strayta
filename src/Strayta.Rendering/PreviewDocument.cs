@@ -170,19 +170,7 @@ public sealed class PreviewDocument
         lock (byFactor)
         {
             if (byFactor.TryGetValue(Factor, out var scaled)) return scaled;
-            float s = 1f / Factor;
-            scaled = fx with
-            {
-                Items = fx.Items.Select(e => e switch
-                {
-                    DropShadowEffect d => d with { Distance = d.Distance * s, Size = d.Size * s },
-                    InnerShadowEffect d => d with { Distance = d.Distance * s, Size = d.Size * s },
-                    OuterGlowEffect g => g with { Size = g.Size * s },
-                    InnerGlowEffect g => g with { Size = g.Size * s },
-                    StrokeEffect k => k with { Size = k.Size * s },
-                    _ => e,
-                }).ToList(),
-            };
+            scaled = fx.Scaled(1f / Factor);
             byFactor[Factor] = scaled;
             return scaled;
         }
