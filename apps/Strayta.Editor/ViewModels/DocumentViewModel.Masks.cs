@@ -126,7 +126,7 @@ public sealed partial class DocumentViewModel
         PaintBlock = null;
         _maskStrokeTool = erase ? "Eraser" : "Brush";
         _stroke = PaintStroke.ForMask(owner, brush, 0.299f * color.R + 0.587f * color.G + 0.114f * color.B, Model.Bounds, Selection);
-        _stroke.StrokeTo(x, y);
+        StartStrokeInput(_stroke, x, y); // DocumentViewModel.Brush.cs
         RequestRender();
         return true;
     }

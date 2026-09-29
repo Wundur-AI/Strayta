@@ -30,8 +30,17 @@ public static class Healing
     /// (<paramref name="dx"/>, <paramref name="dy"/>) away (as <see cref="CloneSource"/>). Returns the healed pixels over
     /// the stroke's bounds plus one pixel, to be painted through the stroke (see <see cref="PaintStroke.WithSource"/>).
     /// </summary>
-    public static PixelSource HealStroke(PixelSource image, int dx, int dy, PaintStroke stroke, PixelRect canvas) =>
-        Heal(image, image, dx, dy, Coverage(stroke), stroke.Bounds, canvas);
+    public static PixelSource HealStroke(PixelSource image, int dx, int dy, PaintStroke stroke, PixelRect canvas, HealOptions? options = null) =>
+        Heal(image, image, dx, dy, Coverage(stroke), stroke.Bounds, canvas, options ?? new HealOptions { BrushSize = stroke.Brush.Size });
+
+    /// <summary>
+    /// As <see cref="HealStroke(PixelSource, int, int, PaintStroke, PixelRect, HealOptions?)"/> with the texture from a
+    /// cloning source, which may be scaled and turned (the Clone Source panel).
+    /// </summary>
+    public static PixelSource HealStroke(PixelSource image, CloneSource source, PaintStroke stroke, PixelRect canvas, HealOptions? options = null) =>
+        source.Transform.IsIdentity
+            ? HealStroke(image, source.Dx, source.Dy, stroke, canvas, options)
+            : Heal(image, source.Placed(), 0, 0, Coverage(stroke), stroke.Bounds, canvas, options ?? new HealOptions { BrushSize = stroke.Brush.Size });
 
     /// <summary>The stroke's coverage over its bounds, row-major.</summary>
     public static float[] Coverage(PaintStroke stroke)
@@ -51,8 +60,10 @@ public static class Healing
     /// is above zero, taking gradients from <paramref name="source"/> offset by (<paramref name="dx"/>,
     /// <paramref name="dy"/>). Outside that region the result is the destination exactly.
     /// </summary>
-    public static PixelSource Heal(PixelSource destination, PixelSource source, int dx, int dy, float[] coverage, PixelRect area, PixelRect canvas)
+    public static PixelSource Heal(PixelSource destination, PixelSource source, int dx, int dy, float[] coverage, PixelRect area, PixelRect canvas,
+        HealOptions? options = null)
     {
+        var o = options ?? new HealOptions();
         var grid = new PixelRect(area.Left - 1, area.Top - 1, area.Right + 1, area.Bottom + 1).Intersect(canvas);
         int colors = destination.ColorChannels, c = colors + 1;
         if (grid.IsEmpty) return PixelSource.FromFloats([], colors, PixelRect.Empty);
@@ -80,24 +91,51 @@ public static class Healing
             }
         });
 
+        // The multiplicative heal works on logarithms of the colors: f = s · exp(h), so the correction is a ratio.
+        bool log = o.Multiplicative;
+        if (log)
+            Parallel.For(0, h, row =>
+            {
+                for (int i = row * w; i < (row + 1) * w; i++)
+                    for (int k = 0; k < colors; k++)
+                    {
+                        dst[i * c + k] = MathF.Log(dst[i * c + k] + LogEpsilon);
+                        src[i * c + k] = MathF.Log(src[i * c + k] + LogEpsilon);
+                    }
+            });
+
         // h = d − s on the boundary (and everywhere fixed); the membrane fills in the rest.
         var corr = new float[dst.Length];
         for (int i = 0; i < state.Length; i++)
             if (state[i] == Fixed)
                 for (int k = 0; k < c; k++) corr[i * c + k] = dst[i * c + k] - src[i * c + k];
-        SolveMembrane(corr, state, w, h, c);
+        SolveMembrane(corr, state, w, h, c, o.Screening(area));
 
         var result = dst; // fixed pixels keep the destination exactly
         Parallel.For(0, h, row =>
         {
             for (int i = row * w; i < (row + 1) * w; i++)
             {
-                if (state[i] != Unknown) continue;
-                for (int k = 0; k < c; k++) result[i * c + k] = Math.Clamp(src[i * c + k] + corr[i * c + k], 0f, 1f);
+                if (log)
+                    for (int k = 0; k < colors; k++) result[i * c + k] = MathF.Exp(result[i * c + k]) - LogEpsilon;
+                if (state[i] != Unknown)
+                {
+                    if (log) for (int k = 0; k < colors; k++) result[i * c + k] = Math.Clamp(result[i * c + k], 0f, 1f);
+                    continue;
+                }
+                for (int k = 0; k < c; k++)
+                {
+                    float v = src[i * c + k] + corr[i * c + k];
+                    if (log && k < colors) v = MathF.Exp(v) - LogEpsilon;
+                    result[i * c + k] = Math.Clamp(v, 0f, 1f);
+                }
             }
         });
         return PixelSource.FromFloats(result, colors, grid);
     }
+
+    /// <summary>Offset before taking logarithms in the multiplicative heal, so black stays finite (about 5/255).</summary>
+    private const float LogEpsilon = 0.02f;
 
     private static float ReadAs(PixelSource image, int x, int y, Span<float> color, int channels)
     {
@@ -113,7 +151,7 @@ public static class Healing
     /// Solves Δh = 0 for the <see cref="Unknown"/> cells of a <paramref name="w"/>×<paramref name="h"/> grid of
     /// <paramref name="c"/>-channel values, holding the other cells fixed (cascadic multigrid; see the class remarks).
     /// </summary>
-    internal static void SolveMembrane(float[] values, byte[] state, int w, int h, int c)
+    internal static void SolveMembrane(float[] values, byte[] state, int w, int h, int c, float screening = 0f)
     {
         bool any = false;
         foreach (byte s in state) any |= s == Unknown;
@@ -147,7 +185,7 @@ public static class Healing
                     if (!unknown)
                         for (int k = 0; k < c; k++) coarse[ci * c + k] = sum[k] / fixedCount;
                 }
-            SolveMembrane(coarse, coarseState, cw, ch, c);
+            SolveMembrane(coarse, coarseState, cw, ch, c, screening * 4f); // twice the spacing: four times the screening per cell
 
             // Bilinear prolongation: fine pixel x sits at coarse coordinate x/2 − 0.25.
             Parallel.For(0, h, y =>
@@ -170,16 +208,16 @@ public static class Healing
                     }
                 }
             });
-            Relax(values, state, w, h, c, maxSweeps: 400, tolerance: 1e-6f);
+            Relax(values, state, w, h, c, maxSweeps: 400, tolerance: 1e-6f, screening);
         }
         else
         {
-            Relax(values, state, w, h, c, maxSweeps: 4000, tolerance: 1e-7f);
+            Relax(values, state, w, h, c, maxSweeps: 4000, tolerance: 1e-7f, screening);
         }
     }
 
     /// <summary>Red–black successive over-relaxation until the largest update is below <paramref name="tolerance"/>.</summary>
-    private static void Relax(float[] values, byte[] state, int w, int h, int c, int maxSweeps, float tolerance)
+    private static void Relax(float[] values, byte[] state, int w, int h, int c, int maxSweeps, float tolerance, float screening)
     {
         // Close to the optimal factor for a grid of this size; the start is already smooth, so this mostly removes the
         // remaining low-frequency error quickly without overshooting.
@@ -191,8 +229,8 @@ public static class Healing
             for (int parity = 0; parity < 2; parity++)
             {
                 int p = parity;
-                if (parallel) Parallel.For(0, h, y => RelaxRow(values, state, w, h, c, y, p, omega, rowMax));
-                else for (int y = 0; y < h; y++) RelaxRow(values, state, w, h, c, y, p, omega, rowMax);
+                if (parallel) Parallel.For(0, h, y => RelaxRow(values, state, w, h, c, y, p, omega, rowMax, screening));
+                else for (int y = 0; y < h; y++) RelaxRow(values, state, w, h, c, y, p, omega, rowMax, screening);
             }
             float worst = 0f;
             foreach (float m in rowMax) worst = MathF.Max(worst, m);
@@ -201,7 +239,7 @@ public static class Healing
     }
 
     /// <summary>One colour of one row of a red–black sweep; records the row's largest update in <paramref name="rowMax"/>.</summary>
-    private static void RelaxRow(float[] values, byte[] state, int w, int h, int c, int y, int parity, float omega, float[] rowMax)
+    private static void RelaxRow(float[] values, byte[] state, int w, int h, int c, int y, int parity, float omega, float[] rowMax, float screening)
     {
         float max = parity == 0 ? 0f : rowMax[y];
         Span<float> avg = stackalloc float[c];
@@ -216,7 +254,7 @@ public static class Healing
             if (y > 0) { Add(avg, values, (i - w) * c); n++; }
             if (y < h - 1) { Add(avg, values, (i + w) * c); n++; }
             if (n == 0) continue;
-            float inv = 1f / n;
+            float inv = 1f / (n + screening); // screened: (Δ − λ)h = 0 pulls h toward 0 away from the boundary
             for (int k = 0; k < c; k++)
             {
                 ref float v = ref values[i * c + k];
@@ -232,4 +270,69 @@ public static class Healing
     {
         for (int k = 0; k < sum.Length; k++) sum[k] += values[at + k];
     }
+}
+
+/// <summary>The Healing Brush's and Spot Healing Brush's Mode menu.</summary>
+public enum HealMode
+{
+    Normal,
+
+    /// <summary>No color adaptation: the source is painted through the stroke as it is (a clone), keeping its grain at soft edges.</summary>
+    Replace,
+    Multiply,
+    Screen,
+    Darken,
+    Lighten,
+    Color,
+    Luminosity,
+}
+
+/// <summary>Settings of the Poisson heal (see <see cref="Healing"/>).</summary>
+/// <remarks>
+/// <para>
+/// Diffusion (Photoshop's 1–7) sets how far the surrounding colors reach into the healed area. At 7 the correction is
+/// a pure membrane (Δh = 0): the colors adapt fully, everywhere, which suits smooth images. Lower values solve the
+/// screened equation (Δ − λ)h = 0 instead, whose correction fades away from the edge over a distance of about
+/// 1/√λ, a multiple of the brush size (0.1× at 1, doubling to 0.8× at 4, then 2× at 5 and 6× at 6): the middle of the stroke keeps more of the source's own
+/// tone, which suits grainy or finely detailed images where a fully diffused color would look flat.
+/// </para>
+/// <para>
+/// Multiplicative heals in the logarithm of the colors (f = s·exp(h)), so the correction is a gain rather than an
+/// offset. Use it when the source and the destination are lit very differently (texture from a highlight into a
+/// shadow, or across a strong shading gradient): an additive heal keeps the source's contrast in absolute terms, so
+/// its texture looks too strong in the dark area and washed out in the bright one; a gain scales the texture with the
+/// local brightness, as light does.
+/// </para>
+/// </remarks>
+public readonly record struct HealOptions()
+{
+    /// <summary>1..7 (Photoshop's default is 5); 7, 0 or above means full diffusion.</summary>
+    public int Diffusion { get; init; } = 7;
+
+    /// <summary>Heal in the log domain (see the remarks).</summary>
+    public bool Multiplicative { get; init; }
+
+    /// <summary>Brush diameter the diffusion distance is measured in; 0 uses the healed area's size.</summary>
+    public float BrushSize { get; init; }
+
+    /// <summary>The screening λ (per pixel²) for <paramref name="area"/>; 0 for full diffusion.</summary>
+    internal float Screening(PixelRect area)
+    {
+        if (Diffusion <= 0 || Diffusion >= 7) return 0f;
+        float size = BrushSize > 0 ? BrushSize : Math.Max(1, Math.Min(area.Width, area.Height));
+        float reach = size * Diffusion switch { 1 => 0.1f, 2 => 0.2f, 3 => 0.4f, 4 => 0.8f, 5 => 2f, _ => 6f };
+        return 1f / (reach * reach);
+    }
+
+    /// <summary>The paint mode that lays a healed patch over the layer in <paramref name="mode"/> (Replace paints normally).</summary>
+    public static PaintMode PaintModeFor(HealMode mode) => mode switch
+    {
+        HealMode.Multiply => PaintMode.Multiply,
+        HealMode.Screen => PaintMode.Screen,
+        HealMode.Darken => PaintMode.Darken,
+        HealMode.Lighten => PaintMode.Lighten,
+        HealMode.Color => PaintMode.Color,
+        HealMode.Luminosity => PaintMode.Luminosity,
+        _ => PaintMode.Normal,
+    };
 }

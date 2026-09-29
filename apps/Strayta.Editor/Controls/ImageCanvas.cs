@@ -230,6 +230,7 @@ public sealed partial class ImageCanvas : Control
         if (!_panning && IsPaintTool && props.IsLeftButtonPressed)
         {
             var p = ToImage(e.GetPosition(this));
+            TrackPressure(e.GetCurrentPoint(this), e.Pointer); // pen pressure (ImageCanvas.Brush.cs)
             _stroking = StrokeBegin?.Invoke((float)p.X, (float)p.Y) == true;
             if (!_stroking) _dragStart = null;
         }
@@ -272,6 +273,7 @@ public sealed partial class ImageCanvas : Control
             foreach (var point in e.GetIntermediatePoints(this))
             {
                 var p = ToImage(point.Position);
+                TrackPressure(point, e.Pointer);
                 StrokeMove?.Invoke((float)p.X, (float)p.Y);
             }
             return;

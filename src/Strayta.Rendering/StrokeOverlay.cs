@@ -37,15 +37,19 @@ public sealed class StrokeOverlay
     /// <summary>True for cloning strokes, whose color comes from <see cref="ReadSource"/> pixel by pixel.</summary>
     public bool HasSource => _stroke.Source is not null;
 
+    /// <summary>How the stroke combines with the layer (<see cref="PaintBlender"/>).</summary>
+    public PaintMode Mode => _stroke.Mode;
+
     /// <summary>
-    /// A cloning stroke's color at a (preview) pixel into <paramref name="color"/> (<paramref name="channels"/> entries),
-    /// sampled at the same full-resolution point as <see cref="CoverageAt"/>; returns the source's alpha (0 while the
-    /// source is not ready, so nothing shows yet).
+    /// A cloning stroke's color at a (preview) pixel into <paramref name="color"/> (<paramref name="channels"/> entries);
+    /// returns the source's alpha (0 while the source is not ready, so nothing shows yet). On a downscaled preview the
+    /// source is averaged over the full-resolution pixels the preview pixel stands for (a box-filtered reduction sampled
+    /// bilinearly), so cloned detail does not alias.
     /// </summary>
     public float ReadSource(int x, int y, Span<float> color, int channels) =>
         _stroke.Source is not { } source ? 0f
         : _factor == 1 ? source.Read(x, y, color, channels)
-        : source.Read(x * _factor + _factor / 2, y * _factor + _factor / 2, color, channels);
+        : source.ReadArea(x * _factor, y * _factor, _factor, color, channels);
 
     /// <summary>
     /// The mask stroke painting <paramref name="node"/>'s mask, if any. Pixel strokes return null, so callers can

@@ -124,6 +124,7 @@
             <Slider Width="100" Minimum="1" Maximum="100" Value="{Binding BrushOpacity}" VerticalAlignment="Center" />
             <TextBlock Text="{Binding BrushOpacity, StringFormat='{}{0:0}%'}" VerticalAlignment="Center" MinWidth="34" />
           </StackPanel>
+          <v:BrushToolOptions /> <!-- Mode, Flow, Airbrush, Smoothing, pressure, Brush Settings -->
         </StackPanel>
       </StackPanel>
 

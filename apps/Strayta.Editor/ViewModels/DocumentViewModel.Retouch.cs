@@ -36,9 +36,11 @@ public sealed partial class DocumentViewModel
         public required Task<PixelSource> Image { get; init; }
         public required bool Mask { get; init; }
         public CloneSource? Source { get; init; }
+        public HealMode HealMode { get; init; }
+        public HealOptions Heal { get; init; }
+        public SpotHealType SpotType { get; init; }
     }
 
-    private readonly CloneAligner _cloneAligner = new();
     private RetouchStroke? _retouch;
 
     // A flattened copy of the document for Sample: Current & Below / All Layers, kept while the document is unchanged
@@ -48,8 +50,11 @@ public sealed partial class DocumentViewModel
     private CpuRenderer? _retouchRenderer;
     private Task _retouchRender = Task.CompletedTask;
 
-    /// <summary>The Clone Stamp's and Healing Brush's source point and aligned offset (shared by both, as in Photoshop).</summary>
-    internal CloneAligner CloneSourcePoint => _cloneAligner;
+    /// <summary>
+    /// The current tool's source point and aligned offset in the active clone source (the Clone Stamp and Healing Brush
+    /// keep their own; CloneSources.cs).
+    /// </summary>
+    internal CloneAligner CloneSourcePoint => ActiveCloneSource.AlignerFor(Editor.Tool);
 
     /// <summary>Time from release to the retouch edit being in the document, and the heal's share of it, for the self-test and benchmark.</summary>
     public (double TotalMs, double HealMs) LastRetouchTimings { get; private set; }
@@ -61,7 +66,8 @@ public sealed partial class DocumentViewModel
     public void SetCloneSource(int x, int y)
     {
         if (x < 0 || y < 0 || x >= Model.Width || y >= Model.Height) return;
-        _cloneAligner.SetSource(x, y);
+        CloneSourcePoint.SetSource(x, y);
+        ActiveCloneSource.Refresh();
         Notice = "";
         PrefetchRetouchSample();
     }
@@ -74,8 +80,27 @@ public sealed partial class DocumentViewModel
     public (float X, float Y)? RetouchSourceFor(float x, float y)
     {
         if (!Editor.UsesSourcePoint) return null;
-        if (_retouch?.Source is { } s) return (x - s.Dx, y - s.Dy);
-        return _cloneAligner.SourceFor(x, y, Editor.RetouchAligned);
+        if (_retouch?.Source is { } s) return s.SourcePoint(x, y);
+        var aligner = CloneSourcePoint;
+        if (aligner.SourcePoint is not { } point) return null;
+        // An aligned offset places the source relative to the pointer (through the slot's scale and angle); otherwise the
+        // next stroke starts sampling at the source point itself.
+        if (Editor.RetouchAligned && aligner.Offset is { } o)
+            return new CloneSource(o.Dx, o.Dy, null, ActiveCloneSource.Transform, point.X + 0.5f, point.Y + 0.5f).SourcePoint(x, y);
+        return (point.X + 0.5f, point.Y + 0.5f);
+    }
+
+    /// <summary>
+    /// What the canvas's clone overlay shows for the brush at (<paramref name="x"/>, <paramref name="y"/>): the source
+    /// point under the brush, the active source's placement and the panel's overlay options; null when there is no
+    /// source to show.
+    /// </summary>
+    public CloneOverlay? CloneOverlayFor(float x, float y)
+    {
+        if (RetouchSourceFor(x, y) is not { } at) return null;
+        var t = _retouch?.Source?.Transform ?? ActiveCloneSource.Transform;
+        return new CloneOverlay(at.X, at.Y, t.ScaleX, t.ScaleY, t.Angle, Editor.CloneOverlayShow,
+            Math.Clamp(Editor.CloneOverlayOpacity / 100, 0, 1), Editor.CloneOverlayClipped, Editor.CloneOverlayAutoHide);
     }
 
     /// <summary>
@@ -105,7 +130,9 @@ public sealed partial class DocumentViewModel
         else if (PaintableLayer() is { } layer) owner = layer;
         else return false;
 
+        // Flow, airbrush and mode are the Clone Stamp's; the healing tools paint at full strength and blend on release.
         var brush = Editor.CurrentBrush;
+        if (tool != CanvasTool.CloneStamp) brush = brush with { Flow = 1f, Mode = PaintMode.Normal, PressureOpacity = false };
         var image = SampleImageFor(owner, mask, Editor.CurrentRetouchSample);
         PaintStroke stroke;
         CloneSource? source = null;
@@ -119,12 +146,15 @@ public sealed partial class DocumentViewModel
         }
         else
         {
-            if (_cloneAligner.BeginStroke(x, y, Editor.RetouchAligned) is not { } offset)
+            var aligner = CloneSourcePoint;
+            if (aligner.BeginStroke(x, y, Editor.RetouchAligned) is not { } offset || aligner.SourcePoint is not { } point)
             {
                 Notice = $"Option-click to set a source point for the {Editor.ToolName} first.";
                 return false;
             }
-            source = new CloneSource(offset.Dx, offset.Dy, image.IsCompletedSuccessfully ? image.Result : null);
+            ActiveCloneSource.Refresh();
+            source = new CloneSource(offset.Dx, offset.Dy, image.IsCompletedSuccessfully ? image.Result : null,
+                ActiveCloneSource.Transform, point.X + 0.5f, point.Y + 0.5f);
             if (!image.IsCompleted) _ = ShowSourceWhenReadyAsync(source, image);
             // The Healing Brush heals at full strength; its stroke only shows the raw clone until release.
             if (tool == CanvasTool.Healing) brush = brush with { Opacity = 1f };
@@ -132,8 +162,13 @@ public sealed partial class DocumentViewModel
         }
 
         _stroke = stroke;
-        _retouch = new RetouchStroke { Tool = tool, Image = image, Mask = mask, Source = source };
-        stroke.StrokeTo(x, y);
+        _retouch = new RetouchStroke
+        {
+            Tool = tool, Image = image, Mask = mask, Source = source,
+            HealMode = Editor.CurrentHealMode, Heal = Editor.CurrentHealOptions(brush.Size),
+            SpotType = (SpotHealType)Math.Clamp(Editor.SpotTypeIndex, 0, 2),
+        };
+        StartStrokeInput(stroke, x, y); // pressure, smoothing, airbrush (DocumentViewModel.Brush.cs)
         RequestRender();
         return true;
     }
@@ -180,18 +215,17 @@ public sealed partial class DocumentViewModel
                 var heal = Stopwatch.StartNew();
                 (int Dx, int Dy)? found = null;
                 var final = stroke;
+                var paintMode = HealOptions.PaintModeFor(r.HealMode);
                 switch (r.Tool)
                 {
                     case CanvasTool.Healing:
-                        final = stroke.WithSource(new CloneSource(0, 0, Healing.HealStroke(image, r.Source!.Dx, r.Source.Dy, stroke, canvas)), 1f);
+                        // Replace paints the source as it is (a clone with the brush's soft edge); the rest heal, then blend.
+                        final = r.HealMode == HealMode.Replace
+                            ? stroke.WithSource(r.Source!, 1f)
+                            : stroke.WithSource(new CloneSource(0, 0, Healing.HealStroke(image, r.Source!, stroke, canvas, r.Heal)), 1f, paintMode);
                         break;
                     case CanvasTool.SpotHealing:
-                        found = SpotHealing.FindSource(image, stroke, canvas);
-                        // Nothing fits (a tiny image): fill from the surroundings alone.
-                        var patch = found is { } o
-                            ? Healing.HealStroke(image, o.Dx, o.Dy, stroke, canvas)
-                            : Healing.Heal(image, PixelSource.FromFloats([], image.ColorChannels, PixelRect.Empty), 0, 0, Healing.Coverage(stroke), stroke.Bounds, canvas);
-                        final = stroke.WithSource(new CloneSource(0, 0, patch), 1f);
+                        final = stroke.WithSource(new CloneSource(0, 0, SpotHeal(image, stroke, canvas, r, out found)), 1f, paintMode);
                         break;
                 }
                 double healed = heal.Elapsed.TotalMilliseconds;

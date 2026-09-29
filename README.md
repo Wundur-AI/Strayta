@@ -39,6 +39,9 @@ dotnet test
   flattened copy.
 - Tools: Move (V), Hand (H), Brush (B), Eraser (E); `[` and `]` resize the brush. Space or the middle
   button pans with any tool; the wheel zooms.
+- Brush options: Mode (the blend modes plus Behind and Clear), Flow (dabs build up within a stroke, capped by
+  Opacity), Airbrush build-up, Smoothing (a pulled string that catches up when you pause), pen pressure for size and
+  opacity, and a Brush Settings popover with Spacing, Angle and Roundness. The Clone Stamp has them too.
 - Eyedropper (I): click or drag to pick the foreground color (Option: background), with a sampling ring showing
   the new color over the old; Sample Size from a point to 101×101 average, from the current layer or all layers.
   Option with the Brush, Paint Bucket or Gradient picks colors too.
@@ -54,6 +57,13 @@ dotnet test
   release blends the source's texture into the surrounding colors (a Poisson heal); the Spot Healing Brush needs no
   source: it finds a nearby area whose surroundings match (Proximity Match) and heals from it. All respect the
   selection, paint a targeted layer mask (cloning mask values), keep a Background opaque and are one undo step each.
+  The healing tools have Photoshop's Modes (Replace paints the source unadapted), Diffusion (1–7: how far the
+  surrounding colors reach in) and a Multiplicative heal for sources lit very differently. Spot Healing's Type is
+  Content-Aware (patch synthesis with PatchMatch, coarse to fine, then healed in), Create Texture or Proximity Match.
+  Window › Clone Source holds five sources per document with offset, W/H scale (negative flips), angle and overlay
+  options (opacity, clipped, auto hide); the Clone Stamp and Healing Brush keep separate source points in each.
+- Edit › Content-Aware Fill fills the selection from everything outside it (current layer or all layers, into the
+  layer or a new one, with or without color adaptation).
 - Zoom (Z): click zooms in, Option-click out, drag left/right zooms smoothly; double-click the tool for 100%.
   View > Zoom In / Zoom Out (⌘+ / ⌘−), Fit on Screen (⌘0), Actual Size (⌘1).
 - History panel (Window > History): every step of the active document from Open on, with its tool's icon; click a
@@ -138,8 +148,10 @@ measure frame rates (layer drag, brush stroke, free transform, Properties slider
 document).
 `STRAYTA_TOOLBENCH=new` times a Gradient drag (preview frame rate, release to edit), Paint Bucket clicks and
 Eyedropper samples on a generated 4000×3000 document.
-`STRAYTA_RETOUCHBENCH=new` measures Clone Stamp stroke frame rates and commit times and Healing / Spot Healing
-release-to-edit times on a generated 4000×3000 document.
+`STRAYTA_RETOUCHBENCH=new` measures Clone Stamp stroke frame rates and commit times (plain and transformed) and
+Healing / Spot Healing (each Type) release-to-edit times and Content-Aware Fill times on a generated 4000×3000 document.
+`STRAYTA_PAINTBENCH=new` runs the brush benchmarks (with Flow, a blend mode, Smoothing and Airbrush, pressure and an
+elliptical tip) on a generated 4000×3000 document.
 `STRAYTA_FILTERBENCH=new` times every filter at full resolution and the slider-to-preview latency on a generated
 4000×3000 document.
 `STRAYTA_CROPBENCH=1` times Image Size, a crop box drag and turned and straight crops (`=new` on a generated
