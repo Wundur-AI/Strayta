@@ -1,8 +1,10 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Strayta.Core;
 using Strayta.Core.Painting;
 using Strayta.Core.Selection;
 using Strayta.Editor.Controls;
+using Strayta.Editor.Editing;
 
 namespace Strayta.Editor.ViewModels;
 
@@ -74,16 +76,21 @@ public sealed partial class EditorViewModel
     public bool IsReflectedGradient { get => GradientType == GradientType.Reflected; set { if (value) GradientType = GradientType.Reflected; } }
     public bool IsDiamondGradient { get => GradientType == GradientType.Diamond; set { if (value) GradientType = GradientType.Diamond; } }
 
-    public IReadOnlyList<string> GradientPresetNames { get; } = ["Foreground to Background", "Foreground to Transparent"];
+    /// <summary>
+    /// The quick choice the self-test and older code use: 0 picks Foreground to Background, 1 Foreground to Transparent
+    /// (the options bar's gradient picker sets <see cref="ToolGradient"/> directly).
+    /// </summary>
+    public int GradientPresetIndex
+    {
+        get => ReferenceEquals(ToolGradient, GradientPresets.ForegroundToTransparent) ? 1 : 0;
+        set => ToolGradient = value == 1 ? GradientPresets.ForegroundToTransparent : GradientPresets.ForegroundToBackground;
+    }
 
-    /// <summary>0: foreground to background color; 1: foreground color fading to transparent.</summary>
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(GradientPreviewBrush))]
-    public partial int GradientPresetIndex { get; set; }
+    [NotifyPropertyChangedFor(nameof(GradientPresetIndex))]
+    public partial Core.Gradient ToolGradient { get; set; } = GradientPresets.ForegroundToBackground;
 
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(GradientPreviewBrush))]
-    public partial bool GradientReverse { get; set; }
+    [ObservableProperty] public partial bool GradientReverse { get; set; }
 
     /// <summary>On by default, as in Photoshop: long gradients show no bands.</summary>
     [ObservableProperty] public partial bool GradientDither { get; set; } = true;
@@ -91,38 +98,52 @@ public sealed partial class EditorViewModel
     /// <summary>Gradient opacity in percent.</summary>
     [ObservableProperty] public partial double GradientOpacity { get; set; } = 100;
 
-    partial void OnForegroundColorChanged(Avalonia.Media.Color value) => OnPropertyChanged(nameof(GradientPreviewBrush));
-    partial void OnBackgroundColorChanged(Avalonia.Media.Color value) => OnPropertyChanged(nameof(GradientPreviewBrush));
+    /// <summary>Photoshop's Transparency option: off draws the gradient opaque, ignoring its opacity stops.</summary>
+    [ObservableProperty] public partial bool GradientTransparency { get; set; } = true;
 
-    /// <summary>The options bar's picture of the current preset with today's colors.</summary>
-    public Avalonia.Media.IBrush GradientPreviewBrush
-    {
-        get
-        {
-            var from = ForegroundColor;
-            var to = GradientPresetIndex == 1 ? Avalonia.Media.Color.FromArgb(0, from.R, from.G, from.B) : BackgroundColor;
-            if (GradientReverse) (from, to) = (to, from);
-            return new Avalonia.Media.LinearGradientBrush
-            {
-                StartPoint = new Avalonia.RelativePoint(0, 0.5, Avalonia.RelativeUnit.Relative),
-                EndPoint = new Avalonia.RelativePoint(1, 0.5, Avalonia.RelativeUnit.Relative),
-                GradientStops = { new Avalonia.Media.GradientStop(from, 0), new Avalonia.Media.GradientStop(to, 1) },
-            };
-        }
-    }
+    /// <summary>The Method option (Perceptual by default, as in current Photoshop); see <see cref="Core.Painting.GradientMethod"/>.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(GradientMethodIndex))]
+    public partial GradientMethod GradientMethod { get; set; } = GradientMethod.Perceptual;
+
+    public IReadOnlyList<string> GradientMethodNames { get; } = ["Perceptual", "Linear", "Classic"];
+    public int GradientMethodIndex { get => (int)GradientMethod; set { if (value >= 0) GradientMethod = (GradientMethod)value; } }
+
+    /// <summary>The gradient's painting mode (Photoshop's Mode option).</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(GradientModeIndex))]
+    public partial PaintMode GradientMode { get; set; } = PaintMode.Normal;
+
+    public int GradientModeIndex { get => PaintModeNames.IndexOf(GradientMode); set { if (PaintModeNames.At(value) is { } m) GradientMode = m; } }
+
+    /// <summary>The foreground color as a Core color, for pickers that show foreground/background stops.</summary>
+    public Core.RgbColor ForegroundRgb => CurrentColor;
+    public Core.RgbColor BackgroundRgb => CurrentBackgroundColor;
+
+    partial void OnForegroundColorChanged(Avalonia.Media.Color value) => OnPropertyChanged(nameof(ForegroundRgb));
+    partial void OnBackgroundColorChanged(Avalonia.Media.Color value) => OnPropertyChanged(nameof(BackgroundRgb));
 
     /// <summary>The gradient a drag from <paramref name="start"/> to <paramref name="end"/> draws with the current options.</summary>
     public GradientSpec GradientFor(System.Numerics.Vector2 start, System.Numerics.Vector2 end)
     {
         var fg = CurrentColor;
-        bool transparent = GradientPresetIndex == 1;
-        return new GradientSpec(GradientType, start, end, fg, 1f, transparent ? fg : CurrentBackgroundColor, transparent ? 0f : 1f)
+        var resolved = ToolGradient.Resolve(fg, CurrentBackgroundColor);
+        // The spec's table is built once per gradient; keep the same resolved instance while nothing changed.
+        if (_resolvedGradient is { } cached && ReferenceEquals(cached.Source, ToolGradient) && cached.Resolved == resolved) resolved = cached.Resolved;
+        else _resolvedGradient = (ToolGradient, resolved);
+        return new GradientSpec(GradientType, start, end, fg, 1f, fg, 1f)
         {
+            Stops = resolved,
+            Method = GradientMethod,
+            Transparency = GradientTransparency,
+            Mode = GradientMode,
             Reverse = GradientReverse,
             Dither = GradientDither,
             Opacity = (float)Math.Clamp(GradientOpacity / 100, 0, 1),
         };
     }
+
+    private (Core.Gradient Source, Core.Gradient Resolved)? _resolvedGradient;
 
     // ---- Zoom -----------------------------------------------------------------------------------------
 

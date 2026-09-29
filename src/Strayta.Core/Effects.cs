@@ -6,7 +6,14 @@ public readonly record struct RgbColor(float R, float G, float B)
     public static RgbColor Black => new(0, 0, 0);
 }
 
-public readonly record struct GradientColorStop(float Location, float Midpoint, RgbColor Color);
+public readonly record struct GradientColorStop(float Location, float Midpoint, RgbColor Color)
+{
+    /// <summary>
+    /// A stop that follows the foreground or background color (Photoshop's stop "Type"); <see cref="Color"/> then
+    /// holds the color it had when last resolved. See <see cref="GradientModel.Resolve"/>.
+    /// </summary>
+    public GradientStopKind Kind { get; init; }
+}
 public readonly record struct GradientOpacityStop(float Location, float Midpoint, float Opacity);
 
 /// <summary>A multi-stop gradient. Locations and midpoints are 0..1; a midpoint is where the blend reaches 50%.</summary>
@@ -15,9 +22,19 @@ public sealed record Gradient(IReadOnlyList<GradientColorStop> Colors, IReadOnly
     /// <summary>Photoshop's name for the gradient (e.g. "Black, White"), kept so a saved style shows it again.</summary>
     public string Name { get; init; } = "Custom";
 
+    /// <summary>
+    /// Photoshop's Smoothness (the descriptor's "Intr", 0..4096), 0..1: 0 blends linearly between stops, 1 rounds the
+    /// corners at interior stops (see Painting.GradientLut). <see cref="Sample"/> ignores it.
+    /// </summary>
+    public float Smoothness { get; init; } = 1f;
+
+    /// <summary>Set for Photoshop's Noise gradient type; the stops are then unused.</summary>
+    public GradientNoise? Noise { get; init; }
+
     /// <summary>Stops compare by value, so an unchanged gradient is recognised after a round trip.</summary>
     public bool Equals(Gradient? other) =>
-        other is not null && Name == other.Name && Colors.SequenceEqual(other.Colors) && Opacities.SequenceEqual(other.Opacities);
+        other is not null && Name == other.Name && Colors.SequenceEqual(other.Colors) && Opacities.SequenceEqual(other.Opacities)
+        && Smoothness == other.Smoothness && Equals(Noise, other.Noise);
 
     public override int GetHashCode() => HashCode.Combine(Name, Colors.Count, Opacities.Count);
 

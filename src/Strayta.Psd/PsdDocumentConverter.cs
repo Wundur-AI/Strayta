@@ -24,6 +24,7 @@ internal static class PsdDocumentConverter
         if (PsdResolution.Read(file.FindResource(PsdResolution.ResourceId)?.Data) is { } ppi) doc.Resolution = ppi;
         doc.Composite = BuildComposite(file);
         BuildLayerTree(file, doc.Root, globalAngle);
+        doc.Patterns.AddRange(PsdPatterns.Read(file)); // PsdPatterns.cs
         return doc;
     }
 

@@ -67,5 +67,11 @@ public sealed class Document
     /// <summary>Global light altitude in degrees (used by Bevel &amp; Emboss).</summary>
     public float GlobalLightAltitude { get; set; } = 30f;
 
+    /// <summary>
+    /// Patterns stored with the document (PSD's Patt/Pat2/Pat3 blocks): the ones its layers' pattern fills and effects
+    /// refer to by ID. A format writer adds any a layer refers to that the file did not have yet.
+    /// </summary>
+    public List<Painting.Pattern> Patterns { get; } = [];
+
     public PixelRect Bounds => PixelRect.FromSize(Width, Height);
 }

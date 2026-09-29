@@ -1,6 +1,7 @@
 using System.Buffers.Binary;
 using System.Text;
 using Strayta.Core;
+using Strayta.Core.Painting;
 
 namespace Strayta.Psd;
 
@@ -176,15 +177,36 @@ public static class PsdWriter
 
         if (layersInBlock)
             WriteBlock(s, doc.BitDepth == 16 ? "Lr16" : "Lr32", layerInfo, psb);
+        // Patterns layers refer to that the file does not carry yet are appended to its pattern block (PsdPatterns.cs).
+        var patternKey = PsdPatterns.KeyFor(doc.BitDepth);
+        var newPatterns = NewReferencedPatterns(doc, source, records);
         foreach (var block in source?.GlobalBlocks ?? [])
         {
             if (block.Key is "Layr" or "Lr16" or "Lr32") continue;
-            WriteBlock(s, block.Key, RequireData(block, "document"), psb, block.Signature);
+            var data = RequireData(block, "document");
+            if (newPatterns.Count > 0 && block.Key == patternKey)
+            {
+                data = PsdPatterns.Append(data, newPatterns, doc.BitDepth);
+                newPatterns = [];
+            }
+            WriteBlock(s, block.Key, data, psb, block.Signature);
         }
+        if (newPatterns.Count > 0) WriteBlock(s, patternKey, PsdPatterns.Encode(newPatterns, doc.BitDepth), psb);
 
         while (section.Length % 4 != 0) section.WriteByte(0);
         w.Length(section.Length, psb);
         w.Bytes(section.ToArray());
+    }
+
+    /// <summary>Document patterns that some layer's data mentions by ID and that the source file's pattern blocks lack.</summary>
+    private static List<Pattern> NewReferencedPatterns(Document doc, PsdFile? source, List<Record> records)
+    {
+        if (doc.Patterns.Count == 0) return [];
+        var stored = source is null ? [] : PsdPatterns.Read(source).Select(p => p.Id).ToHashSet();
+        return doc.Patterns
+            .Where(p => !stored.Contains(p.Id) && records.Any(r => r.Blocks.Any(b => PsdPatterns.Mentions(b.Data, p.Id))))
+            .DistinctBy(p => p.Id)
+            .ToList();
     }
 
     private static byte[] LayerInfo(List<Record> records, bool psb, bool compositeAlpha)

@@ -1,0 +1,140 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:Strayta.Editor.ViewModels"
+        xmlns:c="using:Strayta.Editor.Controls"
+        x:Class="Strayta.Editor.Views.GradientEditorWindow"
+        x:DataType="vm:GradientEditorViewModel"
+        Title="Gradient Editor"
+        Width="560" SizeToContent="Height" CanResize="False"
+        WindowStartupLocation="CenterOwner"
+        Background="{DynamicResource St.Panel}"
+        FontSize="12">
+  <!-- Photoshop's Gradient Editor: presets on top, OK / Cancel / New on the right, name and type, then the bar with its
+       opacity stops above and color stops below, and the selected stop's settings. -->
+  <Window.Styles>
+    <Style Selector="TextBlock.rowlabel">
+      <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+    <Style Selector="ComboBox">
+      <Setter Property="MinHeight" Value="24" />
+      <Setter Property="Height" Value="24" />
+      <Setter Property="Padding" Value="8,0" />
+      <Setter Property="FontSize" Value="12" />
+    </Style>
+  </Window.Styles>
+
+  <StackPanel Margin="16,14" Spacing="12">
+    <Grid ColumnDefinitions="*,14,96">
+      <StackPanel Spacing="6">
+        <TextBlock Text="Presets" FontWeight="SemiBold" />
+        <Border BorderBrush="{DynamicResource St.Border}" BorderThickness="1" Background="{DynamicResource St.Window}" Height="150">
+          <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+            <ItemsControl ItemsSource="{Binding Presets}" Margin="4">
+              <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                  <WrapPanel />
+                </ItemsPanelTemplate>
+              </ItemsControl.ItemsPanel>
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="vm:PresetTile">
+                  <Button Padding="0" Margin="2" BorderThickness="1" BorderBrush="{DynamicResource St.Border}" ToolTip.Tip="{Binding Name}"
+                          Command="{Binding $parent[Window].((vm:GradientEditorViewModel)DataContext).UsePresetCommand}" CommandParameter="{Binding}">
+                    <Image Source="{Binding Image}" Width="36" Height="36" Stretch="Fill" />
+                    <Button.ContextMenu>
+                      <ContextMenu IsVisible="{Binding IsUser}">
+                        <MenuItem Header="Delete Gradient"
+                                  Command="{Binding $parent[Window].((vm:GradientEditorViewModel)DataContext).DeletePresetCommand}" CommandParameter="{Binding}" />
+                      </ContextMenu>
+                    </Button.ContextMenu>
+                  </Button>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </ScrollViewer>
+        </Border>
+      </StackPanel>
+      <StackPanel Grid.Column="2" Spacing="8" Margin="0,22,0,0">
+        <Button x:Name="OkButton" Content="OK" IsDefault="True" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" />
+        <Button x:Name="CancelButton" Content="Cancel" IsCancel="True" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" />
+      </StackPanel>
+    </Grid>
+
+    <Grid ColumnDefinitions="Auto,8,*,14,96">
+      <TextBlock Classes="rowlabel" Text="Name:" />
+      <TextBox Grid.Column="2" Text="{Binding Name}" Height="24" MinHeight="0" Padding="6,2" />
+      <Button Grid.Column="4" Content="New" Command="{Binding NewPresetCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+              ToolTip.Tip="Save this gradient as a preset" />
+    </Grid>
+
+    <StackPanel Orientation="Horizontal" Spacing="18">
+      <StackPanel Orientation="Horizontal" Spacing="8">
+        <TextBlock Classes="rowlabel" Text="Gradient Type:" />
+        <ComboBox ItemsSource="{Binding TypeNames}" SelectedIndex="{Binding TypeIndex}" Width="100" />
+      </StackPanel>
+      <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding IsSolid}">
+        <TextBlock Classes="rowlabel" Text="Smoothness:" />
+        <Slider Width="110" Minimum="0" Maximum="100" Value="{Binding Smoothness}" VerticalAlignment="Center" />
+        <c:NumberField Value="{Binding Smoothness}" Unit="%" Width="54" />
+      </StackPanel>
+      <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding IsNoise}">
+        <TextBlock Classes="rowlabel" Text="Roughness:" />
+        <Slider Width="110" Minimum="0" Maximum="100" Value="{Binding Roughness}" VerticalAlignment="Center" />
+        <c:NumberField Value="{Binding Roughness}" Unit="%" Width="54" />
+      </StackPanel>
+    </StackPanel>
+
+    <!-- Solid: the bar and the selected stop -->
+    <StackPanel Spacing="10" IsVisible="{Binding IsSolid}">
+      <c:GradientBar x:Name="Bar" />
+      <Border BorderBrush="{DynamicResource St.Border}" BorderThickness="1" CornerRadius="4" Padding="10,8">
+        <StackPanel Spacing="8">
+          <TextBlock Text="Stops" FontWeight="SemiBold" />
+          <StackPanel Orientation="Horizontal" Spacing="8" IsEnabled="{Binding SelectedIsOpacity}">
+            <TextBlock Classes="rowlabel" Text="Opacity:" Width="60" />
+            <c:NumberField Value="{Binding StopOpacity}" Unit="%" Width="54" />
+            <TextBlock Classes="rowlabel" Text="Location:" Margin="12,0,0,0" IsVisible="{Binding SelectedIsOpacity}" />
+            <c:NumberField Value="{Binding StopLocation}" Unit="%" Width="60" IsVisible="{Binding SelectedIsOpacity}" />
+            <Button Content="Delete" Command="{Binding DeleteStopCommand}" IsEnabled="{Binding CanDeleteStop}" IsVisible="{Binding SelectedIsOpacity}" />
+          </StackPanel>
+          <StackPanel Orientation="Horizontal" Spacing="8" IsEnabled="{Binding SelectedIsColor}">
+            <TextBlock Classes="rowlabel" Text="Color:" Width="60" />
+            <Button Padding="0" BorderThickness="0" Background="Transparent" ToolTip.Tip="Pick the stop's color">
+              <Border Width="40" Height="20" CornerRadius="3" BorderBrush="{DynamicResource St.Border}" BorderThickness="1">
+                <Border.Background>
+                  <SolidColorBrush Color="{Binding StopColor}" />
+                </Border.Background>
+              </Border>
+              <Button.Flyout>
+                <Flyout Placement="Bottom">
+                  <ColorView Color="{Binding StopColor}" IsAlphaVisible="False" Width="300" />
+                </Flyout>
+              </Button.Flyout>
+            </Button>
+            <ComboBox ItemsSource="{Binding StopKindNames}" SelectedIndex="{Binding StopKindIndex}" Width="120" />
+            <TextBlock Classes="rowlabel" Text="Location:" Margin="12,0,0,0" IsVisible="{Binding SelectedIsColor}" />
+            <c:NumberField Value="{Binding StopLocation}" Unit="%" Width="60" IsVisible="{Binding SelectedIsColor}" />
+            <Button Content="Delete" Command="{Binding DeleteStopCommand}" IsEnabled="{Binding CanDeleteStop}" IsVisible="{Binding SelectedIsColor}" />
+          </StackPanel>
+          <TextBlock Classes="label" TextWrapping="Wrap"
+                     Text="Click below the bar to add a color stop, above it for an opacity stop · drag a stop away to delete it · drag a diamond to move the midpoint" />
+        </StackPanel>
+      </Border>
+    </StackPanel>
+
+    <!-- Noise -->
+    <StackPanel Spacing="10" IsVisible="{Binding IsNoise}">
+      <Border Height="30" BorderBrush="Gray" BorderThickness="1" Margin="10,0">
+        <Image Source="{Binding BarImage}" Stretch="Fill" />
+      </Border>
+      <StackPanel Orientation="Horizontal" Spacing="16">
+        <StackPanel Orientation="Horizontal" Spacing="8">
+          <TextBlock Classes="rowlabel" Text="Color Model:" />
+          <ComboBox ItemsSource="{Binding NoiseModelNames}" SelectedIndex="{Binding NoiseModelIndex}" Width="80" />
+        </StackPanel>
+        <CheckBox Content="Restrict Colors" IsChecked="{Binding RestrictColors}" />
+        <CheckBox Content="Add Transparency" IsChecked="{Binding AddTransparency}" />
+        <Button Content="Randomize" Command="{Binding RandomizeCommand}" />
+      </StackPanel>
+    </StackPanel>
+  </StackPanel>
+</Window>
