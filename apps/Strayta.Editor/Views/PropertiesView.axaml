@@ -44,6 +44,34 @@
             </StackPanel>
           </DataTemplate>
 
+          <!-- Pixel, type, shape and smart-object layers and groups: size and position, then the mask if any -->
+          <DataTemplate DataType="vm:LayerPanel">
+            <StackPanel Spacing="10">
+              <StackPanel Orientation="Horizontal" Spacing="7">
+                <Path Classes="icon small" Data="{StaticResource IconMove}" />
+                <TextBlock Classes="heading" Text="{Binding Title}" />
+              </StackPanel>
+              <TextBlock Classes="label" Text="Transform" />
+              <Grid ColumnDefinitions="Auto,Auto,Auto,Auto,Auto" RowDefinitions="Auto,6,Auto" IsEnabled="{Binding HasContent}">
+                <TextBlock Classes="label" Text="W" VerticalAlignment="Center" Margin="0,0,6,0" />
+                <c:NumberField Grid.Column="1" Unit=" px" Value="{Binding Width}" Width="76" ToolTip.Tip="Width of the layer's content in pixels" />
+                <ToggleButton Grid.Column="2" Classes="icon" Margin="6,0" Padding="3" IsChecked="{Binding LinkSize}"
+                              ToolTip.Tip="Keep proportions when changing W or H">
+                  <Path Classes="icon small" Data="{StaticResource IconLink}" />
+                </ToggleButton>
+                <TextBlock Grid.Column="3" Classes="label" Text="H" VerticalAlignment="Center" Margin="0,0,6,0" />
+                <c:NumberField Grid.Column="4" Unit=" px" Value="{Binding Height}" Width="76" ToolTip.Tip="Height of the layer's content in pixels" />
+                <TextBlock Grid.Row="2" Classes="label" Text="X" VerticalAlignment="Center" Margin="0,0,6,0" />
+                <c:NumberField Grid.Row="2" Grid.Column="1" Unit=" px" Value="{Binding X}" Width="76" ToolTip.Tip="Left edge of the layer's content" />
+                <TextBlock Grid.Row="2" Grid.Column="3" Classes="label" Text="Y" VerticalAlignment="Center" Margin="0,0,6,0" />
+                <c:NumberField Grid.Row="2" Grid.Column="4" Unit=" px" Value="{Binding Y}" Width="76" ToolTip.Tip="Top edge of the layer's content" />
+              </Grid>
+              <TextBlock Classes="muted" Text="This layer has no pixels to size or move." IsVisible="{Binding !HasContent}" TextWrapping="Wrap" />
+              <Separator IsVisible="{Binding Mask, Converter={x:Static ObjectConverters.IsNotNull}}" Margin="0,4" />
+              <ContentControl Content="{Binding Mask}" />
+            </StackPanel>
+          </DataTemplate>
+
           <DataTemplate DataType="vm:MaskPanel">
             <StackPanel Spacing="10">
               <StackPanel Orientation="Horizontal" Spacing="7">

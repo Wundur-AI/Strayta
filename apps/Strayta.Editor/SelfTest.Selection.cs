@@ -96,6 +96,28 @@ internal static partial class SelfTest
         check(Alpha(layer, 150, 150) == 255 && Alpha(layer, 60, 150) == 0 && Alpha(layer, 300, 150) == 0 &&
               layer.Bounds.Left >= 100 && layer.Bounds.Right <= 200, $"brush stroke is clipped to the selection ({layer.Bounds})");
 
+        // Properties › Transform: W / H / X / Y of the visible pixels, one undo step each.
+        doc.SetSelection(null, "Deselect");
+        doc.UpdateProperties();
+        if (doc.Properties is LayerPanel lp)
+        {
+            var start = Strayta.Rendering.Transforms.Resampler.ContentBounds(layer);
+            check(lp.Title == "Pixel Layer" && lp.Width == start.Width && lp.Height == start.Height && lp.X == start.Left && lp.Y == start.Top,
+                $"Properties shows the size and position of the layer's pixels ({lp.Width}×{lp.Height} at {lp.X}, {lp.Y})");
+            await lp.ResizeAsync(start.Width * 2, start.Height * 2);
+            // Bicubic resampling leaves a faint 1 px fringe at soft edges, so the visible bounds may read a pixel wider on each side.
+            check(Math.Abs(lp.Width - start.Width * 2) <= 2 && Math.Abs(lp.Height - start.Height * 2) <= 2
+                  && Math.Abs(lp.X - start.Left) <= 1 && Math.Abs(lp.Y - start.Top) <= 1 && doc.UndoText == "Undo Free Transform",
+                $"typing W and H scales it from its top-left corner as one step ({lp.Width}×{lp.Height} at {lp.X}, {lp.Y})");
+            doc.Undo();
+            await lp.MoveToAsync(10, 20);
+            check(lp.X == 10 && lp.Y == 20 && lp.Width == start.Width, $"typing X and Y moves it exactly ({lp.Width}×{lp.Height} at {lp.X}, {lp.Y})");
+            doc.Undo();
+            check(Strayta.Rendering.Transforms.Resampler.ContentBounds(layer) == start, "undo puts it back");
+        }
+        else check(false, $"Properties shows a layer panel for a pixel layer ({doc.Properties?.GetType().Name})");
+        doc.Undo(); // the Deselect
+
         // Delete clears the selected area; undo restores it.
         await doc.ClearAsync();
         check(Alpha(layer, 150, 150) == 0 && doc.UndoText == "Undo Clear", "Delete clears the selected area");

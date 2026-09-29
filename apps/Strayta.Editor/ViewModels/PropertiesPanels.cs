@@ -7,7 +7,7 @@ using Strayta.Editor.Editing;
 
 namespace Strayta.Editor.ViewModels;
 
-/// <summary>The Properties panel: the selected adjustment layer's settings, or the selected layer's mask.</summary>
+/// <summary>The Properties panel: the selected adjustment layer's settings, or the selected layer's size, position and mask.</summary>
 public sealed class PropertiesToolViewModel(EditorViewModel editor) : Tool
 {
     public EditorViewModel Editor { get; } = editor;
@@ -47,6 +47,7 @@ public abstract class PropertiesPanel : ObservableObject, IDisposable
         AdjustmentLayer { Adjustment: InvertAdjustment } a => new MessagePanel(document, a, "Invert", "Invert has no settings."),
         AdjustmentLayer a => new MessagePanel(document, a, a.Kind,
             $"Strayta cannot edit {a.Kind} adjustments yet. The layer is kept exactly as it is when you save."),
+        PixelLayer or LayerGroup => new LayerPanel(document, node),
         { } n when n.GetMask() is not null => new MaskPanel(document, n),
         { } n => new MessagePanel(document, n, "Properties", n.CanHaveMask()
             ? "No properties. Add a layer mask (Layer › Layer Mask) to control where this layer shows."
@@ -64,6 +65,7 @@ public abstract class PropertiesPanel : ObservableObject, IDisposable
         AdjustmentLayer { Adjustment: ThresholdAdjustment } => typeof(ThresholdPanel),
         AdjustmentLayer { Adjustment: PosterizeAdjustment } => typeof(PosterizePanel),
         AdjustmentLayer => typeof(MessagePanel),
+        PixelLayer or LayerGroup => typeof(LayerPanel),
         { } n when n.GetMask() is not null => typeof(MaskPanel),
         _ => typeof(MessagePanel),
     };

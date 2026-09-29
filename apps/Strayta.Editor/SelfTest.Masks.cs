@@ -42,7 +42,7 @@ internal static partial class SelfTest
             var item = Item(layer);
             check(layer.Mask is { DefaultColor: 255, Pixels: null } && doc.EditMask && item.IsMaskTarget && !item.IsPixelTarget && item.HasMask,
                 "Add Layer Mask adds a reveal-all mask and targets it (mask thumbnail framed)");
-            check(doc.Properties is MaskPanel, $"the Properties panel shows the mask ({doc.Properties?.GetType().Name})");
+            check(doc.Properties is MaskPanel or LayerPanel { Mask: not null }, $"the Properties panel shows the mask ({doc.Properties?.GetType().Name})");
 
             // Paint black into the mask: the live preview (full-resolution lane) already hides the layer there.
             var fullFrame = new TaskCompletionSource();
