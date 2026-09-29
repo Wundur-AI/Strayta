@@ -41,7 +41,7 @@ public sealed partial class EditorViewModel
     [NotifyPropertyChangedFor(nameof(BucketModeIndex))]
     public partial PaintMode BucketMode { get; set; } = PaintMode.Normal;
 
-    public int BucketModeIndex { get => PaintModeNames.IndexOf(BucketMode); set { if (PaintModeNames.At(value) is { } m) BucketMode = m; } }
+    public int BucketModeIndex { get => Controls.PaintModeNames.IndexOf(BucketMode); set { if (Controls.PaintModeNames.At(value) is { } m) BucketMode = m; } }
 
     /// <summary>Percent.</summary>
     [ObservableProperty] public partial double BucketOpacity { get; set; } = 100;
@@ -60,12 +60,6 @@ public sealed partial class EditorViewModel
 
     private IFillDialogs? FillDialogProvider => FillDialogs ?? _dialogs as IFillDialogs;
 
-    /// <summary>
-    /// Content-Aware Fill, when an implementation is plugged in (Edit › Fill's Content-Aware choice stays disabled
-    /// until then): given the document and the selection, it fills and returns true.
-    /// </summary>
-    public static Func<DocumentViewModel, Task<bool>>? ContentAwareFill { get; set; }
-
     private FillDialogViewModel? _lastFill;
     private StrokeDialogViewModel? _lastStroke;
 
@@ -75,12 +69,14 @@ public sealed partial class EditorViewModel
     {
         if (ActiveDocument is not { } doc || FillDialogProvider is not { } dialogs) return;
         var vm = _lastFill?.Copy(doc) ?? new FillDialogViewModel(doc.Model.Patterns);
-        vm.ContentAwareAvailable = ContentAwareFill is not null;
+        vm.ContentAwareAvailable = doc.Selection is not null;
         if (!await dialogs.AskFillAsync(vm)) return;
         _lastFill = vm;
         if (vm.Contents == FillContents.ContentAware)
         {
-            if (ContentAwareFill is { } fill) await fill(doc);
+            // As Photoshop's Fill does: fill the selection in place with the last Content-Aware Fill settings
+            // (Edit › Content-Aware Fill… offers the full dialog; DocumentViewModel.ContentAwareFill.cs).
+            await doc.ContentAwareFillAsync(ContentAwareFillSettings);
             return;
         }
         await doc.FillWithAsync(vm.ToOptions(CurrentColor, CurrentBackgroundColor));

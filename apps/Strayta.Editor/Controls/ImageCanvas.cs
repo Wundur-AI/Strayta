@@ -24,6 +24,7 @@ public enum CanvasTool
     Gradient,
     Zoom,
     Crop,
+    PerspectiveCrop,
     CloneStamp,
     SpotHealing,
     Healing,
@@ -125,7 +126,7 @@ public sealed partial class ImageCanvas : Control
         OnSelectionPropertyChanged(change);
         OnWandPropertyChanged(change);
         if (change.Property == FreeTransformProperty) OnFreeTransformChanged(change);
-        if (change.Property == CropBoxProperty) OnCropBoxChanged(change); // ImageCanvas.Crop.cs
+        OnCropPropertyChanged(change); // ImageCanvas.Crop.cs
     }
 
     public void FitToView()
@@ -173,7 +174,7 @@ public sealed partial class ImageCanvas : Control
             context.FillRectangle(_checker, dest);
             context.DrawImage(bmp, new Rect(0, 0, bmp.PixelSize.Width, bmp.PixelSize.Height), dest);
         }
-        if (CropBox is null) // a crop drops the selection, and its outline would not follow the turned image
+        if (CropBox is null) // while cropping the outline would not follow the turned image (the selection follows the crop)
         {
             RenderLiveOutline(context); // first: it decides whether the selection's own outline shows
             RenderSelection(context);
@@ -230,6 +231,7 @@ public sealed partial class ImageCanvas : Control
         if (!_panning && IsPaintTool && props.IsLeftButtonPressed)
         {
             var p = ToImage(e.GetPosition(this));
+            TrackPressure(e.GetCurrentPoint(this), e.Pointer); // pen pressure (ImageCanvas.Brush.cs)
             _stroking = StrokeBegin?.Invoke((float)p.X, (float)p.Y) == true;
             if (!_stroking) _dragStart = null;
         }
@@ -272,6 +274,7 @@ public sealed partial class ImageCanvas : Control
             foreach (var point in e.GetIntermediatePoints(this))
             {
                 var p = ToImage(point.Position);
+                TrackPressure(point, e.Pointer);
                 StrokeMove?.Invoke((float)p.X, (float)p.Y);
             }
             return;

@@ -114,7 +114,7 @@ public sealed partial class EditorViewModel
     [NotifyPropertyChangedFor(nameof(GradientModeIndex))]
     public partial PaintMode GradientMode { get; set; } = PaintMode.Normal;
 
-    public int GradientModeIndex { get => PaintModeNames.IndexOf(GradientMode); set { if (PaintModeNames.At(value) is { } m) GradientMode = m; } }
+    public int GradientModeIndex { get => Controls.PaintModeNames.IndexOf(GradientMode); set { if (Controls.PaintModeNames.At(value) is { } m) GradientMode = m; } }
 
     /// <summary>The foreground color as a Core color, for pickers that show foreground/background stops.</summary>
     public Core.RgbColor ForegroundRgb => CurrentColor;

@@ -1,6 +1,7 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:Strayta.Editor.ViewModels"
+             xmlns:v="using:Strayta.Editor.Views"
              x:Class="Strayta.Editor.Views.RetouchToolOptions"
              x:DataType="vm:EditorViewModel"
              VerticalAlignment="Center"
@@ -29,39 +30,70 @@
 
     <!-- Clone Stamp -->
     <StackPanel Orientation="Horizontal" Spacing="14" IsVisible="{Binding IsCloneStampTool}">
+      <StackPanel Orientation="Horizontal" Spacing="6">
+        <TextBlock Classes="label" Text="Mode" VerticalAlignment="Center" />
+        <ComboBox ItemsSource="{Binding PaintModeNames}" SelectedIndex="{Binding CloneModeIndex}" Width="110" MaxDropDownHeight="520" />
+      </StackPanel>
       <StackPanel Orientation="Horizontal" Spacing="8">
         <TextBlock Classes="label" Text="Opacity" VerticalAlignment="Center" />
-        <Slider Width="80" Minimum="1" Maximum="100" Value="{Binding BrushOpacity}" VerticalAlignment="Center" />
+        <Slider Width="70" Minimum="1" Maximum="100" Value="{Binding BrushOpacity}" VerticalAlignment="Center" />
         <TextBlock Text="{Binding BrushOpacity, StringFormat='{}{0:0}%'}" VerticalAlignment="Center" MinWidth="34" />
       </StackPanel>
+      <v:BrushToolOptions />
       <CheckBox Content="Aligned" IsChecked="{Binding CloneAligned}" FontSize="11"
                 ToolTip.Tip="Keep the distance to the source between strokes; off starts every stroke at the source point" />
       <StackPanel Orientation="Horizontal" Spacing="6">
         <TextBlock Classes="label" Text="Sample" VerticalAlignment="Center" />
         <ComboBox ItemsSource="{Binding RetouchSampleNames}" SelectedIndex="{Binding CloneSampleIndex}" Width="130" />
       </StackPanel>
-      <TextBlock Classes="label" VerticalAlignment="Center" Text="Option-click to set the source · paint to copy it" />
+      <TextBlock Classes="label" VerticalAlignment="Center" Text="Option-click to set the source" />
     </StackPanel>
 
-    <!-- Healing Brush -->
+    <!-- Healing Brush and Spot Healing Brush: Mode, Diffusion and the multiplicative heal -->
     <StackPanel Orientation="Horizontal" Spacing="14" IsVisible="{Binding IsHealingTool}">
+      <StackPanel Orientation="Horizontal" Spacing="6">
+        <TextBlock Classes="label" Text="Mode" VerticalAlignment="Center" />
+        <ComboBox ItemsSource="{Binding HealModeNames}" SelectedIndex="{Binding HealModeIndex}" Width="100"
+                  ToolTip.Tip="Replace paints the source without color adaptation; the others heal, then blend in this mode" />
+      </StackPanel>
       <CheckBox Content="Aligned" IsChecked="{Binding HealAligned}" FontSize="11"
                 ToolTip.Tip="Keep the distance to the source between strokes; off starts every stroke at the source point" />
       <StackPanel Orientation="Horizontal" Spacing="6">
         <TextBlock Classes="label" Text="Sample" VerticalAlignment="Center" />
         <ComboBox ItemsSource="{Binding RetouchSampleNames}" SelectedIndex="{Binding HealSampleIndex}" Width="130" />
       </StackPanel>
-      <TextBlock Classes="label" VerticalAlignment="Center"
-                 Text="Option-click to set the source · paint over a flaw; on release its texture blends into the surrounding colors" />
+      <StackPanel Orientation="Horizontal" Spacing="6">
+        <TextBlock Classes="label" Text="Diffusion" VerticalAlignment="Center" />
+        <Slider Width="60" Minimum="1" Maximum="7" TickFrequency="1" IsSnapToTickEnabled="True" Value="{Binding HealDiffusion}" VerticalAlignment="Center"
+                ToolTip.Tip="How far the surrounding colors reach in: lower keeps grain and detail, higher suits smooth images" />
+        <TextBlock Text="{Binding HealDiffusion, StringFormat='{}{0:0}'}" VerticalAlignment="Center" MinWidth="10" />
+      </StackPanel>
+      <CheckBox Content="Multiplicative" IsChecked="{Binding HealMultiplicative}" FontSize="11"
+                ToolTip.Tip="Adapt brightness as a gain (log domain) instead of an offset: for sources lit very differently from the spot, such as texture from a highlight into a shadow" />
+      <TextBlock Classes="label" VerticalAlignment="Center" Text="Option-click to set the source · paint over a flaw" />
     </StackPanel>
 
     <!-- Spot Healing Brush -->
     <StackPanel Orientation="Horizontal" Spacing="14" IsVisible="{Binding IsSpotHealingTool}">
-      <TextBlock Classes="label" Text="Type: Proximity Match" VerticalAlignment="Center"
-                 ToolTip.Tip="Heals from the nearby area whose surroundings match the spot's best" />
+      <StackPanel Orientation="Horizontal" Spacing="6">
+        <TextBlock Classes="label" Text="Mode" VerticalAlignment="Center" />
+        <ComboBox ItemsSource="{Binding HealModeNames}" SelectedIndex="{Binding SpotModeIndex}" Width="100" />
+      </StackPanel>
+      <StackPanel Orientation="Horizontal" Spacing="6">
+        <TextBlock Classes="label" Text="Type" VerticalAlignment="Center" />
+        <ComboBox ItemsSource="{Binding SpotTypeNames}" SelectedIndex="{Binding SpotTypeIndex}" Width="130"
+                  ToolTip.Tip="Content-Aware builds new detail from the surroundings · Create Texture fills with their grain · Proximity Match heals from the best-matching nearby area" />
+      </StackPanel>
+      <StackPanel Orientation="Horizontal" Spacing="6">
+        <TextBlock Classes="label" Text="Diffusion" VerticalAlignment="Center" />
+        <Slider Width="60" Minimum="1" Maximum="7" TickFrequency="1" IsSnapToTickEnabled="True" Value="{Binding HealDiffusion}" VerticalAlignment="Center" />
+        <TextBlock Text="{Binding HealDiffusion, StringFormat='{}{0:0}'}" VerticalAlignment="Center" MinWidth="10" />
+      </StackPanel>
+      <CheckBox Content="Multiplicative" IsChecked="{Binding HealMultiplicative}" FontSize="11"
+                ToolTip.Tip="Adapt brightness as a gain (log domain) instead of an offset, for spots on strong shading" />
       <CheckBox Content="Sample All Layers" IsChecked="{Binding SpotSampleAllLayers}" FontSize="11"
                 ToolTip.Tip="Look at the whole image instead of the selected layer (paint on an empty layer to keep the fix separate)" />
-      <TextBlock Classes="label" VerticalAlignment="Center" Text="Paint over a spot; it is healed from its surroundings on release" />
+      <TextBlock Classes="label" VerticalAlignment="Center" Text="Paint over a spot" />
     </StackPanel>
   </StackPanel>
 </UserControl>

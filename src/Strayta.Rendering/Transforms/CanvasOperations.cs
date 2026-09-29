@@ -72,20 +72,31 @@ public sealed class CanvasChange
     public Raster? Composite { get; init; }
 
     /// <summary>
-    /// Text, smart-object, fill and shape layers whose pixels were resampled (rotation or Image Size). Their live
-    /// data would redraw the old pixels, so the caller should rasterize them.
+    /// Text, smart-object, fill and shape layers whose pixels were resampled (a turn, Image Size or a perspective
+    /// crop). Their live data (type transform, smart object corners, vector outlines) must move with <see cref="Map"/>
+    /// so it matches, and their pixels may be redrawn from it; after a perspective crop, which that data cannot
+    /// express, the caller should rasterize them.
     /// </summary>
     public required IReadOnlyList<LayerNode> ResampledLiveLayers { get; init; }
 
+    /// <summary>
+    /// Set for a perspective crop: layers went through this projective map, and <see cref="Map"/> is only its affine
+    /// approximation at the middle of the new canvas (for guides and paths, which cannot be put in perspective).
+    /// </summary>
+    public Projective? Perspective { get; init; }
+
     /// <summary>True when layers only moved by whole pixels (no resampling).</summary>
-    public bool IsWholePixelMove => Map.IsIntegerTranslation(out _, out _);
+    public bool IsWholePixelMove => Perspective is null && Map.IsIntegerTranslation(out _, out _);
 
     /// <summary>Maps another full-canvas plane (a saved selection or spot channel) the same way; new area gets <paramref name="fill"/> (0..1).</summary>
     public Plane MapPlane(Plane plane, float fill)
     {
         var raster = new Raster(ColorMode.Grayscale, [plane], null);
-        var (mapped, bounds) = CanvasOperations.Transform(raster, PixelRect.FromSize(plane.Width, plane.Height), Map, Method,
-            PixelRect.FromSize(Width, Height), default);
+        var source = PixelRect.FromSize(plane.Width, plane.Height);
+        var canvas = PixelRect.FromSize(Width, Height);
+        var (mapped, bounds) = Perspective is { } p
+            ? ProjectiveResampler.TransformRaster(raster, source, p, ResampleFilter.Bicubic, canvas)
+            : CanvasOperations.Transform(raster, source, Map, Method, canvas, default);
         return CanvasOperations.ToCanvas(mapped, bounds, Width, Height, [fill], ColorMode.Grayscale, plane.BitDepth).ColorPlanes[0];
     }
 }
@@ -96,7 +107,7 @@ public sealed class CanvasChange
 /// (premultiplied, area-filtered when reducing). Layer bounds may extend past the canvas, which PSD supports, so
 /// pixels outside it are kept unless asked otherwise.
 /// </summary>
-public static class CanvasOperations
+public static partial class CanvasOperations
 {
     private static readonly string[] LiveTags = ["text", "smart-object", "fill", "shape"];
 
@@ -263,10 +274,19 @@ public static class CanvasOperations
             return moved is null ? With(mask, null, PixelRect.Empty) : With(mask, moved.ColorPlanes[0], bounds);
         }
         var filter = method == ResampleMethod.Bilinear ? ResampleFilter.Bilinear : ResampleFilter.Bicubic;
-        var result = SeparableScale.Applies(map)
-            ? SeparableScale.Mask(mask, plane, map, filter, clip, cancel)
-            : Resampler.TransformMask(mask, ResampleSource.FromPlane(plane), map, filter, clip, cancel);
-        return result.Pixels is null ? With(mask, null, PixelRect.Empty) : result;
+        if (SeparableScale.Applies(map)) return Result(SeparableScale.Mask(mask, plane, map, filter, clip, cancel));
+        // Like layer pixels, a turned crop reads only the part of the mask that lands on the canvas.
+        var source = mask;
+        if (clip is { } c && Resampler.NeededSource(mask.Bounds, map, c) is { } needed)
+        {
+            if (needed.IsEmpty) return With(mask, null, PixelRect.Empty);
+            var (part, bounds) = Resampler.Clip(new Raster(ColorMode.Grayscale, [plane], null), mask.Bounds, needed);
+            if (part is null) return With(mask, null, PixelRect.Empty);
+            (source, plane) = (With(mask, part.ColorPlanes[0], bounds), part.ColorPlanes[0]);
+        }
+        return Result(Resampler.TransformMask(source, ResampleSource.FromPlane(plane), map, filter, clip, cancel));
+
+        LayerMask Result(LayerMask result) => result.Pixels is null ? With(mask, null, PixelRect.Empty) : result;
     }
 
     private static LayerMask With(LayerMask m, Plane? pixels, PixelRect bounds) => new()

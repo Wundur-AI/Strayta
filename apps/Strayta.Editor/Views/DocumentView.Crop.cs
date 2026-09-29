@@ -6,6 +6,7 @@ public partial class DocumentView
     private void WireCrop()
     {
         Canvas.CropCommit += () => _ = _vm?.CommitCropAsync();
+        Canvas.PerspectiveCropCommit += () => _ = _vm?.CommitPerspectiveCropAsync();
         Canvas.StraightenDrawn += (a, b) =>
         {
             if (_vm is null) return;

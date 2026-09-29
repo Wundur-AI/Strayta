@@ -1,0 +1,79 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Strayta.Editor.ViewModels"
+             xmlns:c="using:Strayta.Editor.Controls"
+             x:Class="Strayta.Editor.Views.BrushToolOptions"
+             x:DataType="vm:EditorViewModel"
+             VerticalAlignment="Center"
+             IsVisible="{Binding ShowsBrushOptions}">
+  <UserControl.Styles>
+    <Style Selector="ComboBox">
+      <Setter Property="FontSize" Value="11" />
+      <Setter Property="MinHeight" Value="0" />
+      <Setter Property="Padding" Value="8,2" />
+    </Style>
+    <Style Selector="ToggleButton.opt">
+      <Setter Property="Padding" Value="5,2" />
+      <Setter Property="MinHeight" Value="0" />
+      <Setter Property="FontSize" Value="11" />
+    </Style>
+  </UserControl.Styles>
+  <UserControl.Resources>
+    <!-- Local glyphs, so the shared icon set stays untouched: airbrush nozzle, pen (pressure) and brush tip. -->
+    <StreamGeometry x:Key="GlyphAirbrush">M3,13 L9,7 M8,4 L12,8 L10,10 L6,6 Z M13,3 L14,2 M14,5 L15.5,4.5 M11,1.5 L11.5,0</StreamGeometry>
+    <StreamGeometry x:Key="GlyphPen">M3,13 L4,10 L11,3 L13,5 L6,12 Z M10,4 L12,6</StreamGeometry>
+    <StreamGeometry x:Key="GlyphTip">M8,2 C11.5,2 14,4.7 14,8 C14,11.3 11.5,14 8,14 C4.5,14 2,11.3 2,8 C2,4.7 4.5,2 8,2 Z M5,8 L11,8</StreamGeometry>
+  </UserControl.Resources>
+
+  <!-- Flow, Airbrush, Smoothing, pressure and the Brush Settings popover (EditorViewModel.Brush.cs), for the Brush,
+       Eraser and Clone Stamp. The Brush's Mode sits here too; the Clone Stamp's is in RetouchToolOptions. -->
+  <StackPanel Orientation="Horizontal" Spacing="12">
+    <StackPanel Orientation="Horizontal" Spacing="6" IsVisible="{Binding IsBrushTool}">
+      <TextBlock Classes="label" Text="Mode" VerticalAlignment="Center" />
+      <ComboBox ItemsSource="{Binding PaintModeNames}" SelectedIndex="{Binding BrushModeIndex}" Width="120" MaxDropDownHeight="520"
+                ToolTip.Tip="How the paint combines with the layer · Behind paints only where it is transparent · Clear erases" />
+    </StackPanel>
+    <StackPanel Orientation="Horizontal" Spacing="6">
+      <TextBlock Classes="label" Text="Flow" VerticalAlignment="Center" />
+      <Slider Width="70" Minimum="1" Maximum="100" Value="{Binding BrushFlow}" VerticalAlignment="Center"
+              ToolTip.Tip="How much each dab adds; overlapping dabs build up toward the opacity" />
+      <TextBlock Text="{Binding BrushFlow, StringFormat='{}{0:0}%'}" VerticalAlignment="Center" MinWidth="30" />
+    </StackPanel>
+    <ToggleButton Classes="icon" IsChecked="{Binding BrushAirbrush}" ToolTip.Tip="Airbrush: keep building up while the pointer rests">
+      <Path Classes="icon" Data="{StaticResource GlyphAirbrush}" />
+    </ToggleButton>
+    <StackPanel Orientation="Horizontal" Spacing="6">
+      <TextBlock Classes="label" Text="Smoothing" VerticalAlignment="Center" />
+      <Slider Width="60" Minimum="0" Maximum="100" Value="{Binding BrushSmoothing}" VerticalAlignment="Center"
+              ToolTip.Tip="The brush trails the pointer on a string this long, so strokes come out steadier" />
+      <TextBlock Text="{Binding BrushSmoothing, StringFormat='{}{0:0}%'}" VerticalAlignment="Center" MinWidth="30" />
+    </StackPanel>
+    <ToggleButton Classes="icon" IsChecked="{Binding BrushPressureOpacity}" ToolTip.Tip="Pen pressure controls opacity">
+      <Panel>
+        <Path Classes="icon" Data="{StaticResource GlyphPen}" />
+        <TextBlock Text="O" FontSize="8" FontWeight="Bold" HorizontalAlignment="Right" VerticalAlignment="Bottom" />
+      </Panel>
+    </ToggleButton>
+    <ToggleButton Classes="icon" IsChecked="{Binding BrushPressureSize}" ToolTip.Tip="Pen pressure controls size">
+      <Panel>
+        <Path Classes="icon" Data="{StaticResource GlyphPen}" />
+        <TextBlock Text="S" FontSize="8" FontWeight="Bold" HorizontalAlignment="Right" VerticalAlignment="Bottom" />
+      </Panel>
+    </ToggleButton>
+    <Button Classes="icon" ToolTip.Tip="Brush Settings: spacing, angle and roundness">
+      <Path Classes="icon" Data="{StaticResource GlyphTip}" />
+      <Button.Flyout>
+        <Flyout Placement="BottomEdgeAlignedLeft">
+          <StackPanel Width="230" Spacing="8" Margin="4">
+            <TextBlock Text="Brush Settings" FontWeight="SemiBold" />
+            <c:SliderField Label="Spacing" Format="0" Minimum="1" Maximum="200" Value="{Binding BrushSpacing}"
+                           ToolTip.Tip="Distance between dabs, in percent of the diameter" />
+            <c:SliderField Label="Angle" Format="0" Minimum="-180" Maximum="180" Value="{Binding BrushAngle}" />
+            <c:SliderField Label="Roundness" Format="0" Minimum="1" Maximum="100" Value="{Binding BrushRoundness}" />
+            <c:SliderField Label="Hardness" Format="0" Minimum="0" Maximum="100" Value="{Binding BrushHardness}" />
+          </StackPanel>
+        </Flyout>
+      </Button.Flyout>
+    </Button>
+  </StackPanel>
+</UserControl>

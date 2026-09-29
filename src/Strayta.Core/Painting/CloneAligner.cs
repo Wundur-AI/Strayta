@@ -24,6 +24,15 @@ public sealed class CloneAligner
     }
 
     /// <summary>
+    /// Sets the offset as if a stroke had measured it (the Clone Source panel's Offset X/Y): aligned strokes use it
+    /// from now on. Ignored before a source point is set.
+    /// </summary>
+    public void SetOffset(int dx, int dy)
+    {
+        if (SourcePoint is not null) _offset = (dx, dy);
+    }
+
+    /// <summary>
     /// The offset for a stroke starting at (<paramref name="x"/>, <paramref name="y"/>): the aligned offset when there is
     /// one, otherwise the distance from the source point to the start (which becomes the aligned offset). Null when no
     /// source point has been set.

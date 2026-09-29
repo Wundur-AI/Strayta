@@ -32,11 +32,28 @@ public partial class MainWindow : ICanvasDialogs
             Opened += async (_, _) => await SelfTest.RunCropBenchmarkAsync(Editor, synthetic: bench == "new");
     }
 
-    /// <summary>Enter crops and Esc resets the box while the Crop tool is active.</summary>
+    /// <summary>
+    /// Enter crops and Esc resets the box while the Crop tool is active; O cycles the overlay and Shift+O turns it.
+    /// Enter and Esc also drive the Perspective Crop tool.
+    /// </summary>
     private void OnCropKey(object? sender, KeyEventArgs e)
     {
-        if (e.Handled || e.KeyModifiers != KeyModifiers.None || Editor.ActiveDocument?.CropBox is null
-            || FocusManager?.GetFocusedElement() is TextBox) return;
+        if (e.Handled || FocusManager?.GetFocusedElement() is TextBox) return;
+        var doc = Editor.ActiveDocument;
+        if (doc?.PerspectiveCrop is not null && e.KeyModifiers == KeyModifiers.None && e.Key is Key.Enter or Key.Return or Key.Escape)
+        {
+            (e.Key == Key.Escape ? Editor.CancelPerspectiveCropCommand : Editor.CommitPerspectiveCropCommand).Execute(null);
+            e.Handled = true;
+            return;
+        }
+        if (doc?.CropBox is null) return;
+        if (e.Key == Key.O && e.KeyModifiers is KeyModifiers.None or KeyModifiers.Shift)
+        {
+            Editor.CycleCropOverlay(orientation: e.KeyModifiers == KeyModifiers.Shift);
+            e.Handled = true;
+            return;
+        }
+        if (e.KeyModifiers != KeyModifiers.None) return;
         switch (e.Key)
         {
             case Key.Enter or Key.Return:
@@ -49,6 +66,50 @@ public partial class MainWindow : ICanvasDialogs
                 return;
         }
         e.Handled = true;
+    }
+
+    public async Task<CropPromptChoice> AskApplyCropAsync()
+    {
+        var dialog = new Window
+        {
+            Title = "Crop",
+            Width = 380,
+            SizeToContent = SizeToContent.Height,
+            CanResize = false,
+            WindowStartupLocation = WindowStartupLocation.CenterOwner,
+        };
+        var choice = CropPromptChoice.Cancel;
+        Button Choice(string text, CropPromptChoice value, bool isDefault = false, bool isCancel = false)
+        {
+            var b = new Button { Content = text, MinWidth = 90, IsDefault = isDefault, IsCancel = isCancel };
+            b.Click += (_, _) =>
+            {
+                choice = value;
+                dialog.Close();
+            };
+            return b;
+        }
+        dialog.Content = new StackPanel
+        {
+            Margin = new Thickness(20),
+            Spacing = 14,
+            Children =
+            {
+                new TextBlock { Text = "Crop the image?", FontWeight = FontWeight.SemiBold },
+                new StackPanel
+                {
+                    Orientation = Orientation.Horizontal, Spacing = 8, HorizontalAlignment = HorizontalAlignment.Right,
+                    Children =
+                    {
+                        Choice("Cancel", CropPromptChoice.Cancel, isCancel: true),
+                        Choice("Don't Crop", CropPromptChoice.DontCrop),
+                        Choice("Crop", CropPromptChoice.Crop, isDefault: true),
+                    },
+                },
+            },
+        };
+        await dialog.ShowDialog(this);
+        return choice;
     }
 
     // ---- Dialogs ------------------------------------------------------------------------------------
@@ -97,6 +158,13 @@ public partial class MainWindow : ICanvasDialogs
         var h = NumberBox(height, 1, 300_000, "0.##");
         var units = new ComboBox { ItemsSource = new[] { "Pixels", "Percent" }, SelectedIndex = 0, Width = 100 };
         var constrain = new CheckBox { Content = "Constrain proportions", IsChecked = true };
+        // Photoshop's Scale Styles: on by default, and only with constrained proportions.
+        var scaleStyles = new CheckBox { Content = "Scale Styles", IsChecked = true };
+        constrain.IsCheckedChanged += (_, _) =>
+        {
+            scaleStyles.IsEnabled = constrain.IsChecked == true;
+            if (constrain.IsChecked != true) scaleStyles.IsChecked = false;
+        };
         var ppi = NumberBox(resolution, 1, 30_000, "0.##");
         var resample = new ComboBox
         {
@@ -152,14 +220,14 @@ public partial class MainWindow : ICanvasDialogs
         if (!await ShowDialogAsync("Image Size", "OK",
                 DialogRow("Width", new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { w, units } }),
                 DialogRow("Height", h),
-                DialogRow("", constrain),
+                DialogRow("", new StackPanel { Orientation = Orientation.Horizontal, Spacing = 16, Children = { constrain, scaleStyles } }),
                 DialogRow("Resolution", new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { ppi, new TextBlock { Text = "pixels/inch", VerticalAlignment = VerticalAlignment.Center } } }),
                 DialogRow("Resample", resample),
                 result))
             return null;
         var (fw, fh) = Pixels();
         var chosen = resample.SelectedIndex switch { 1 => ResampleMethod.Bilinear, 2 => ResampleMethod.NearestNeighbor, _ => ResampleMethod.Bicubic };
-        return new ImageSizeRequest(fw, fh, (double)(ppi.Value ?? (decimal)resolution), chosen);
+        return new ImageSizeRequest(fw, fh, (double)(ppi.Value ?? (decimal)resolution), chosen, scaleStyles.IsChecked == true);
     }
 
     public async Task<CanvasSizeRequest?> AskCanvasSizeAsync(int width, int height, Color foreground, Color background, bool hasBackgroundLayer)

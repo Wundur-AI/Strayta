@@ -263,7 +263,7 @@ public sealed partial class EditorViewModel : ObservableObject
         if (!Swatches.Contains(ForegroundColor)) Swatches.Add(ForegroundColor);
     }
 
-    public BrushSettings CurrentBrush => new((float)BrushSize, (float)(BrushHardness / 100), (float)(BrushOpacity / 100));
+    public BrushSettings CurrentBrush => WithBrushOptions(new((float)BrushSize, (float)(BrushHardness / 100), (float)(BrushOpacity / 100))); // EditorViewModel.Brush.cs
     public RgbColor CurrentColor => new(ForegroundColor.R / 255f, ForegroundColor.G / 255f, ForegroundColor.B / 255f);
 
     /// <summary>[ and ] resize the brush in steps that scale with its size, like Photoshop.</summary>

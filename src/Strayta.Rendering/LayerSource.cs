@@ -1,4 +1,5 @@
 using Strayta.Core;
+using Strayta.Core.Painting;
 
 namespace Strayta.Rendering;
 
@@ -177,6 +178,8 @@ internal sealed class LayerSource : Source
         int from = Math.Max(x0, s.Bounds.Left), to = Math.Min(x0 + n, s.Bounds.Right);
         bool gray = _raster?.ColorMode == ColorMode.Grayscale;
         Span<float> cloned = stackalloc float[3];
+        Span<float> pixel = stackalloc float[3];
+        var mode = s.Mode;
         for (int x = from; x < to; x++)
         {
             float cov = s.CoverageAt(x, y) * s.Opacity;
@@ -194,16 +197,16 @@ internal sealed class LayerSource : Source
                 coverage[i] = a * (1f - cov);
                 continue;
             }
-            float na = cov + a * (1f - cov);
-            if (!rgb.IsEmpty)
+            if (!s.HasSource)
+                for (int k = 0; k < 3; k++) cloned[k] = gray ? _strokeColor[0] : _strokeColor[k];
+            if (rgb.IsEmpty)
             {
-                for (int k = 0; k < 3; k++)
-                {
-                    float brush = s.HasSource ? cloned[k] : gray ? _strokeColor[0] : _strokeColor[k];
-                    rgb[i * 3 + k] = (brush * cov + rgb[i * 3 + k] * a * (1f - cov)) / na;
-                }
+                // Coverage only: the paint's alpha effect is the same for every color.
+                pixel.Clear();
+                coverage[i] = PaintBlender.Paint(mode, pixel, a, cloned, cov, 3, x, y);
+                continue;
             }
-            coverage[i] = na;
+            coverage[i] = PaintBlender.Paint(mode, rgb.Slice(i * 3, 3), a, cloned, cov, 3, x, y);
         }
     }
 

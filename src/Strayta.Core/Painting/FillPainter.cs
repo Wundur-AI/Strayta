@@ -43,7 +43,7 @@ public static class FillPainter
         bool preserve = options.PreserveTransparency;
         if (preserve && old is null) return (old, layer.Bounds);
         // Behind and Clear only change transparent or existing pixels; with transparency preserved Clear does nothing.
-        var bounds = preserve || options.Mode.Kind == PaintModeKind.Clear ? oldBounds
+        var bounds = preserve || options.Mode == PaintMode.Clear ? oldBounds
             : oldBounds.IsEmpty ? coverage.Bounds : Union(oldBounds, coverage.Bounds);
         if (bounds.IsEmpty) return (old, layer.Bounds);
         bool withAlpha = !(old is not null && old.Alpha is null && bounds == oldBounds);
@@ -85,10 +85,10 @@ public static class FillPainter
                     {
                         float keep = a;
                         a = 1f;
-                        PaintBlender.Paint(paintMode, c, ref a, paint, cover, x, y);
+                        a = PaintBlender.Paint(paintMode, c, a, paint, cover, c.Length, x, y);
                         a = keep;
                     }
-                    else PaintBlender.Paint(paintMode, c, ref a, paint, cover, x, y);
+                    else a = PaintBlender.Paint(paintMode, c, a, paint, cover, c.Length, x, y);
                 }
                 for (int k = 0; k < colors; k++) Set(planes[k], i, c[k]);
                 if (alpha is not null) Set(alpha, i, a);

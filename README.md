@@ -39,6 +39,9 @@ dotnet test
   flattened copy.
 - Tools: Move (V), Hand (H), Brush (B), Eraser (E); `[` and `]` resize the brush. Space or the middle
   button pans with any tool; the wheel zooms.
+- Brush options: Mode (the blend modes plus Behind and Clear), Flow (dabs build up within a stroke, capped by
+  Opacity), Airbrush build-up, Smoothing (a pulled string that catches up when you pause), pen pressure for size and
+  opacity, and a Brush Settings popover with Spacing, Angle and Roundness. The Clone Stamp has them too.
 - Eyedropper (I): click or drag to pick the foreground color (Option: background), with a sampling ring showing
   the new color over the old; Sample Size from a point to 101×101 average, from the current layer or all layers.
   Option with the Brush, Paint Bucket or Gradient picks colors too.
@@ -65,6 +68,13 @@ dotnet test
   release blends the source's texture into the surrounding colors (a Poisson heal); the Spot Healing Brush needs no
   source: it finds a nearby area whose surroundings match (Proximity Match) and heals from it. All respect the
   selection, paint a targeted layer mask (cloning mask values), keep a Background opaque and are one undo step each.
+  The healing tools have Photoshop's Modes (Replace paints the source unadapted), Diffusion (1–7: how far the
+  surrounding colors reach in) and a Multiplicative heal for sources lit very differently. Spot Healing's Type is
+  Content-Aware (patch synthesis with PatchMatch, coarse to fine, then healed in), Create Texture or Proximity Match.
+  Window › Clone Source holds five sources per document with offset, W/H scale (negative flips), angle and overlay
+  options (opacity, clipped, auto hide); the Clone Stamp and Healing Brush keep separate source points in each.
+- Edit › Content-Aware Fill fills the selection from everything outside it (current layer or all layers, into the
+  layer or a new one, with or without color adaptation).
 - Zoom (Z): click zooms in, Option-click out, drag left/right zooms smoothly; double-click the tool for 100%.
   View > Zoom In / Zoom Out (⌘+ / ⌘−), Fit on Screen (⌘0), Actual Size (⌘1).
 - History panel (Window > History): every step of the active document from Open on, with its tool's icon; click a
@@ -125,15 +135,26 @@ dotnet test
   scales from the center), sides to stretch, outside to rotate (Shift snaps to 15°), inside to move; or type
   X/Y/W/H/angle in the options bar. Enter or double-click applies (bicubic, area-filtered when shrinking,
   masks follow), Esc cancels.
+- Type, smart objects, shapes and fill layers stay editable through Free Transform, turned crops and Image Size:
+  the file's type transform, smart object corners (`SoLd`/`PlLd`), vector mask points and live shape boxes
+  (`vogk`) move with them. Smart objects are redrawn from their embedded file (sharp when enlarged; warped ones and
+  ones with smart filters are resampled), solid color fills are filled again, and type and shapes show their
+  resampled pixels until Photoshop redraws them.
 - Crop tool (C): a box around the whole canvas; drag its edges (Shift keeps the shape, Option from the center),
   drag inside to move the image under it, outside to turn it (the box shrinks so no empty corners appear), or use
-  Straighten to draw a line to level. Ratio presets, rule-of-thirds grid, and Delete Cropped Pixels (off keeps
-  pixels outside the canvas in the layers, which PSD stores). Enter or double-click crops as one undo step, Esc
-  resets. A straight crop only moves layers; a turned one resamples them and rasterizes type and smart objects.
-- Image > Image Size (⌥⌘I: pixels or percent, resolution, Bicubic Automatic / Bilinear / Nearest Neighbor),
-  Canvas Size (⌥⌘C: absolute or relative, 9-way anchor, extension color for the Background), Crop (to the
-  selection) and Trim (transparent or corner-colored edges). Masks, the stored composite, saved selections,
-  guides, paths, vector masks and type positions follow the canvas.
+  Straighten to draw a line to level. Ratio presets and W x H x Resolution (crops to exact pixels and sets the
+  resolution); overlays Rule of Thirds, Grid, Diagonal, Triangle, Golden Ratio and Golden Spiral (O cycles,
+  Shift+O turns them); Delete Cropped Pixels (off keeps pixels outside the canvas in the layers, which PSD
+  stores); Content-Aware (enabled once content-aware filling is available). Enter or double-click crops as one
+  undo step, Esc resets; switching tools with a changed box asks "Crop the image?" (Crop, Don't Crop, Cancel). A
+  straight crop only moves layers; a turned one resamples them.
+- Perspective Crop (Shift+C): drag a box, then drag its corners (or sides) onto the edges of something that
+  should be rectangular; Enter straightens it onto a new canvas (bicubic, area-filtered where the perspective
+  shrinks). Live layers are rasterized, as their data cannot be put in perspective.
+- Image > Image Size (⌥⌘I: pixels or percent, resolution, Bicubic Automatic / Bilinear / Nearest Neighbor, Scale
+  Styles), Canvas Size (⌥⌘C: absolute or relative, 9-way anchor, extension color for the Background), Crop (to the
+  selection) and Trim (transparent or corner-colored edges). Masks, the selection, the stored composite, saved
+  selections, guides, paths, vector masks and live layers follow the canvas; a quarter turn turns guides exactly.
 - Filter menu: Blur › Box Blur, Gaussian Blur (radius 0.1–1000 px as the Gaussian's σ), Motion Blur (angle, distance);
   Noise › Add Noise (uniform or Gaussian, monochromatic); Other › High Pass; Sharpen › Unsharp Mask (amount, radius,
   threshold). Each dialog has a zoomable, draggable preview, sliders with number fields, and Preview for the canvas,
@@ -159,8 +180,10 @@ document).
 `STRAYTA_TOOLBENCH=new` times Gradient drags (two-color Classic and a seven-stop Perceptual one, plain and in Multiply;
 preview frame rate, release to edit), Paint Bucket clicks and Eyedropper samples on a generated 4000×3000 document.
 `STRAYTA_SETTINGS_DIR` keeps user presets (gradients, patterns) in another folder.
-`STRAYTA_RETOUCHBENCH=new` measures Clone Stamp stroke frame rates and commit times and Healing / Spot Healing
-release-to-edit times on a generated 4000×3000 document.
+`STRAYTA_RETOUCHBENCH=new` measures Clone Stamp stroke frame rates and commit times (plain and transformed) and
+Healing / Spot Healing (each Type) release-to-edit times and Content-Aware Fill times on a generated 4000×3000 document.
+`STRAYTA_PAINTBENCH=new` runs the brush benchmarks (with Flow, a blend mode, Smoothing and Airbrush, pressure and an
+elliptical tip) on a generated 4000×3000 document.
 `STRAYTA_FILTERBENCH=new` times every filter at full resolution and the slider-to-preview latency on a generated
 4000×3000 document.
 `STRAYTA_CROPBENCH=1` times Image Size, a crop box drag and turned and straight crops (`=new` on a generated

@@ -51,6 +51,7 @@
   <StreamGeometry x:Key="IconHistoryStep">M5 12h14 M13 6l6 6-6 6</StreamGeometry>
   <!-- Crop: two overlapping corner brackets. -->
   <StreamGeometry x:Key="IconCrop">M6 2v14a2 2 0 0 0 2 2h14 M2 6h14a2 2 0 0 1 2 2v14</StreamGeometry>
+  <StreamGeometry x:Key="IconPerspectiveCrop">M6 2v14a2 2 0 0 0 2 2h14 M2 6h14a2 2 0 0 1 2 2v14 M9 9l6 1.5v4.5l-6 1.5Z</StreamGeometry>
   <StreamGeometry x:Key="IconCommit">M5 12.5l4.5 4.5L19 7.5</StreamGeometry>
   <StreamGeometry x:Key="IconCancel">M6 6l12 12 M18 6L6 18</StreamGeometry>
   <!-- Masks and adjustments: Photoshop's rectangle-with-circle and half-filled circle (filled half drawn separately) -->
