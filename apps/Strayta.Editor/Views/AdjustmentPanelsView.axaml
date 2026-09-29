@@ -1,0 +1,240 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Strayta.Editor.ViewModels"
+             xmlns:c="using:Strayta.Editor.Controls"
+             xmlns:v="using:Strayta.Editor.Views"
+             x:Class="Strayta.Editor.Views.AdjustmentPanelsView"
+             x:DataType="vm:AdjustmentPanelBase">
+  <!-- Properties panels for Exposure, Vibrance, Color Balance, Black & White, Photo Filter, Channel Mixer, Selective
+       Color, Gradient Map, Color Lookup and Invert, laid out like Photoshop's (AdjustmentPanels.cs). -->
+  <UserControl.Styles>
+    <Style Selector="DockPanel.preset > TextBlock">
+      <Setter Property="Width" Value="46" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+    <Style Selector="Border.swatch">
+      <Setter Property="Width" Value="26" />
+      <Setter Property="Height" Value="18" />
+      <Setter Property="CornerRadius" Value="3" />
+      <Setter Property="BorderBrush" Value="{DynamicResource St.Border}" />
+      <Setter Property="BorderThickness" Value="1" />
+    </Style>
+  </UserControl.Styles>
+
+  <ContentControl Content="{Binding}">
+    <ContentControl.DataTemplates>
+
+      <DataTemplate DataType="vm:InvertPanel">
+        <StackPanel Spacing="9">
+          <StackPanel Orientation="Horizontal" Spacing="7">
+            <Path Classes="icon small" Data="{StaticResource IconAdjust}" />
+            <TextBlock Classes="heading" Text="{Binding Title}" />
+          </StackPanel>
+          <TextBlock Classes="muted" Text="{Binding Message}" />
+          <v:AdjustmentFooter />
+        </StackPanel>
+      </DataTemplate>
+
+      <DataTemplate DataType="vm:ExposurePanel">
+        <StackPanel Spacing="9">
+          <StackPanel Orientation="Horizontal" Spacing="7">
+            <Path Classes="icon small" Data="{StaticResource IconAdjust}" />
+            <TextBlock Classes="heading" Text="{Binding Title}" />
+          </StackPanel>
+          <DockPanel Classes="preset">
+            <TextBlock Classes="label" Text="Preset" />
+            <ComboBox Classes="channel" ItemsSource="{Binding PresetNames}" SelectedItem="{Binding Preset}" />
+          </DockPanel>
+          <c:SliderField Label="Exposure" Minimum="-20" Maximum="20" Step="0.01" Format="+0.00;-0.00;0.00" Value="{Binding Exposure}" />
+          <c:SliderField Label="Offset" Minimum="-0.5" Maximum="0.5" Step="0.0001" Format="+0.0000;-0.0000;0.0000" Value="{Binding Offset}" />
+          <c:SliderField Label="Gamma Correction" Minimum="0.01" Maximum="9.99" Logarithmic="True" Reversed="True" Format="0.00" Value="{Binding Gamma}" />
+          <v:AdjustmentFooter />
+        </StackPanel>
+      </DataTemplate>
+
+      <DataTemplate DataType="vm:VibrancePanel">
+        <StackPanel Spacing="9">
+          <StackPanel Orientation="Horizontal" Spacing="7">
+            <Path Classes="icon small" Data="{StaticResource IconAdjust}" />
+            <TextBlock Classes="heading" Text="{Binding Title}" />
+          </StackPanel>
+          <c:SliderField Label="Vibrance" Minimum="-100" Maximum="100" Value="{Binding Vibrance}" />
+          <c:SliderField Label="Saturation" Minimum="-100" Maximum="100" Value="{Binding Saturation}" />
+          <v:AdjustmentFooter />
+        </StackPanel>
+      </DataTemplate>
+
+      <DataTemplate DataType="vm:ColorBalancePanel">
+        <StackPanel Spacing="9">
+          <StackPanel Orientation="Horizontal" Spacing="7">
+            <Path Classes="icon small" Data="{StaticResource IconAdjust}" />
+            <TextBlock Classes="heading" Text="{Binding Title}" />
+          </StackPanel>
+          <DockPanel Classes="preset">
+            <TextBlock Classes="label" Text="Tone" />
+            <ComboBox Classes="channel" ItemsSource="{Binding Tones}" SelectedIndex="{Binding Tone}" />
+          </DockPanel>
+          <c:SliderField Label="Cyan ⟷ Red" Minimum="-100" Maximum="100" Format="+0;-0;0" Value="{Binding CyanRed}" />
+          <c:SliderField Label="Magenta ⟷ Green" Minimum="-100" Maximum="100" Format="+0;-0;0" Value="{Binding MagentaGreen}" />
+          <c:SliderField Label="Yellow ⟷ Blue" Minimum="-100" Maximum="100" Format="+0;-0;0" Value="{Binding YellowBlue}" />
+          <CheckBox Content="Preserve Luminosity" IsChecked="{Binding PreserveLuminosity}" FontSize="11" />
+          <v:AdjustmentFooter />
+        </StackPanel>
+      </DataTemplate>
+
+      <DataTemplate DataType="vm:BlackWhitePanel">
+        <StackPanel Spacing="9">
+          <StackPanel Orientation="Horizontal" Spacing="7">
+            <Path Classes="icon small" Data="{StaticResource IconAdjust}" />
+            <TextBlock Classes="heading" Text="{Binding Title}" />
+          </StackPanel>
+          <DockPanel Classes="preset">
+            <TextBlock Classes="label" Text="Preset" />
+            <ComboBox Classes="channel" ItemsSource="{Binding PresetNames}" SelectedItem="{Binding Preset}" />
+          </DockPanel>
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <CheckBox Content="Tint" IsChecked="{Binding Tint}" FontSize="11" />
+            <Button Padding="0" BorderThickness="0" Background="Transparent" VerticalAlignment="Center" IsEnabled="{Binding Tint}"
+                    ToolTip.Tip="Tint color">
+              <Border Classes="swatch" Background="{Binding TintBrush}" />
+              <Button.Flyout>
+                <Flyout Placement="BottomEdgeAlignedLeft">
+                  <ColorView Color="{Binding TintColor}" IsAlphaVisible="False" Width="300" />
+                </Flyout>
+              </Button.Flyout>
+            </Button>
+          </StackPanel>
+          <c:SliderField Label="Reds" Minimum="-200" Maximum="300" Value="{Binding Reds}" />
+          <c:SliderField Label="Yellows" Minimum="-200" Maximum="300" Value="{Binding Yellows}" />
+          <c:SliderField Label="Greens" Minimum="-200" Maximum="300" Value="{Binding Greens}" />
+          <c:SliderField Label="Cyans" Minimum="-200" Maximum="300" Value="{Binding Cyans}" />
+          <c:SliderField Label="Blues" Minimum="-200" Maximum="300" Value="{Binding Blues}" />
+          <c:SliderField Label="Magentas" Minimum="-200" Maximum="300" Value="{Binding Magentas}" />
+          <v:AdjustmentFooter />
+        </StackPanel>
+      </DataTemplate>
+
+      <DataTemplate DataType="vm:PhotoFilterPanel">
+        <StackPanel Spacing="9">
+          <StackPanel Orientation="Horizontal" Spacing="7">
+            <Path Classes="icon small" Data="{StaticResource IconAdjust}" />
+            <TextBlock Classes="heading" Text="{Binding Title}" />
+          </StackPanel>
+          <DockPanel>
+            <RadioButton GroupName="PhotoFilterKind" Content="Filter" IsChecked="{Binding UseFilter}" FontSize="11" Width="64" />
+            <ComboBox Classes="channel" ItemsSource="{Binding FilterNames}" SelectedItem="{Binding FilterName}" IsEnabled="{Binding UseFilter}" />
+          </DockPanel>
+          <StackPanel Orientation="Horizontal">
+            <RadioButton GroupName="PhotoFilterKind" Content="Color" IsChecked="{Binding UseColor}" FontSize="11" Width="64" />
+            <Button Padding="0" BorderThickness="0" Background="Transparent" VerticalAlignment="Center" IsEnabled="{Binding UseColor}"
+                    ToolTip.Tip="Filter color">
+              <Border Classes="swatch" Background="{Binding FilterBrush}" />
+              <Button.Flyout>
+                <Flyout Placement="BottomEdgeAlignedLeft">
+                  <ColorView Color="{Binding FilterColor}" IsAlphaVisible="False" Width="300" />
+                </Flyout>
+              </Button.Flyout>
+            </Button>
+          </StackPanel>
+          <c:SliderField Label="Density (%)" Minimum="1" Maximum="100" Value="{Binding Density}" />
+          <CheckBox Content="Preserve Luminosity" IsChecked="{Binding PreserveLuminosity}" FontSize="11" />
+          <v:AdjustmentFooter />
+        </StackPanel>
+      </DataTemplate>
+
+      <DataTemplate DataType="vm:ChannelMixerPanel">
+        <StackPanel Spacing="9">
+          <StackPanel Orientation="Horizontal" Spacing="7">
+            <Path Classes="icon small" Data="{StaticResource IconAdjust}" />
+            <TextBlock Classes="heading" Text="{Binding Title}" />
+          </StackPanel>
+          <DockPanel Classes="preset">
+            <TextBlock Classes="label" Text="Preset" />
+            <ComboBox Classes="channel" ItemsSource="{Binding PresetNames}" SelectedItem="{Binding Preset}" />
+          </DockPanel>
+          <DockPanel Classes="preset">
+            <TextBlock Classes="label" Text="Output" />
+            <ComboBox Classes="channel" ItemsSource="{Binding OutputChannels}" SelectedIndex="{Binding OutputChannel}" />
+          </DockPanel>
+          <CheckBox Content="Monochrome" IsChecked="{Binding Monochrome}" FontSize="11" />
+          <c:SliderField Label="Red (%)" Minimum="-200" Maximum="200" Format="+0;-0;0" Value="{Binding Red}" />
+          <c:SliderField Label="Green (%)" Minimum="-200" Maximum="200" Format="+0;-0;0" Value="{Binding Green}" />
+          <c:SliderField Label="Blue (%)" Minimum="-200" Maximum="200" Format="+0;-0;0" Value="{Binding Blue}" />
+          <StackPanel Orientation="Horizontal" Spacing="6">
+            <TextBlock Classes="label" Text="Total:" />
+            <TextBlock Classes="label" Text="{Binding Total}" />
+            <Path Classes="icon small" Data="{StaticResource IconWarning}" IsVisible="{Binding TotalOver}"
+                  ToolTip.Tip="Totals above 100% may clip highlights" />
+          </StackPanel>
+          <c:SliderField Label="Constant (%)" Minimum="-200" Maximum="200" Format="+0;-0;0" Value="{Binding Constant}" />
+          <v:AdjustmentFooter />
+        </StackPanel>
+      </DataTemplate>
+
+      <DataTemplate DataType="vm:SelectiveColorPanel">
+        <StackPanel Spacing="9">
+          <StackPanel Orientation="Horizontal" Spacing="7">
+            <Path Classes="icon small" Data="{StaticResource IconAdjust}" />
+            <TextBlock Classes="heading" Text="{Binding Title}" />
+          </StackPanel>
+          <DockPanel Classes="preset">
+            <TextBlock Classes="label" Text="Colors" />
+            <ComboBox Classes="channel" ItemsSource="{Binding Colors}" SelectedIndex="{Binding Range}" />
+          </DockPanel>
+          <c:SliderField Label="Cyan (%)" Minimum="-100" Maximum="100" Format="+0;-0;0" Value="{Binding Cyan}" />
+          <c:SliderField Label="Magenta (%)" Minimum="-100" Maximum="100" Format="+0;-0;0" Value="{Binding Magenta}" />
+          <c:SliderField Label="Yellow (%)" Minimum="-100" Maximum="100" Format="+0;-0;0" Value="{Binding Yellow}" />
+          <c:SliderField Label="Black (%)" Minimum="-100" Maximum="100" Format="+0;-0;0" Value="{Binding Black}" />
+          <StackPanel Orientation="Horizontal" Spacing="12">
+            <RadioButton GroupName="SelectiveMethod" Content="Relative" IsChecked="{Binding Relative}" FontSize="11" />
+            <RadioButton GroupName="SelectiveMethod" Content="Absolute" IsChecked="{Binding Absolute}" FontSize="11" />
+          </StackPanel>
+          <v:AdjustmentFooter />
+        </StackPanel>
+      </DataTemplate>
+
+      <DataTemplate DataType="vm:GradientMapPanel">
+        <StackPanel Spacing="9">
+          <StackPanel Orientation="Horizontal" Spacing="7">
+            <Path Classes="icon small" Data="{StaticResource IconAdjust}" />
+            <TextBlock Classes="heading" Text="{Binding Title}" />
+          </StackPanel>
+          <!-- GradientPicker.cs: the swatch opens the Gradient Editor, the arrow lists the presets -->
+          <c:GradientPicker Gradient="{Binding Gradient}" ForegroundColor="{Binding Foreground}" BackgroundColor="{Binding Background}"
+                            Reverse="{Binding Reverse}" HorizontalAlignment="Left" />
+          <StackPanel Orientation="Horizontal" Spacing="12">
+            <CheckBox Content="Dither" IsChecked="{Binding Dither}" FontSize="11" />
+            <CheckBox Content="Reverse" IsChecked="{Binding Reverse}" FontSize="11" />
+          </StackPanel>
+          <DockPanel Classes="preset">
+            <TextBlock Classes="label" Text="Method" />
+            <ComboBox Classes="channel" ItemsSource="{Binding Methods}" SelectedIndex="{Binding Method}" />
+          </DockPanel>
+          <v:AdjustmentFooter />
+        </StackPanel>
+      </DataTemplate>
+
+      <DataTemplate DataType="vm:ColorLookupPanel">
+        <StackPanel Spacing="9">
+          <StackPanel Orientation="Horizontal" Spacing="7">
+            <Path Classes="icon small" Data="{StaticResource IconAdjust}" />
+            <TextBlock Classes="heading" Text="{Binding Title}" />
+          </StackPanel>
+          <TextBlock Classes="label" Text="3DLUT File" />
+          <ComboBox Classes="channel" ItemsSource="{Binding LutNames}" SelectedItem="{Binding LutName}" PlaceholderText="Load 3D LUT…"
+                    SelectionChanged="OnLutChosen" />
+          <TextBlock Classes="muted" Text="{Binding ProfileNote}" TextWrapping="Wrap" IsVisible="{Binding !IsLut}" />
+          <TextBlock Classes="muted" Foreground="{DynamicResource St.Warning}" Text="{Binding Error}" TextWrapping="Wrap"
+                     IsVisible="{Binding Error, Converter={x:Static ObjectConverters.IsNotNull}}" />
+          <CheckBox Content="Dither" IsChecked="{Binding Dither}" FontSize="11" />
+          <v:AdjustmentFooter />
+        </StackPanel>
+      </DataTemplate>
+
+      <!-- Levels, Curves, Hue/Saturation and the others have their templates in PropertiesView.axaml -->
+      <DataTemplate DataType="vm:AdjustmentPanelBase">
+        <TextBlock Classes="muted" Text="{Binding Title}" />
+      </DataTemplate>
+    </ContentControl.DataTemplates>
+  </ContentControl>
+</UserControl>

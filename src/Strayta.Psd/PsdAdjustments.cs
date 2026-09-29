@@ -4,7 +4,7 @@ using Strayta.Core;
 namespace Strayta.Psd;
 
 /// <summary>Parses the tagged blocks that describe adjustment layers.</summary>
-public static class PsdAdjustments
+public static partial class PsdAdjustments
 {
     private static readonly Dictionary<string, string> Names = new()
     {
@@ -26,7 +26,7 @@ public static class PsdAdjustments
             {
                 adjustment = block.Data is { } d ? Parse(block.Key, d) : null;
             }
-            catch (Exception e) when (e is ArgumentOutOfRangeException or IndexOutOfRangeException)
+            catch (Exception e) when (e is ArgumentOutOfRangeException or IndexOutOfRangeException or PsdFormatException)
             {
                 // Truncated or unexpected data: report as unsupported rather than failing the file.
             }
@@ -44,7 +44,7 @@ public static class PsdAdjustments
         "nvrt" => new InvertAdjustment(),
         "thrs" => new ThresholdAdjustment(Math.Clamp((int)I16(d, 0), 1, 255)),
         "post" => new PosterizeAdjustment(Math.Clamp((int)I16(d, 0), 2, 255)),
-        _ => null,
+        _ => ParseExtended(key, d),
     };
 
     private static short I16(byte[] d, int offset) => BinaryPrimitives.ReadInt16BigEndian(d.AsSpan(offset));

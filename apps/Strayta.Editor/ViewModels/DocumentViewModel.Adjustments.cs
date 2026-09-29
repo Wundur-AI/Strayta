@@ -13,9 +13,29 @@ public sealed partial class DocumentViewModel
     public void NewAdjustmentLayer(string kind)
     {
         var (parent, index) = InsertionPoint();
-        var layer = AdjustmentFactory.Create(Model, kind);
+        var layer = AdjustmentFactory.Create(Model, kind, Editor.ForegroundRgb, Editor.BackgroundRgb);
         Apply(new InsertEdit(layer, parent, index, $"New {kind} Layer"));
         Select(layer);
+    }
+
+    /// <summary>
+    /// The Properties panel's clip button: clips the layer to the one below (Create Clipping Mask) or releases it.
+    /// The step names alternate, so two clicks stay two undo steps.
+    /// </summary>
+    public void SetClipped(LayerNode layer, bool clipped)
+    {
+        if (layer.Clipped == clipped) return;
+        Apply(new PropertyEdit<bool>(layer, clipped ? "Create Clipping Mask" : "Release Clipping Mask", layer.Clipped, clipped,
+            static (n, v) => n.Clipped = v));
+        RefreshRows();
+    }
+
+    /// <summary>The Properties panel's eye: shows or hides the layer (one undo step per click).</summary>
+    public void SetVisible(LayerNode layer, bool visible)
+    {
+        if (layer.Visible == visible) return;
+        Apply(new PropertyEdit<bool>(layer, visible ? "Show Layer" : "Hide Layer", layer.Visible, visible, static (n, v) => n.Visible = v));
+        RefreshRows();
     }
 
     /// <summary>
@@ -76,17 +96,32 @@ public sealed partial class DocumentViewModel
     /// input, through the same panel view model the UI uses; reports frames reaching the screen and the time
     /// until the full-resolution image follows (STRAYTA_ADJUSTBENCH=1).
     /// </summary>
-    public async Task RunAdjustmentBenchmarkAsync()
+    public async Task RunAdjustmentBenchmarkAsync(IReadOnlyList<string>? kinds = null)
     {
-        foreach (var kind in new[] { "Levels", "Hue/Saturation" })
+        kinds ??= Environment.GetEnvironmentVariable("STRAYTA_ADJUSTBENCH_KINDS")?.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
+            ?? ["Levels", "Hue/Saturation", "Curves", "Exposure", "Vibrance", "Color Balance", "Black & White", "Photo Filter",
+                "Channel Mixer", "Selective Color", "Gradient Map", "Color Lookup"];
+        foreach (var kind in kinds)
         {
             SelectedLayer = Layers.FirstOrDefault();
             NewAdjustmentLayer(kind);
             var panel = Properties;
+            if (panel is ColorLookupPanel lookup) lookup.LutName = lookup.LutNames[^1]; // a built-in look; the drag moves Dither
+            var start = ((AdjustmentLayer)SelectedLayer!.Node).Adjustment;
             Action<int> drag = panel switch
             {
                 LevelsPanel l => i => l.InputWhite = 255 - i % 120,
                 HueSaturationPanel h => i => h.Hue = i % 120 - 60,
+                CurvesPanel c => i => c.SetPoints([new(0, 0), new(128, 128 + i % 100 - 50), new(255, 255)]),
+                ExposurePanel e => i => e.Exposure = (i % 120 - 60) / 30.0,
+                VibrancePanel v => i => v.Vibrance = i % 120 - 60,
+                ColorBalancePanel b => i => b.CyanRed = i % 120 - 60,
+                BlackWhitePanel w => i => w.Reds = i % 200,
+                PhotoFilterPanel f => i => f.Density = 1 + i % 99,
+                ChannelMixerPanel m => i => m.Red = 100 - i % 100,
+                SelectiveColorPanel sc => i => sc.Cyan = i % 100,
+                GradientMapPanel g => i => g.Gradient = GradientModel.TwoColor("Bench", RgbColor.Black, new RgbColor(i % 120 / 120f, 0.5f, 0.2f)),
+                ColorLookupPanel lut => i => lut.Dither = i % 2 == 0,
                 _ => throw new InvalidOperationException($"No panel for {kind}."),
             };
 
@@ -120,7 +155,7 @@ public sealed partial class DocumentViewModel
             // The whole drag must be one undo step: undoing once restores the starting settings.
             var layer = (AdjustmentLayer)SelectedLayer!.Node;
             Undo();
-            bool oneStep = PsdAdjustmentWriter.SameSettings(layer.Adjustment, AdjustmentFactory.Default(kind));
+            bool oneStep = PsdAdjustmentWriter.SameSettings(layer.Adjustment, start);
 
             times.Sort();
             parts.Sort();
