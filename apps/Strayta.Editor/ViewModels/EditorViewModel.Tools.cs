@@ -41,6 +41,7 @@ public sealed partial class EditorViewModel
             _healingGroup,
             new ToolGroup(this, "B", new ToolInfo(CanvasTool.Brush, "Brush", "IconBrush")),
             new ToolGroup(this, "S", new ToolInfo(CanvasTool.CloneStamp, "Clone Stamp", "IconCloneStamp")),
+            new ToolGroup(this, "Y", new ToolInfo(CanvasTool.HistoryBrush, "History Brush", "IconHistoryBrush")), // EditorViewModel.History.cs
             new ToolGroup(this, "E", new ToolInfo(CanvasTool.Eraser, "Eraser", "IconEraser")),
             _fillGroup,
             new ToolGroup(this, "H", new ToolInfo(CanvasTool.Hand, "Hand", "IconHand")),

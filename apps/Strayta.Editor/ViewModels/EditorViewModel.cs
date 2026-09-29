@@ -86,6 +86,7 @@ public sealed partial class EditorViewModel : ObservableObject
     {
         var documents = Factory.OpenDocuments().ToList();
         var active = ActiveDocument;
+        DetachPanels(Layout); // the old panels stop listening (EditorViewModel.History.cs)
         foreach (var window in Layout.Windows?.ToList() ?? []) window.Exit();
         var layout = Factory.CreateLayout();
         Factory.InitLayout(layout);
@@ -202,7 +203,7 @@ public sealed partial class EditorViewModel : ObservableObject
     public bool IsHandTool { get => Tool == CanvasTool.Hand; set { if (value) Tool = CanvasTool.Hand; } }
     public bool IsBrushTool { get => Tool == CanvasTool.Brush; set { if (value) Tool = CanvasTool.Brush; } }
     public bool IsEraserTool { get => Tool == CanvasTool.Eraser; set { if (value) Tool = CanvasTool.Eraser; } }
-    public bool IsPaintTool => Tool is CanvasTool.Brush or CanvasTool.Eraser;
+    public bool IsPaintTool => Tool is CanvasTool.Brush or CanvasTool.Eraser or CanvasTool.HistoryBrush;
     public string ToolName => Tool switch
     {
         CanvasTool.RectSelect => "Rectangular Marquee",
@@ -345,8 +346,8 @@ public sealed partial class EditorViewModel : ObservableObject
         if (ActiveDocument is { } doc) Factory.CloseDockable(doc);
     }
 
-    [RelayCommand] private void Undo() => ActiveDocument?.Undo();
-    [RelayCommand] private void Redo() => ActiveDocument?.Redo();
+    [RelayCommand] private void Undo() { if (!UndoInWorkspace()) ActiveDocument?.Undo(); } // Select and Mask has its own history
+    [RelayCommand] private void Redo() { if (!RedoInWorkspace()) ActiveDocument?.Redo(); }
     [RelayCommand] private void LayerUp() => ActiveDocument?.Restack(+1);
     [RelayCommand] private void LayerDown() => ActiveDocument?.Restack(-1);
     [RelayCommand] private void DeleteLayer() => ActiveDocument?.DeleteSelected();

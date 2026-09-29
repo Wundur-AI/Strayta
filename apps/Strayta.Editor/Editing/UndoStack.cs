@@ -67,6 +67,40 @@ public sealed class UndoStack
         if (_savedEdit is not null && _undone.Contains(_savedEdit)) _saveReachable = false;
         _undone.Clear();
         _lastPush = now;
+        PushCount++;
+        Trim();
+    }
+
+    /// <summary>Photoshop's History States preference: how many steps are kept; older ones are dropped (at least 1).</summary>
+    public int Limit
+    {
+        get => _limit;
+        set
+        {
+            _limit = Math.Max(1, value);
+            Trim();
+        }
+    }
+
+    private int _limit = int.MaxValue;
+
+    /// <summary>Incremented by every push (a new or merged edit), so observers can tell a push from an undo or redo.</summary>
+    public int PushCount { get; private set; }
+
+    /// <summary>The newest edit dropped by <see cref="Limit"/>: the oldest state still reachable is the one after it (null: the opened document).</summary>
+    public IEdit? BaseEdit { get; private set; }
+
+    private void Trim()
+    {
+        while (_done.Count > _limit)
+        {
+            var dropped = _done[0];
+            _done.RemoveAt(0);
+            // The saved state was the old base: once a content edit after it is dropped, it can never be reached again.
+            if (_savedEdit is null && dropped.ChangesContent) _saveReachable = false;
+            if (ReferenceEquals(dropped, _savedEdit)) _savedEdit = null; // saved exactly at the new base
+            BaseEdit = dropped;
+        }
     }
 
     public IEdit? Undo()

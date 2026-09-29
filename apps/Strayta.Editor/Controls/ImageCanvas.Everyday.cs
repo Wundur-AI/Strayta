@@ -181,11 +181,11 @@ public sealed partial class ImageCanvas
     public void ZoomStep(bool zoomIn, Point? anchor = null)
     {
         if (Source is null) return;
-        double z = Zoom;
+        double z = ZoomTarget; // a step during an animated step continues from where it was heading (ImageCanvas.Zoom.cs)
         double next = zoomIn
             ? ZoomLevels.FirstOrDefault(l => l > z * 1.001, ZoomLevels[^1])
             : ZoomLevels.LastOrDefault(l => l < z / 1.001, ZoomLevels[0]);
-        ZoomAround(anchor ?? new Point(Bounds.Width / 2, Bounds.Height / 2), next);
+        ZoomAnimated(anchor ?? new Point(Bounds.Width / 2, Bounds.Height / 2), next);
     }
 
     private void ZoomAround(Point p, double next)

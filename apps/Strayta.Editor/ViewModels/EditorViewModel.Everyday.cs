@@ -40,12 +40,13 @@ public sealed partial class EditorViewModel
 
     public int EyedropperSampleSize => EyedropperSizes[Math.Clamp(EyedropperSizeIndex, 0, EyedropperSizes.Count - 1)].Size;
 
-    public IReadOnlyList<string> EyedropperSampleNames { get; } = ["Current Layer", "All Layers"];
+    /// <summary>Photoshop's Sample menu, in its order (<see cref="LayerSample"/>; EditorViewModel.Sampling.cs).</summary>
+    public IReadOnlyList<string> EyedropperSampleNames { get; } = LayerSampleNames;
 
-    /// <summary>0 samples the selected layer, 1 the image as shown (Photoshop's default).</summary>
-    [ObservableProperty] public partial int EyedropperSampleIndex { get; set; } = 1;
+    /// <summary>What the Eyedropper samples, a <see cref="LayerSample"/>: All Layers (the image as shown) by default, as in Photoshop.</summary>
+    [ObservableProperty] public partial int EyedropperSampleIndex { get; set; } = (int)LayerSample.AllLayers;
 
-    public bool EyedropperSampleAllLayers => EyedropperSampleIndex != 0;
+    public LayerSample EyedropperSample => (LayerSample)Math.Clamp(EyedropperSampleIndex, 0, LayerSampleNames.Count - 1);
 
     // ---- Paint Bucket ---------------------------------------------------------------------------------
 

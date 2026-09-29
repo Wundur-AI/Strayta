@@ -4,6 +4,7 @@
              xmlns:c="using:Strayta.Editor.Controls"
              x:Class="Strayta.Editor.Views.HistoryView"
              x:DataType="vm:HistoryToolViewModel"
+             x:Name="Root"
              Background="{DynamicResource St.Panel}"
              FontSize="11">
   <UserControl.Styles>
@@ -13,7 +14,7 @@
       <Setter Property="Padding" Value="0" />
     </Style>
     <Style Selector="ListBox#States ListBoxItem">
-      <Setter Property="Padding" Value="8,4" />
+      <Setter Property="Padding" Value="0,2,8,2" />
       <Setter Property="MinHeight" Value="0" />
       <Setter Property="BorderBrush" Value="{DynamicResource St.RowLine}" />
       <Setter Property="BorderThickness" Value="0,0,0,1" />
@@ -24,21 +25,98 @@
     <Style Selector="ListBox#States ListBoxItem:selected /template/ ContentPresenter">
       <Setter Property="Background" Value="{DynamicResource St.RowSelected}" />
     </Style>
+    <!-- The left column: the History Brush's source -->
+    <Style Selector="Button.source">
+      <Setter Property="Width" Value="22" />
+      <Setter Property="MinHeight" Value="22" />
+      <Setter Property="Padding" Value="0" />
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="VerticalAlignment" Value="Stretch" />
+    </Style>
+    <Style Selector="Button.snapshotRow">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="Padding" Value="0,3" />
+      <Setter Property="HorizontalAlignment" Value="Stretch" />
+      <Setter Property="HorizontalContentAlignment" Value="Left" />
+    </Style>
+    <Style Selector="Border.thumb">
+      <Setter Property="Width" Value="40" />
+      <Setter Property="Height" Value="30" />
+      <Setter Property="BorderBrush" Value="{DynamicResource St.Border}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="Background" Value="{DynamicResource St.Window}" />
+    </Style>
   </UserControl.Styles>
   <Panel>
     <TextBlock Classes="muted" Text="Open a document to see its history" IsVisible="{Binding !HasDocument}"
                HorizontalAlignment="Center" VerticalAlignment="Center" />
-    <!-- Photoshop's History panel: the opened document, then one state per edit; later states dim after stepping back -->
-    <ListBox x:Name="States" ItemsSource="{Binding Items}" SelectedItem="{Binding Current}" SelectionMode="Single"
-             IsVisible="{Binding HasDocument}">
-      <ListBox.ItemTemplate>
-        <DataTemplate x:DataType="vm:HistoryItem">
-          <StackPanel Orientation="Horizontal" Spacing="8" Opacity="{Binding RowOpacity}" ToolTip.Tip="{Binding Name}">
-            <Path Classes="icon small" Data="{Binding Icon, Converter={x:Static c:ResourceIcon.Instance}}" VerticalAlignment="Center" />
-            <TextBlock Text="{Binding Name}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+    <DockPanel IsVisible="{Binding HasDocument}">
+      <!-- Footer: New Snapshot, and the History States preference -->
+      <Border DockPanel.Dock="Bottom" Padding="6,3" BorderBrush="{DynamicResource St.Border}" BorderThickness="0,1,0,0">
+        <DockPanel>
+          <Button DockPanel.Dock="Right" Classes="icon" Command="{Binding NewSnapshotCommand}" ToolTip.Tip="Create new snapshot">
+            <Path Classes="icon small" Data="{StaticResource IconSnapshot}" />
+          </Button>
+          <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center"
+                      ToolTip.Tip="History States: how many steps each document keeps; the oldest are dropped beyond it">
+            <TextBlock Classes="label" Text="States" VerticalAlignment="Center" />
+            <c:NumberField Value="{Binding Editor.HistoryStatesField}" Width="44" />
           </StackPanel>
-        </DataTemplate>
-      </ListBox.ItemTemplate>
-    </ListBox>
+        </DockPanel>
+      </Border>
+
+      <!-- Snapshots at the top, the opened document first; click one to go back to it (as a new step) -->
+      <ItemsControl DockPanel.Dock="Top" ItemsSource="{Binding Snapshots}">
+        <ItemsControl.ItemTemplate>
+          <DataTemplate x:DataType="vm:SnapshotItem">
+            <Border BorderBrush="{DynamicResource St.RowLine}" BorderThickness="0,0,0,1">
+              <DockPanel>
+                <Button DockPanel.Dock="Left" Classes="source" ToolTip.Tip="Paint from this snapshot with the History Brush"
+                        Command="{Binding #Root.((vm:HistoryToolViewModel)DataContext).SetSnapshotBrushSourceCommand}" CommandParameter="{Binding}">
+                  <Path Classes="icon small" Data="{StaticResource IconHistoryBrush}" IsVisible="{Binding IsBrushSource}" />
+                </Button>
+                <Button DockPanel.Dock="Right" Classes="icon" Padding="2" IsVisible="{Binding CanDelete}" ToolTip.Tip="Delete snapshot"
+                        Command="{Binding #Root.((vm:HistoryToolViewModel)DataContext).DeleteSnapshotCommand}" CommandParameter="{Binding}">
+                  <Path Classes="icon small" Data="{StaticResource IconTrash}" />
+                </Button>
+                <Button Classes="snapshotRow" ToolTip.Tip="Go back to this snapshot (a new history step)"
+                        Command="{Binding #Root.((vm:HistoryToolViewModel)DataContext).RestoreSnapshotCommand}" CommandParameter="{Binding}">
+                  <StackPanel Orientation="Horizontal" Spacing="8">
+                    <Border Classes="thumb">
+                      <Image Source="{Binding Snapshot.Thumbnail}" Stretch="Uniform" />
+                    </Border>
+                    <TextBlock Text="{Binding Snapshot.Name}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                  </StackPanel>
+                </Button>
+              </DockPanel>
+            </Border>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+
+      <!-- Photoshop's History panel: the oldest state kept, then one state per edit; later states dim after stepping back -->
+      <ListBox x:Name="States" ItemsSource="{Binding Items}" SelectedItem="{Binding Current}" SelectionMode="Single">
+        <ListBox.ItemTemplate>
+          <DataTemplate x:DataType="vm:HistoryItem">
+            <DockPanel Opacity="{Binding RowOpacity}" ToolTip.Tip="{Binding Name}">
+              <Button DockPanel.Dock="Left" Classes="source" ToolTip.Tip="Paint from this state with the History Brush"
+                      Command="{Binding #Root.((vm:HistoryToolViewModel)DataContext).SetBrushSourceCommand}" CommandParameter="{Binding}">
+                <Path Classes="icon small" Data="{StaticResource IconHistoryBrush}" IsVisible="{Binding IsBrushSource}" />
+              </Button>
+              <StackPanel Orientation="Horizontal" Spacing="8" Margin="2,0,0,0">
+                <Border Classes="thumb" IsVisible="{Binding HasThumbnail}">
+                  <Image Source="{Binding Thumbnail}" Stretch="Uniform" />
+                </Border>
+                <Path Classes="icon small" Data="{Binding Icon, Converter={x:Static c:ResourceIcon.Instance}}" VerticalAlignment="Center"
+                      IsVisible="{Binding !HasThumbnail}" />
+                <TextBlock Text="{Binding Name}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+              </StackPanel>
+            </DockPanel>
+          </DataTemplate>
+        </ListBox.ItemTemplate>
+      </ListBox>
+    </DockPanel>
   </Panel>
 </UserControl>

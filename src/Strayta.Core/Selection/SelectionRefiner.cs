@@ -8,7 +8,8 @@ namespace Strayta.Core.Selection;
 /// <param name="Feather">Softens the edge: Gaussian σ in pixels (Photoshop offers 0–250; up to 1000 is accepted).</param>
 /// <param name="Contrast">Hardens soft edges, in percent (0–100).</param>
 /// <param name="ShiftEdge">Moves the edge out (positive) or in (negative), in percent (−100–100; ±100% is ±<see cref="SelectionRefiner.MaxShift"/> pixels).</param>
-public readonly record struct RefineSettings(float Radius = 0, float Smooth = 0, float Feather = 0, float Contrast = 0, float ShiftEdge = 0)
+/// <param name="SmartRadius">Adapts the radius along the edge: narrow where the image's edge is hard, the full radius where it is soft (hair, fur, blur).</param>
+public readonly record struct RefineSettings(float Radius = 0, float Smooth = 0, float Feather = 0, float Contrast = 0, float ShiftEdge = 0, bool SmartRadius = false)
 {
     /// <summary>The same settings for an image scaled by <paramref name="scale"/> (e.g. ¼ for a quarter-size preview).</summary>
     public RefineSettings Scaled(float scale) => this with { Radius = Radius * scale, Smooth = Smooth * scale, Feather = Feather * scale, ShiftEdge = ShiftEdge * scale };
@@ -125,14 +126,22 @@ public sealed class SelectionRefiner
     private readonly byte[] _base;
     private readonly byte[] _binary;
     private readonly object _cacheLock = new();
-    private (int Radius, int BrushVersion, byte[] Matte)? _edgeCache;
+    private (int Radius, bool Smart, int BrushVersion, byte[] Matte)? _edgeCache;
 
     /// <param name="image">The pixels edge detection looks at, covering the canvas.</param>
     /// <param name="selection">The selection to refine (null refines an empty selection, which the brush can still add to).</param>
     public SelectionRefiner(SampleImage image, SelectionMask? selection)
+        : this(image, MaskFilters.Extract(selection, image.Bounds))
     {
+    }
+
+    /// <param name="image">The pixels edge detection looks at, covering the canvas.</param>
+    /// <param name="coverage">The selection to refine as coverage over the whole canvas (row-major, 255 = selected); kept, not copied.</param>
+    public SelectionRefiner(SampleImage image, byte[] coverage)
+    {
+        if (coverage.LongLength != (long)image.Width * image.Height) throw new ArgumentException("Expected one byte per pixel.", nameof(coverage));
         _image = image;
-        _base = MaskFilters.Extract(selection, image.Bounds);
+        _base = coverage;
         _binary = new byte[_base.Length];
         Parallel.For(0, image.Height, y =>
         {
@@ -146,9 +155,12 @@ public sealed class SelectionRefiner
     /// <summary>The refined coverage over the whole canvas (row-major, 255 = selected).</summary>
     public byte[] Refine(RefineSettings settings, RefineBrushSnapshot? brush, CancellationToken cancel = default)
     {
-        var matte = EdgeMatte((int)MathF.Round(Math.Clamp(settings.Radius, 0, SelectionModify.MaxRadius)), brush, cancel);
+        var matte = EdgeMatte((int)MathF.Round(Math.Clamp(settings.Radius, 0, SelectionModify.MaxRadius)), settings.SmartRadius, brush, cancel);
         return Global(matte, settings, cancel);
     }
+
+    /// <summary>The coverage being refined (the selection as given), row-major over the canvas.</summary>
+    public byte[] BaseCoverage => _base;
 
     /// <summary>The refined selection, trimmed (null when nothing is selected).</summary>
     public SelectionMask? RefineSelection(RefineSettings settings, RefineBrushSnapshot? brush, CancellationToken cancel = default) =>
@@ -156,16 +168,20 @@ public sealed class SelectionRefiner
 
     // ---- Edge detection -----------------------------------------------------------------------------
 
-    private byte[] EdgeMatte(int radius, RefineBrushSnapshot? brush, CancellationToken cancel)
+    private byte[] EdgeMatte(int radius, bool smart, RefineBrushSnapshot? brush, CancellationToken cancel)
     {
         if (radius == 0 && brush is null) return _base;
         int version = brush?.Version ?? -1;
         lock (_cacheLock)
-            if (_edgeCache is { } c && c.Radius == radius && c.BrushVersion == version) return c.Matte;
+            if (_edgeCache is { } c && c.Radius == radius && c.Smart == smart && c.BrushVersion == version) return c.Matte;
 
         int w = Width, h = Height;
         var band = new byte[_base.Length]; // 1 = coverage is re-decided here
-        if (radius > 0)
+        if (radius > 0 && smart)
+        {
+            SmartBand(band, radius, cancel);
+        }
+        else if (radius > 0)
         {
             var outer = MaskFilters.Dilate(_binary, w, h, radius, GridEdges.All(0));
             cancel.ThrowIfCancellationRequested();
@@ -191,8 +207,108 @@ public sealed class SelectionRefiner
         // widest brush stroke.
         int window = Math.Max(2 * radius + 2, (int)MathF.Ceiling(brush?.MaxRadius ?? 0) + 4);
         var matte = Estimate(band, window, cancel);
-        lock (_cacheLock) _edgeCache = (radius, version, matte);
+        lock (_cacheLock) _edgeCache = (radius, smart, version, matte);
         return matte;
+    }
+
+    /// <summary>
+    /// Smart Radius: the band's half-width follows the image's edge. At each pixel of the selection's outline the
+    /// edge's hardness is measured as the luminance step between neighbors against the contrast across a window
+    /// around it: a crisp edge changes almost all of its contrast in one pixel (hardness 1), hair or a blurred edge
+    /// spreads it over many (hardness near 0). The half-width there is the radius scaled from a quarter (hard) to the
+    /// whole (soft), and every pixel takes the half-width of its nearest outline pixel.
+    /// </summary>
+    private void SmartBand(byte[] band, int radius, CancellationToken cancel)
+    {
+        int w = Width, h = Height;
+        var outline = new byte[_base.Length];
+        Parallel.For(0, h, y =>
+        {
+            for (int x = 0; x < w; x++)
+            {
+                int i = y * w + x;
+                byte v = _binary[i];
+                if ((x > 0 && _binary[i - 1] != v) || (x < w - 1 && _binary[i + 1] != v) ||
+                    (y > 0 && _binary[i - w] != v) || (y < h - 1 && _binary[i + w] != v))
+                    outline[i] = 1;
+            }
+        });
+        cancel.ThrowIfCancellationRequested();
+
+        var (luma, step) = EdgeStrength();
+        cancel.ThrowIfCancellationRequested();
+
+        // Half-width per outline pixel. The drawn outline may be off the image's edge (a rough lasso), so the edge is
+        // looked for in a window reaching half the radius: its hardness is the largest one-pixel step there over the
+        // contrast across the window.
+        var halfWidth = new float[_base.Length];
+        int reach = Math.Clamp(radius / 2, 2, 12);
+        Parallel.For(0, h, y =>
+        {
+            for (int x = 0; x < w; x++)
+            {
+                if (outline[y * w + x] == 0) continue;
+                int lo = 255, hi = 0, steepest = 0;
+                for (int yy = Math.Max(0, y - reach), y1 = Math.Min(h - 1, y + reach); yy <= y1; yy++)
+                    for (int i = yy * w + Math.Max(0, x - reach), end = yy * w + Math.Min(w - 1, x + reach); i <= end; i++)
+                    {
+                        int l = luma[i];
+                        if (l < lo) lo = l;
+                        if (l > hi) hi = l;
+                        if (step[i] > steepest) steepest = step[i];
+                    }
+                // A hard step's central difference is half the contrast; a ramp over n pixels gives 1/n of it.
+                float hardness = Math.Clamp(2f * steepest / Math.Max(hi - lo, 16), 0f, 1f);
+                halfWidth[y * w + x] = MathF.Max(1f, radius * (1f - 0.75f * hardness));
+            }
+        });
+        cancel.ThrowIfCancellationRequested();
+
+        var (nearest, dist2) = DistanceTransform.Compute(outline, w, h);
+        cancel.ThrowIfCancellationRequested();
+        Parallel.For(0, h, y =>
+        {
+            for (int i = y * w, end = i + w; i < end; i++)
+            {
+                int site = nearest[i];
+                if (site < 0) continue;
+                float r = halfWidth[site];
+                if (dist2[i] <= r * r) band[i] = 1;
+            }
+        });
+    }
+
+    private (byte[] Luma, byte[] Step)? _edgeStrength;
+
+    /// <summary>The image's luminance and the size of its one-pixel steps (half the central difference), computed once.</summary>
+    private (byte[] Luma, byte[] Step) EdgeStrength()
+    {
+        lock (_cacheLock)
+            if (_edgeStrength is { } cached) return cached;
+        int w = Width, h = Height;
+        var rgba = _image.Rgba;
+        var luma = new byte[_base.Length];
+        Parallel.For(0, h, y =>
+        {
+            for (int i = y * w, end = i + w; i < end; i++)
+            {
+                int p = i * 4;
+                luma[i] = (byte)((77 * rgba[p] + 150 * rgba[p + 1] + 29 * rgba[p + 2] + 128) >> 8);
+            }
+        });
+        var step = new byte[_base.Length];
+        Parallel.For(0, h, y =>
+        {
+            int up = Math.Max(y - 1, 0) * w, down = Math.Min(y + 1, h - 1) * w, row = y * w;
+            for (int x = 0; x < w; x++)
+            {
+                int gx = luma[row + Math.Min(x + 1, w - 1)] - luma[row + Math.Max(x - 1, 0)];
+                int gy = luma[down + x] - luma[up + x];
+                step[row + x] = (byte)Math.Min(255, (int)(MathF.Sqrt(gx * gx + gy * gy) / 2f + 0.5f));
+            }
+        });
+        lock (_cacheLock) _edgeStrength = (luma, step);
+        return (luma, step);
     }
 
     // Per block: foreground R, G, B, A, count, then background R, G, B, A, count.

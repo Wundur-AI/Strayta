@@ -21,6 +21,7 @@ public partial class LayersView : UserControl
     public LayersView()
     {
         InitializeComponent();
+        WireMaskButton(); // Option-click hides (LayersView.MaskButton.cs)
         // Tunnel so the list's own selection handling still runs.
         Rows.AddHandler(PointerPressedEvent, OnRowsPointerPressed, RoutingStrategies.Tunnel, handledEventsToo: true);
         Rows.AddHandler(PointerMovedEvent, OnRowsPointerMoved, RoutingStrategies.Tunnel, handledEventsToo: true);

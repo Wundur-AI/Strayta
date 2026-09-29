@@ -30,7 +30,9 @@
                      FreeTransform="{Binding FreeTransform}"
                      CropBox="{Binding CropBox}" StraightenMode="{Binding Editor.CropStraighten}"
                      CropOverlay="{Binding Editor.CropOverlay}" CropOverlayOrientation="{Binding Editor.CropOverlayOrientation}"
-                     PerspectiveCrop="{Binding PerspectiveCrop}" />
+                     PerspectiveCrop="{Binding PerspectiveCrop}"
+                     QuickSelectDefaultMode="{Binding Editor.QuickSelectDefaultMode}" ObjectLassoMode="{Binding Editor.IsObjectLassoMode}"
+                     HoverOutline="{Binding ObjectHoverOutline}" AnimatedZoom="{Binding Editor.AnimatedZoom}" ScrubbyZoom="{Binding Editor.ScrubbyZoom}" />
 
       <!-- Why the brush can't paint here, with the fixes that apply -->
       <Border IsVisible="{Binding HasPaintBlock}" HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,14,0,0"

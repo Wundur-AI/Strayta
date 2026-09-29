@@ -199,12 +199,14 @@ internal static partial class SelfTest
         dialogs.SelectAndMask = async session =>
         {
             seen = session;
-            var window = new SelectAndMaskWindow(session);
-            window.Show();
+            // The main window's workspace (SelectAndMaskWorkspace), shown in place of the tools and panels.
+            var window = (MainWindow)(Avalonia.Application.Current!.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime)!.MainWindow!;
+            var run = window.RunSelectAndMaskAsync(session);
+            var workspace = window.SelectAndMaskView;
             await session.WaitForFullAsync(TimeSpan.FromSeconds(5));
-            windowShowed = window.IsVisible && session.Preview is not null && session.IsFullShown;
+            windowShowed = workspace.IsVisible && editor.IsSelectAndMaskOpen && session.Preview is not null && session.IsFullShown;
             await Task.Delay(300); // a frame or two for the canvas to fit the image
-            drawn = WindowPixels(window, 100, 150, 350, 150);
+            drawn = WindowPixels(window, workspace.PreviewCanvas, 100, 150, 350, 150);
             session.Radius = 12;
             await session.WaitForFullAsync(TimeSpan.FromSeconds(5));
             session.View = RefineView.BlackAndWhite;
@@ -214,8 +216,8 @@ internal static partial class SelfTest
             session.ContinueBrush(300, 280);
             session.EndBrush();
             await session.WaitForFullAsync(TimeSpan.FromSeconds(5));
-            window.Close();
-            return true;
+            window.CompleteSelectAndMask(ok: true);
+            return await run;
         };
         await Click(MenuItem("Select", "Select and Mask…"));
         check(seen is not null && windowShowed, "Select and Mask… opens the workspace with a full-resolution preview");
@@ -278,9 +280,8 @@ internal static partial class SelfTest
     /// Renders the Select and Mask window offscreen and reads the colors it shows at image positions (x, y pairs),
     /// to check what actually reaches the screen.
     /// </summary>
-    private static (byte R, byte G, byte B)[] WindowPixels(SelectAndMaskWindow window, params int[] imageXY)
+    private static (byte R, byte G, byte B)[] WindowPixels(Window window, Controls.ImageCanvas canvas, params int[] imageXY)
     {
-        var canvas = window.FindControl<Controls.ImageCanvas>("Canvas")!;
         var size = new Avalonia.PixelSize((int)window.Bounds.Width, (int)window.Bounds.Height);
         using var rtb = new RenderTargetBitmap(size);
         rtb.Render(window);

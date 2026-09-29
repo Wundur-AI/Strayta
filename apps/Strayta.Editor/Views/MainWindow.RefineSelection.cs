@@ -99,6 +99,6 @@ public partial class MainWindow : ISelectionDialogs
         return (fractional ? Math.Round(chosen, 1) : Math.Round(chosen), bounds.IsChecked == true);
     }
 
-    public async Task<bool> RunSelectAndMaskAsync(SelectAndMaskViewModel session) =>
-        await new SelectAndMaskWindow(session).ShowDialog<bool>(this);
+    public Task<bool> RunSelectAndMaskAsync(SelectAndMaskViewModel session) =>
+        ShowSelectAndMaskWorkspaceAsync(session); // MainWindow.SelectAndMask.cs
 }

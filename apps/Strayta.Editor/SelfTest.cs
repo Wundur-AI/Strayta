@@ -162,6 +162,7 @@ internal static partial class SelfTest
         await RunRetouchExtrasStepsAsync(editor, Check); // SelfTest.Brush.cs
         await RunFilterStepsAsync(editor, Check); // SelfTest.Filters.cs
         await RunLayerStyleStepsAsync(editor, Check); // SelfTest.LayerStyle.cs
+        await RunSelectionGapStepsAsync(editor, Check); // SelfTest.SelectionGaps.cs
         try
         {
             await RunObjectSelectionStepsAsync(editor, Check); // SelfTest.ObjectSelection.cs

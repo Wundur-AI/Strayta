@@ -55,7 +55,7 @@
     <NativeMenuBar DockPanel.Dock="Top" />
 
     <!-- Options bar: settings for the current tool -->
-    <Border DockPanel.Dock="Top" Background="{DynamicResource St.Panel}" Height="36" Padding="12,0"
+    <Border DockPanel.Dock="Top" Background="{DynamicResource St.Panel}" Height="36" Padding="12,0" IsVisible="{Binding IsWorkspaceHidden}"
             BorderBrush="{DynamicResource St.Border}" BorderThickness="0,0,0,1">
       <Panel>
       <StackPanel Orientation="Horizontal" Spacing="16" VerticalAlignment="Center" IsVisible="{Binding !IsTransforming}">
@@ -72,6 +72,10 @@
         <!-- Magic Wand and Quick Selection -->
         <StackPanel Orientation="Horizontal" Spacing="14" IsVisible="{Binding IsMagicWandTool}">
           <StackPanel Orientation="Horizontal" Spacing="6">
+            <TextBlock Classes="label" Text="Sample Size" VerticalAlignment="Center" />
+            <ComboBox ItemsSource="{Binding EyedropperSizeNames}" SelectedIndex="{Binding WandSampleSizeIndex}" Width="150" FontSize="11" Padding="8,2" MinHeight="0" />
+          </StackPanel>
+          <StackPanel Orientation="Horizontal" Spacing="6">
             <TextBlock Classes="label" Text="Tolerance" />
             <c:NumberField Value="{Binding WandTolerance}" Width="44" ToolTip.Tip="How different a color may be from the clicked one, 0–255 per channel" />
           </StackPanel>
@@ -81,6 +85,11 @@
           <TextBlock Classes="label" Text="Click to select similar colors · Shift adds · Option subtracts · Shift+Option intersects" />
         </StackPanel>
         <StackPanel Orientation="Horizontal" Spacing="14" IsVisible="{Binding IsQuickSelectTool}">
+          <StackPanel Orientation="Horizontal" Spacing="2">
+            <ToggleButton Classes="icon" IsChecked="{Binding IsQuickSelectNew}" ToolTip.Tip="New selection (switches to Add after a stroke)"><Path Classes="icon small" Data="{StaticResource IconSelNew}" /></ToggleButton>
+            <ToggleButton Classes="icon" IsChecked="{Binding IsQuickSelectAdd}" ToolTip.Tip="Add to selection (Shift)"><Path Classes="icon small" Data="{StaticResource IconSelAdd}" /></ToggleButton>
+            <ToggleButton Classes="icon" IsChecked="{Binding IsQuickSelectSubtract}" ToolTip.Tip="Subtract from selection (Option)"><Path Classes="icon small" Data="{StaticResource IconSelSubtract}" /></ToggleButton>
+          </StackPanel>
           <StackPanel Orientation="Horizontal" Spacing="8">
             <TextBlock Classes="label" Text="Size" />
             <Slider Width="110" Minimum="1" Maximum="500" Value="{Binding QuickSelectSize}" VerticalAlignment="Center" />
@@ -94,6 +103,13 @@
         </StackPanel>
         <!-- Object Selection: sample source, Select Subject, and how to get the models when they are missing -->
         <StackPanel Orientation="Horizontal" Spacing="14" IsVisible="{Binding IsObjectSelectTool}">
+          <CheckBox Content="Object Finder" IsChecked="{Binding ObjectFinder}" VerticalAlignment="Center" IsEnabled="{Binding HasSelectionModels}"
+                    ToolTip.Tip="Find the image's objects in the background: hover to highlight one, click to select it" />
+          <StackPanel Orientation="Horizontal" Spacing="6">
+            <TextBlock Classes="label" Text="Mode" VerticalAlignment="Center" />
+            <ComboBox ItemsSource="{Binding ObjectModeNames}" SelectedIndex="{Binding ObjectModeIndex}" Width="100" FontSize="11" Padding="8,2" MinHeight="0"
+                      ToolTip.Tip="Drag a rectangle, or draw a lasso, around the object" />
+          </StackPanel>
           <CheckBox Content="Sample All Layers" IsChecked="{Binding ObjectSampleAllLayers}" VerticalAlignment="Center"
                     ToolTip.Tip="Look at the whole image; off looks only at the selected layer" />
           <Button Content="Select Subject" Command="{Binding SelectSubjectCommand}" IsEnabled="{Binding HasSelectionModels}"
@@ -158,7 +174,7 @@
     </Border>
 
     <!-- Tool strip -->
-    <Border DockPanel.Dock="Left" Width="46" Background="{DynamicResource St.Panel}"
+    <Border DockPanel.Dock="Left" Width="46" Background="{DynamicResource St.Panel}" IsVisible="{Binding IsWorkspaceHidden}"
             BorderBrush="{DynamicResource St.Border}" BorderThickness="0,0,1,0" ZIndex="1"
             BoxShadow="2 0 6 0 #30000000">
       <DockPanel Margin="0,8">
@@ -209,6 +225,7 @@
 
     <Panel>
       <dock:DockControl x:Name="Dock" />
+      <v:SelectAndMaskWorkspace x:Name="SelectAndMask" IsVisible="False" /> <!-- Select and Mask (MainWindow.SelectAndMask.cs) -->
       <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="10" IsVisible="{Binding !HasDocument}">
         <TextBlock Text="Open a Photoshop file or start a new one" Classes="muted" FontSize="14" HorizontalAlignment="Center" />
         <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Center">
