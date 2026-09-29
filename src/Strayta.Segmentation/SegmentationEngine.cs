@@ -59,7 +59,7 @@ public sealed class SegmentationEngine : IDisposable
     private readonly SemaphoreSlim _loadLock = new(1, 1);
     private readonly ReaderWriterLockSlim _life = new();
     private bool _disposed;
-    private InferenceSession? _encoder, _decoder, _subject;
+    private InferenceSession? _encoder, _decoder, _subject, _backgroundDecoder;
 
     // Default run options; ONNX Runtime only reads them, so one instance serves concurrent runs.
     private static readonly RunOptions Run = new();
@@ -163,10 +163,12 @@ public sealed class SegmentationEngine : IDisposable
     /// Runs the prompt decoder once and returns all of SAM's candidate masks (for a single point: roughly a sub-part,
     /// a part and the whole object), each with SAM's own quality score, cleaned of specks and pinholes.
     /// </summary>
-    public IReadOnlyList<MaskLogits> DecodeCandidates(SamEmbedding embedding, SamPrompt prompt) => Use(() =>
+    public IReadOnlyList<MaskLogits> DecodeCandidates(SamEmbedding embedding, SamPrompt prompt) => DecodeCandidates(embedding, prompt, background: false);
+
+    private IReadOnlyList<MaskLogits> DecodeCandidates(SamEmbedding embedding, SamPrompt prompt, bool background) => Use(() =>
     {
         if (prompt.IsEmpty) throw new ArgumentException("The prompt has no points and no box.", nameof(prompt));
-        var (_, decoder) = LoadSam();
+        var decoder = background ? LoadBackgroundDecoder() : LoadSam().Decoder;
         var sw = Stopwatch.StartNew();
         var (coords, labels) = prompt.ToModel(embedding.Placement, SamSize);
         int n = labels.Length;
@@ -195,9 +197,47 @@ public sealed class SegmentationEngine : IDisposable
             MaskCleanup.Clean(values, mw, mh, minIslandFraction: 0.1f, maxHoleFraction: 0.02f);
             result[i] = new MaskLogits(values, mw, mh, embedding.Placement, scores[i]);
         }
-        LastTimings = new SegmentationTimings(0, inference, sw.Elapsed.TotalMilliseconds - inference);
+        if (!background) LastTimings = new SegmentationTimings(0, inference, sw.Elapsed.TotalMilliseconds - inference);
         return result;
     });
+
+    // ---- Object Finder --------------------------------------------------------------------------------------
+
+    /// <summary>
+    /// Finds the objects in an embedded image (<see cref="ObjectFinder"/>): prompts SAM with a
+    /// <paramref name="perSide"/>² grid of points, one decode at a time on a two-thread decoder session so it
+    /// keeps to two cores in the background, and merges the candidates. <paramref name="progress"/> receives the
+    /// objects found so far after each point. Cancellable between decodes.
+    /// </summary>
+    public IReadOnlyList<FoundObject> FindObjects(SamEmbedding embedding, int perSide, CancellationToken cancel, Action<IReadOnlyList<FoundObject>>? progress = null)
+    {
+        var kept = new List<FoundObject>();
+        foreach (var point in ObjectFinder.GridPoints(embedding.Placement, perSide))
+        {
+            cancel.ThrowIfCancellationRequested();
+            bool changed = false;
+            foreach (var candidate in DecodeCandidates(embedding, new SamPrompt([point]), background: true))
+                if (ObjectFinder.Candidate(candidate) is { } found) changed |= ObjectFinder.Merge(kept, found);
+            if (changed) progress?.Invoke(kept.ToList());
+        }
+        return kept;
+    }
+
+    /// <summary>A second decoder session limited to two threads, for background work that must not compete with the UI.</summary>
+    private InferenceSession LoadBackgroundDecoder()
+    {
+        if (_backgroundDecoder is { } d) return d;
+        if (!_models.HasObjectModel) throw new FileNotFoundException(SegmentationModels.FetchHint);
+        _loadLock.Wait();
+        try
+        {
+            return _backgroundDecoder ??= CreateSession(_models.SamDecoderPath!, threads: 2);
+        }
+        finally
+        {
+            _loadLock.Release();
+        }
+    }
 
     /// <summary>
     /// Decodes a prompt the way Object Selection means it: a single click selects the whole object under it.
@@ -307,13 +347,14 @@ public sealed class SegmentationEngine : IDisposable
         }
     }
 
-    private static InferenceSession CreateSession(string path)
+    private static InferenceSession CreateSession(string path, int threads = 0)
     {
         // CPU only: it runs everywhere, and the Core ML provider spends close to a minute compiling the encoder on
         // first load, which is worse than the second it saves per image.
         using var options = new SessionOptions
         {
             GraphOptimizationLevel = GraphOptimizationLevel.ORT_ENABLE_ALL,
+            IntraOpNumThreads = threads, // 0: ONNX Runtime's default (all cores)
             // The exported graphs trigger a harmless shape-merge warning on load; keep stderr clean.
             LogSeverityLevel = OrtLoggingLevel.ORT_LOGGING_LEVEL_ERROR,
         };
@@ -352,6 +393,7 @@ public sealed class SegmentationEngine : IDisposable
             _encoder?.Dispose();
             _decoder?.Dispose();
             _subject?.Dispose();
+            _backgroundDecoder?.Dispose();
         }
         finally
         {

@@ -119,6 +119,8 @@
     <StackPanel Orientation="Horizontal" Spacing="10" IsVisible="{Binding IsZoomTool}">
       <Button Content="100%" Command="{Binding ActualSizeCommand}" FontSize="11" Padding="10,2" ToolTip.Tip="Actual pixels (⌘1, or double-click the Zoom tool)" />
       <Button Content="Fit Screen" Command="{Binding FitCommand}" FontSize="11" Padding="10,2" ToolTip.Tip="Fit on screen (⌘0)" />
+      <CheckBox Content="Scrubby Zoom" IsChecked="{Binding ScrubbyZoom}" FontSize="11" ToolTip.Tip="Drag to zoom continuously; off, drag a rectangle to zoom into" />
+      <CheckBox Content="Animated Zoom" IsChecked="{Binding AnimatedZoom}" FontSize="11" ToolTip.Tip="Zoom steps glide instead of jumping" />
       <TextBlock Classes="label" VerticalAlignment="Center"
                  Text="Click zooms in · Option-click zooms out · drag left or right to zoom smoothly · ⌘+ / ⌘−" />
     </StackPanel>

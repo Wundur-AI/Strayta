@@ -20,6 +20,7 @@ public enum RefineOutput
 {
     Selection,
     LayerMask,
+    NewLayer,
     NewLayerWithLayerMask,
 }
 
@@ -106,65 +107,5 @@ public sealed partial class DocumentViewModel
     {
         if (Selection is not null) AddMaskFromSelection(reveal: true);
         else AddMask(reveal: true);
-    }
-
-    // ---- Select and Mask ------------------------------------------------------------------------------
-
-    /// <summary>
-    /// Starts Select › Select and Mask on this document: the image it looks at (the flattened document, straight and
-    /// premultiplied) and the selection to refine. Null (with a notice) when the document cannot be sampled.
-    /// </summary>
-    public async Task<SelectAndMaskViewModel?> BeginSelectAndMaskAsync()
-    {
-        if (IsTransforming)
-        {
-            Notice = "Apply or cancel the Free Transform first.";
-            return null;
-        }
-        if (await CompositeAsync() is not { } render) return null;
-        if (await SampleImageAsync(sampleAll: true) is not { } sample) return null;
-        return new SelectAndMaskViewModel(this, render, sample, Selection);
-    }
-
-    /// <summary>Applies a finished Select and Mask session's result as one history step named "Select and Mask".</summary>
-    public void ApplySelectAndMask(SelectionMask? refined, RefineOutput output)
-    {
-        const string Name = "Select and Mask";
-        switch (output)
-        {
-            case RefineOutput.Selection:
-                SetSelection(refined, Name);
-                Notice = refined is null ? "Nothing is selected after Select and Mask." : "";
-                return;
-
-            case RefineOutput.LayerMask:
-            {
-                if (MaskableSelection("add a mask to") is not { } node) return;
-                var mask = refined is null ? LayerMasks.Solid(false) : SelectionLayerMask.Create(refined, true, Model.BitDepth);
-                Apply(new CompositeEdit(Name,
-                    new MaskEdit(node, mask, Name),
-                    new SelectionEdit(Selection, null, s => Selection = s, "Deselect")));
-                EditMask = true;
-                Notice = "";
-                return;
-            }
-
-            case RefineOutput.NewLayerWithLayerMask:
-            {
-                if (MaskableSelection("copy with a mask") is not { Parent: { } parent } node) return;
-                var copy = LayerFactory.Duplicate(node);
-                copy.SetMask(refined is null ? LayerMasks.Solid(false) : SelectionLayerMask.Create(refined, true, Model.BitDepth));
-                copy.Visible = true;
-                // Photoshop hides the original so the masked copy shows on its own.
-                Apply(new CompositeEdit(Name,
-                    new InsertEdit(copy, parent, parent.IndexOf(node) + 1, Name),
-                    new PropertyEdit<bool>(node, "Visibility", node.Visible, false, (n, v) => n.Visible = v),
-                    new SelectionEdit(Selection, null, s => Selection = s, "Deselect")));
-                Select(copy);
-                EditMask = true;
-                Notice = "";
-                return;
-            }
-        }
     }
 }

@@ -39,6 +39,7 @@ public sealed partial class DocumentViewModel
             : gesture.Points is [var p] ? SamPrompt.Click(p.X, p.Y)
             : null;
         if (prompt is null) return;
+        if (await TrySelectFoundObjectAsync(gesture)) return; // a click on an object the Object Finder found (DocumentViewModel.ObjectFinder.cs)
 
         int request = ++_objectRequest;
         var current = Selection;
@@ -49,7 +50,7 @@ public sealed partial class DocumentViewModel
         SelectionMask? next;
         try
         {
-            next = await Task.Run(() => SelectionMask.Combine(current, Engine.SelectObject(embedding, prompt, canvas), gesture.Mode));
+            next = await Task.Run(() => SelectionMask.Combine(current, ClipToLasso(Engine.SelectObject(embedding, prompt, canvas), gesture, canvas), gesture.Mode));
         }
         catch (Exception ex)
         {
@@ -110,7 +111,7 @@ public sealed partial class DocumentViewModel
     /// </summary>
     public void PrepareObjectSelection()
     {
-        if (Engine.CanSelectObjects) _ = ObjectEmbeddingAsync(quiet: true);
+        if (Engine.CanSelectObjects) _ = PrepareObjectFinderAsync(); // analyzes, then finds objects (DocumentViewModel.ObjectFinder.cs)
     }
 
     /// <summary>

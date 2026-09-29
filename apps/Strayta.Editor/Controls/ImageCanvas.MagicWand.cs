@@ -18,6 +18,12 @@ public sealed partial class ImageCanvas
 
     public IReadOnlyList<Vector2[]>? LiveSelectionOutline { get => GetValue(LiveSelectionOutlineProperty); set => SetValue(LiveSelectionOutlineProperty, value); }
 
+    /// <summary>What a Quick Selection stroke does without modifier keys (the options bar's New, Add or Subtract).</summary>
+    public static readonly StyledProperty<SelectionMode> QuickSelectDefaultModeProperty =
+        AvaloniaProperty.Register<ImageCanvas, SelectionMode>(nameof(QuickSelectDefaultMode), SelectionMode.Add);
+
+    public SelectionMode QuickSelectDefaultMode { get => GetValue(QuickSelectDefaultModeProperty); set => SetValue(QuickSelectDefaultModeProperty, value); }
+
     /// <summary>A Magic Wand click at an image pixel, with the mode its modifier keys chose.</summary>
     public event Action<int, int, SelectionMode>? MagicWandClicked;
 
@@ -74,7 +80,9 @@ public sealed partial class ImageCanvas
             MagicWandClicked?.Invoke((int)Math.Floor(p.X), (int)Math.Floor(p.Y), mode);
             return;
         }
-        var brushMode = !has ? SelectionMode.Replace : alt ? SelectionMode.Subtract : SelectionMode.Add;
+        // The options bar's mode (New, Add, Subtract) unless Shift adds or Option subtracts.
+        var brushMode = alt ? SelectionMode.Subtract : shift ? SelectionMode.Add : QuickSelectDefaultMode;
+        if (!has && brushMode != SelectionMode.Subtract) brushMode = SelectionMode.Replace;
         _quickSelecting = QuickSelectBegin?.Invoke((float)p.X, (float)p.Y, brushMode) == true;
         if (_quickSelecting) _dragStart = e.GetPosition(this);
     }

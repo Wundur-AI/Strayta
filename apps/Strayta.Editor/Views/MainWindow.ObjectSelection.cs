@@ -28,6 +28,7 @@ public partial class MainWindow
 
     private void OnEditorChangedForObjectSelection(object? sender, PropertyChangedEventArgs e)
     {
+        if (e.PropertyName is nameof(EditorViewModel.Tool) or nameof(EditorViewModel.ActiveDocument)) Editor.PauseObjectFinders(); // EditorViewModel.Sampling.cs
         if (e.PropertyName is nameof(EditorViewModel.Tool) or nameof(EditorViewModel.ActiveDocument) && Editor.IsObjectSelectTool)
             Editor.ActiveDocument?.PrepareObjectSelection();
         // Object-Aware Quick Selection uses the same analysis (EditorViewModel.QuickSelectObjects.cs).

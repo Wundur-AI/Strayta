@@ -55,6 +55,7 @@ public sealed partial class DocumentViewModel : Dock.Model.Mvvm.Controls.Documen
         Status = $"{model.Width}×{model.Height} · {model.ColorMode} {model.BitDepth}-bit";
         RebuildLayers();
         WarmPreviews();
+        InitHistoryStates(); // snapshots, history-state limit, History Brush (DocumentViewModel.HistoryStates.cs)
     }
 
     private static int _untitledCount;
@@ -254,6 +255,11 @@ public sealed partial class DocumentViewModel : Dock.Model.Mvvm.Controls.Documen
         if (_retouch is not null)
         {
             await EndRetouchStrokeAsync(); // Clone Stamp and healing tools (DocumentViewModel.Retouch.cs)
+            return;
+        }
+        if (_historyStroke is not null)
+        {
+            await EndHistoryBrushStrokeAsync(); // DocumentViewModel.HistoryBrush.cs
             return;
         }
         if (_stroke is not { } stroke) return;

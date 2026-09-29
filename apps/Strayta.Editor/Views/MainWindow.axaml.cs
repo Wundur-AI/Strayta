@@ -26,6 +26,7 @@ public partial class MainWindow : Window, IEditorDialogs
 
         AddHandler(DragDrop.DropEvent, OnDrop);
         RegisterShortcuts();
+        RegisterSpringLoadedTools(); // MainWindow.Zoom.cs
 
         // macOS draws the traffic lights on the left; Windows/Linux draw caption buttons on the right.
         if (!OperatingSystem.IsMacOS())
@@ -48,6 +49,8 @@ public partial class MainWindow : Window, IEditorDialogs
                 await Task.Delay(800);
                 Console.WriteLine($"FLOATTEST after reset: dock windows={Editor.Layout.Windows?.Count ?? 0} app windows={windows?.Count} layers docked={Editor.Factory.Find(d => d.Id == "Layers").Any()}");
             };
+        if (Environment.GetEnvironmentVariable("STRAYTA_SELFTEST") == "selection")
+            Opened += async (_, _) => await SelfTest.RunSelectionGapsOnlyAsync(Editor); // SelfTest.SelectionGaps.cs
         if (Environment.GetEnvironmentVariable("STRAYTA_SELFTEST") == "1")
             Opened += async (_, _) => await SelfTest.RunAsync(Editor, AskNewDocumentAsync);
         if (Environment.GetEnvironmentVariable("STRAYTA_TRANSFORMBENCH") == "new")

@@ -32,7 +32,7 @@ public sealed partial class EditorViewModel
     [ObservableProperty] public partial bool WandContiguous { get; set; } = true;
     [ObservableProperty] public partial bool WandSampleAllLayers { get; set; }
 
-    public MagicWandOptions CurrentWandOptions => new((int)WandTolerance, WandAntiAlias, WandContiguous);
+    public MagicWandOptions CurrentWandOptions => new((int)WandTolerance, WandAntiAlias, WandContiguous, WandSampleSize);
 
     /// <summary>Quick Selection brush diameter in pixels (its own size, separate from the paint brush).</summary>
     [ObservableProperty]

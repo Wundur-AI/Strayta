@@ -7,7 +7,8 @@ namespace Strayta.Core.Selection;
 /// <param name="Tolerance">0..255: a pixel matches when every channel is within this many levels of the clicked pixel.</param>
 /// <param name="AntiAlias">Soften the stair-stepped edge of the selection.</param>
 /// <param name="Contiguous">Only pixels connected to the clicked one; otherwise every matching pixel in the image.</param>
-public readonly record struct MagicWandOptions(int Tolerance = 32, bool AntiAlias = true, bool Contiguous = true);
+/// <param name="SampleSize">Photoshop's Sample Size: the side of the square around the click whose average color is matched (1 = the pixel alone).</param>
+public readonly record struct MagicWandOptions(int Tolerance = 32, bool AntiAlias = true, bool Contiguous = true, int SampleSize = 1);
 
 /// <summary>
 /// Photoshop's Magic Wand: selects the pixels whose color is within a tolerance of the clicked pixel's.
@@ -28,8 +29,7 @@ public static class MagicWand
     {
         int w = image.Width, h = image.Height;
         if (x < 0 || y < 0 || x >= w || y >= h) return null;
-        var pixels = MemoryMarshal.Cast<byte, uint>(image.Rgba.AsSpan());
-        uint seed = pixels[y * w + x];
+        uint seed = SeedColor(image, x, y, options.SampleSize);
         int tolerance = Math.Clamp(options.Tolerance, 0, 255);
 
         // Every pixel's match first (in parallel, cheap), then the fill only compares bytes: 1 = matches, 255 = filled.
@@ -43,6 +43,32 @@ public static class MagicWand
         else mask.AsSpan().Replace((byte)1, (byte)255);
         if (options.AntiAlias) mask = SmoothEdges(mask, w, h);
         return SelectionMask.FromCoverage(image.Bounds, mask);
+    }
+
+    /// <summary>
+    /// The color the wand matches against: the clicked pixel, or the average of the <paramref name="size"/> ×
+    /// <paramref name="size"/> square centered on it (clipped to the image), as Photoshop's 3 by 3 … 101 by 101 Average.
+    /// The image is premultiplied, so the average weighs colors by their opacity.
+    /// </summary>
+    public static uint SeedColor(SampleImage image, int x, int y, int size)
+    {
+        int w = image.Width, h = image.Height;
+        var rgba = image.Rgba;
+        int half = Math.Max(0, size - 1) / 2;
+        if (half == 0) return MemoryMarshal.Cast<byte, uint>(rgba.AsSpan())[y * w + x];
+        int x0 = Math.Max(0, x - half), x1 = Math.Min(w, x + half + 1), y0 = Math.Max(0, y - half), y1 = Math.Min(h, y + half + 1);
+        long r = 0, g = 0, b = 0, a = 0;
+        for (int yy = y0; yy < y1; yy++)
+            for (int i = (yy * w + x0) * 4, end = (yy * w + x1) * 4; i < end; i += 4)
+            {
+                r += rgba[i];
+                g += rgba[i + 1];
+                b += rgba[i + 2];
+                a += rgba[i + 3];
+            }
+        long n = (long)(x1 - x0) * (y1 - y0);
+        uint Avg(long v) => (uint)((v + n / 2) / n);
+        return Avg(r) | Avg(g) << 8 | Avg(b) << 16 | Avg(a) << 24;
     }
 
     private static bool Matches(uint p, uint seed, int tolerance) =>

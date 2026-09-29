@@ -1,0 +1,116 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Strayta.Editor.ViewModels"
+             xmlns:c="using:Strayta.Editor.Controls"
+             x:Class="Strayta.Editor.Views.SelectAndMaskWorkspace"
+             x:DataType="vm:SelectAndMaskViewModel"
+             Background="{DynamicResource St.Window}">
+  <UserControl.Styles>
+    <Style Selector="ComboBox">
+      <Setter Property="FontSize" Value="11" />
+    </Style>
+  </UserControl.Styles>
+  <!-- Photoshop's Select and Mask workspace, in the main window in place of the tools, options bar and panels: its own
+       tools on the left, the tool's options on top, the preview in the middle, settings on the right. -->
+  <DockPanel>
+    <!-- Options bar for the current tool, with the workspace's own undo -->
+    <Border DockPanel.Dock="Top" Background="{DynamicResource St.Panel}" Height="36" Padding="12,0"
+            BorderBrush="{DynamicResource St.Border}" BorderThickness="0,0,0,1">
+      <DockPanel>
+        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="2" VerticalAlignment="Center">
+          <Button Classes="icon" Click="OnUndo" IsEnabled="{Binding CanUndo}" ToolTip.Tip="{Binding UndoText}"><Path Classes="icon small" Data="{StaticResource IconUndo}" /></Button>
+          <Button Classes="icon" Click="OnRedo" IsEnabled="{Binding CanRedo}" ToolTip.Tip="Redo (⇧⌘Z)"><Path Classes="icon small" Data="{StaticResource IconRedo}" /></Button>
+        </StackPanel>
+        <StackPanel Orientation="Horizontal" Spacing="14" VerticalAlignment="Center">
+          <TextBlock Text="{Binding ToolName}" FontWeight="SemiBold" VerticalAlignment="Center" MinWidth="60" />
+          <StackPanel Orientation="Horizontal" Spacing="2" IsVisible="{Binding UsesMode}">
+            <ToggleButton Classes="icon" IsChecked="{Binding IsAddMode}" ToolTip.Tip="Add to selection"><Path Classes="icon small" Data="{StaticResource IconSelAdd}" /></ToggleButton>
+            <ToggleButton Classes="icon" IsChecked="{Binding IsSubtractMode}" ToolTip.Tip="Subtract from selection (Option)"><Path Classes="icon small" Data="{StaticResource IconSelSubtract}" /></ToggleButton>
+          </StackPanel>
+          <StackPanel Orientation="Horizontal" Spacing="6" IsVisible="{Binding UsesSize}">
+            <TextBlock Classes="label" Text="Size" VerticalAlignment="Center" />
+            <c:NumberField Value="{Binding ToolBrushSize}" Width="48" ToolTip.Tip="Brush diameter in pixels ([ and ] resize)" />
+          </StackPanel>
+          <TextBlock Classes="label" Text="{Binding ToolHint}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+        </StackPanel>
+      </DockPanel>
+    </Border>
+
+    <!-- Tools -->
+    <Border DockPanel.Dock="Left" Width="46" Background="{DynamicResource St.Panel}" BorderBrush="{DynamicResource St.Border}" BorderThickness="0,0,1,0">
+      <StackPanel Spacing="4" Margin="0,8" HorizontalAlignment="Center">
+        <ToggleButton Classes="icon" IsChecked="{Binding IsQuickSelectionTool}" ToolTip.Tip="Quick Selection (W)"><Path Classes="icon" Data="{StaticResource IconQuickSelect}" /></ToggleButton>
+        <ToggleButton Classes="icon" IsChecked="{Binding IsRefineEdgeTool}" ToolTip.Tip="Refine Edge Brush (R)"><Path Classes="icon" Data="{StaticResource IconRefineEdge}" /></ToggleButton>
+        <ToggleButton Classes="icon" IsChecked="{Binding IsBrushTool}" ToolTip.Tip="Brush (B)"><Path Classes="icon" Data="{StaticResource IconBrush}" /></ToggleButton>
+        <ToggleButton Classes="icon" IsChecked="{Binding IsLassoTool}" ToolTip.Tip="Lasso (L)"><Path Classes="icon" Data="{StaticResource IconLasso}" /></ToggleButton>
+        <ToggleButton Classes="icon" IsChecked="{Binding IsHandTool}" ToolTip.Tip="Hand (H)"><Path Classes="icon" Data="{StaticResource IconHand}" /></ToggleButton>
+        <ToggleButton Classes="icon" IsChecked="{Binding IsZoomTool}" ToolTip.Tip="Zoom (Z)"><Path Classes="icon" Data="{StaticResource IconZoom}" /></ToggleButton>
+      </StackPanel>
+    </Border>
+
+    <!-- Properties -->
+    <Border DockPanel.Dock="Right" Width="290" Background="{DynamicResource St.Panel}" BorderBrush="{DynamicResource St.Border}" BorderThickness="1,0,0,0">
+      <DockPanel Margin="14,12">
+        <StackPanel DockPanel.Dock="Bottom" Spacing="10">
+          <CheckBox Content="Remember Settings" IsChecked="{Binding RememberSettings}" FontSize="11"
+                    ToolTip.Tip="Start the next Select and Mask with these settings" />
+          <TextBlock Classes="muted" Text="{Binding Info}" FontSize="11" />
+          <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
+            <Button x:Name="CancelButton" Content="Cancel" MinWidth="84" />
+            <Button x:Name="OkButton" Content="OK" MinWidth="84" />
+          </StackPanel>
+        </StackPanel>
+        <ScrollViewer>
+          <StackPanel Spacing="10">
+            <TextBlock Text="{Binding Title}" FontWeight="SemiBold" TextWrapping="Wrap" />
+            <TextBlock Text="View Mode" FontWeight="SemiBold" Margin="0,6,0,0" />
+            <ComboBox SelectedIndex="{Binding ViewIndex}" HorizontalAlignment="Stretch" ToolTip.Tip="F cycles the views">
+              <ComboBoxItem Content="Onion Skin" />
+              <ComboBoxItem Content="Marching Ants" />
+              <ComboBoxItem Content="Overlay" />
+              <ComboBoxItem Content="On Black" />
+              <ComboBoxItem Content="On White" />
+              <ComboBoxItem Content="Black &amp; White" />
+              <ComboBoxItem Content="On Layers" />
+            </ComboBox>
+            <c:SliderField Label="{Binding ViewAmountLabel}" Minimum="0" Maximum="100" Value="{Binding ViewAmount}"
+                           IsEnabled="{Binding HasViewAmount}" ToolTip.Tip="How strongly the view shows what is not selected" />
+
+            <TextBlock Text="Edge Detection" FontWeight="SemiBold" Margin="0,8,0,0" />
+            <c:SliderField Label="Radius (px)" Minimum="0" Maximum="250" Value="{Binding Radius}"
+                           ToolTip.Tip="How far on either side of the edge the selection is re-decided from the image's colors" />
+            <CheckBox Content="Smart Radius" IsChecked="{Binding SmartRadius}" FontSize="11"
+                      ToolTip.Tip="Narrow the radius where the edge is hard, keep it where the edge is soft (hair, fur)" />
+
+            <TextBlock Text="Global Refinements" FontWeight="SemiBold" Margin="0,8,0,0" />
+            <c:SliderField Label="Smooth" Minimum="0" Maximum="100" Value="{Binding Smooth}" ToolTip.Tip="Rounds off jagged outlines" />
+            <c:SliderField Label="Feather (px)" Minimum="0" Maximum="250" Format="0.0" Value="{Binding Feather}" ToolTip.Tip="Softens the edge" />
+            <c:SliderField Label="Contrast (%)" Minimum="0" Maximum="100" Value="{Binding Contrast}" ToolTip.Tip="Hardens soft edges" />
+            <c:SliderField Label="Shift Edge (%)" Minimum="-100" Maximum="100" Value="{Binding ShiftEdge}"
+                           ToolTip.Tip="Moves the edge out (positive) or in (negative), up to 10 pixels" />
+
+            <TextBlock Text="Output Settings" FontWeight="SemiBold" Margin="0,8,0,0" />
+            <CheckBox Content="Decontaminate Colors" IsChecked="{Binding Decontaminate}" FontSize="11"
+                      ToolTip.Tip="Replace the old background's color in the edge with nearby colors of the selection" />
+            <c:SliderField Label="Amount (%)" Minimum="0" Maximum="100" Value="{Binding DecontaminateAmount}" IsEnabled="{Binding Decontaminate}" />
+            <DockPanel>
+              <TextBlock Classes="label" Text="Output To" Width="70" VerticalAlignment="Center" />
+              <ComboBox SelectedIndex="{Binding OutputIndex}" HorizontalAlignment="Stretch">
+                <ComboBoxItem Content="Selection" />
+                <ComboBoxItem Content="Layer Mask" />
+                <ComboBoxItem Content="New Layer" />
+                <ComboBoxItem Content="New Layer with Layer Mask" />
+              </ComboBox>
+            </DockPanel>
+            <TextBlock Classes="muted" Text="{Binding OutputNote}" TextWrapping="Wrap" FontSize="11" IsVisible="{Binding Decontaminate}" />
+          </StackPanel>
+        </ScrollViewer>
+      </DockPanel>
+    </Border>
+
+    <c:ImageCanvas x:Name="Canvas" Source="{Binding Preview}" DocumentSize="{Binding DocumentSize}"
+                   Tool="{Binding CanvasTool}" BrushSize="{Binding ToolBrushSize}"
+                   Selection="{Binding BaseSelection}" ShowSelectionOutline="False" AntsOutline="{Binding AntsOutline}"
+                   LiveSelectionOutline="{Binding QuickOutline}" QuickSelectDefaultMode="{Binding DefaultMode}" />
+  </DockPanel>
+</UserControl>

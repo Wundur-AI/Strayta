@@ -15,7 +15,7 @@ public sealed partial class DocumentViewModel
 
     // Sample images are built once and reused while the layer or the document stays the same, so only the first
     // click after an edit pays for converting pixels (tens of milliseconds on large documents).
-    private ((PixelLayer Layer, Raster? Pixels, PixelRect Bounds) Key, SampleImage Image)? _layerSample;
+    private ((PixelLayer Layer, Raster? Pixels, PixelRect Bounds, LayerMask? Mask) Key, SampleImage Image)? _layerSample;
     private (byte[] Render, SampleImage Image)? _compositeSample;
     private (SampleImage Source, QuickSelectionImage Image)? _working;
 
@@ -27,15 +27,15 @@ public sealed partial class DocumentViewModel
     /// (or when the selection is a group or adjustment layer, which have no pixels of their own) the flattened
     /// document at full resolution.
     /// </summary>
-    private async Task<SampleImage?> SampleImageAsync(bool sampleAll)
+    private async Task<SampleImage?> SampleImageAsync(bool sampleAll, bool honorMask = false)
     {
         int w = Model.Width, h = Model.Height;
         var palette = Model.Palette;
         if (!sampleAll && SelectedLayer?.Node is PixelLayer layer)
         {
-            var key = (layer, layer.Pixels, layer.Bounds);
+            var key = (layer, layer.Pixels, layer.Bounds, honorMask ? layer.Mask : null); // the wand honors the mask (Photoshop)
             if (_layerSample is { } cached && cached.Key.Equals(key)) return cached.Image;
-            var image = await Task.Run(() => SampleImage.FromPixels(key.Pixels, key.Bounds, w, h, palette));
+            var image = await Task.Run(() => SampleImage.FromPixels(key.Pixels, key.Bounds, w, h, palette, key.Item4));
             _layerSample = (key, image);
             return image;
         }
@@ -72,7 +72,7 @@ public sealed partial class DocumentViewModel
         var options = Editor.CurrentWandOptions;
         var current = Selection;
         int request = ++_selectionRequest;
-        if (await SampleImageAsync(Editor.WandSampleAllLayers) is not { } sample) return;
+        if (await SampleImageAsync(Editor.WandSampleAllLayers, honorMask: true) is not { } sample) return;
         var next = await Task.Run(() => SelectionMask.Combine(current, MagicWand.Select(sample, x, y, options), mode));
         // Dropped if another click finished first or the selection changed meanwhile (as for marquee drags).
         if (request != _selectionRequest || !ReferenceEquals(current, Selection)) return;
@@ -116,6 +116,7 @@ public sealed partial class DocumentViewModel
         var drag = new QuickSelectDrag { Stroke = StartStrokeAsync(), Before = before, Last = new Vector2(x, y) };
         drag.Pending.Add(drag.Last);
         _quickDrag = drag;
+        if (Editor.QuickSelectMode == QuickSelectionMode.New) Editor.QuickSelectMode = QuickSelectionMode.Add; // as Photoshop after a first stroke
         Notice = "";
         drag.Objects = StartObjectAware(mode, before, size);
         drag.Pump = PumpAsync(drag);

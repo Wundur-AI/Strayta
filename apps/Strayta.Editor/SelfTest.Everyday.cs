@@ -93,7 +93,7 @@ internal static partial class SelfTest
             doc.BeginEyedropper(120, 10, background: false);
             doc.EndEyedropper();
             check(editor.ForegroundColor == before, "sampling a transparent pixel of the current layer leaves the color alone");
-            editor.EyedropperSampleIndex = 1; // All Layers: the white background shows through there
+            editor.EyedropperSampleIndex = (int)LayerSample.AllLayers; // the white background shows through there
             editor.BackgroundColor = Colors.Blue;
             doc.BeginEyedropper(120, 10, background: true);
             doc.EndEyedropper();
@@ -212,6 +212,7 @@ internal static partial class SelfTest
                 if (canvas is null) check(false, "the document's canvas is on screen");
                 else
                 {
+                    editor.AnimatedZoom = false; // these steps land at once (animated steps: SelfTest.SelectionGaps.cs)
                     editor.ActualSizeCommand.Execute(null);
                     check(canvas.Zoom == 1, "⌘1 shows actual pixels");
                     editor.ZoomInCommand.Execute(null);
@@ -227,6 +228,7 @@ internal static partial class SelfTest
                     editor.ToolGroups.Single(g => g.Key == "Z").DoubleClicked();
                     check(canvas.Zoom == 1, "double-clicking the Zoom tool shows 100%");
                     editor.FitCommand.Execute(null);
+                    editor.AnimatedZoom = true;
                 }
             }
 

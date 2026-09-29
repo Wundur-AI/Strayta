@@ -25,7 +25,7 @@ public sealed partial class DocumentViewModel
     public bool BeginEyedropper(int x, int y, bool background)
     {
         if (IsTransforming) return false;
-        _eyedropper = new EyedropperDrag(SampleImageAsync(Editor.EyedropperSampleAllLayers), background);
+        _eyedropper = new EyedropperDrag(LayerSampleImageAsync(Editor.EyedropperSample), background); // DocumentViewModel.Sampling.cs
         SampleEyedropper(x, y);
         return true;
     }

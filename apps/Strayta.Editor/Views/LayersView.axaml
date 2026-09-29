@@ -124,7 +124,7 @@
               </MenuFlyout>
             </Button.Flyout>
           </Button>
-          <Button Classes="icon" ToolTip.Tip="Add layer mask (reveals the selection, if any)" Command="{Binding Editor.AddLayerMaskCommand}"><Path Classes="icon small" Data="{StaticResource IconMask}" /></Button>
+          <Button x:Name="MaskButton" Classes="icon" ToolTip.Tip="Add layer mask (reveals the selection, if any; Option hides it)" Command="{Binding Editor.AddLayerMaskCommand}"><Path Classes="icon small" Data="{StaticResource IconMask}" /></Button>
           <Button Classes="icon" ToolTip.Tip="New adjustment layer">
             <Panel>
               <Path Classes="icon small" Data="{StaticResource IconAdjust}" />

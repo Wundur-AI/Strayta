@@ -57,9 +57,8 @@ public sealed partial class EditorViewModel
         if (ActiveDocument is not { } doc || Dialogs is not { } dialogs) return;
         using var session = await doc.BeginSelectAndMaskAsync();
         if (session is null) return;
-        if (!await dialogs.RunSelectAndMaskAsync(session)) return;
-        var refined = await session.ResultAsync();
-        doc.ApplySelectAndMask(refined, session.Output);
+        if (!await RunSelectAndMaskSessionAsync(dialogs, session)) return; // EditorViewModel.SelectAndMask.cs
+        await doc.ApplySelectAndMaskAsync(session);
     }
 
     /// <summary>Layer › Layer Mask › Reveal Selection ("reveal") / Hide Selection ("hide").</summary>

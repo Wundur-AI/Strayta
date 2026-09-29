@@ -74,7 +74,7 @@ public sealed partial class ImageCanvas
         _antsTimer = new DispatcherTimer(TimeSpan.FromMilliseconds(80), DispatcherPriority.Render, (_, _) =>
         {
             if (_showShape && !_selecting && DateTime.UtcNow > _shapeUntil) _showShape = _hideOutline = false;
-            if (Selection is null && !_showShape) return;
+            if (Selection is null && !_showShape && AntsOutline is null) return; // AntsOutline: ImageCanvas.SelectAndMask.cs
             _antsPhase = (_antsPhase + 1) % 8;
             InvalidateVisual();
         });
@@ -128,6 +128,7 @@ public sealed partial class ImageCanvas
         _selectStartScreen = e.GetPosition(this);
         _selectStart = _selectEnd = ToImage(_selectStartScreen);
         _shapeTool = Tool;
+        _objectLasso = Tool == CanvasTool.ObjectSelect && ObjectLassoMode; // ImageCanvas.ObjectFinder.cs
         _lasso.Clear();
         _lasso.Add(new Vector2((float)_selectStart.X, (float)_selectStart.Y));
         _shapeBox = PixelRect.Empty;
@@ -149,7 +150,7 @@ public sealed partial class ImageCanvas
             _hideOutline = _selectMode == SelectionMode.Replace;
         }
 
-        if (_shapeTool == CanvasTool.Lasso)
+        if (LassoShape)
         {
             foreach (var point in e.GetIntermediatePoints(this))
             {
@@ -175,6 +176,8 @@ public sealed partial class ImageCanvas
         }
         var gesture = _shapeTool == CanvasTool.Lasso
             ? new SelectionGesture(_shapeTool, _selectMode, PixelRect.Empty, _dragged ? [.. _lasso] : [])
+            : _objectLasso && _dragged && _lasso.Count >= 3
+            ? new SelectionGesture(_shapeTool, _selectMode, LassoBounds(), [.. _lasso]) // Object Selection's Lasso mode
             : new SelectionGesture(_shapeTool, _selectMode, _dragged ? _shapeBox : PixelRect.Empty,
                 // Object Selection treats a click as "the object under the cursor", so it needs the point.
                 _shapeTool == CanvasTool.ObjectSelect && !_dragged ? [new Vector2((float)_selectStart.X, (float)_selectStart.Y)] : []);
@@ -212,7 +215,8 @@ public sealed partial class ImageCanvas
 
     private void RenderSelection(DrawingContext context)
     {
-        if (!_hideOutline && _outline.Count > 0 && Selection is not null)
+        RenderAntsOutline(context); // Select and Mask's Marching Ants view (ImageCanvas.SelectAndMask.cs)
+        if (!_hideOutline && ShowSelectionOutline && _outline.Count > 0 && Selection is not null)
         {
             var key = (_outline, Zoom, _offset);
             if (_outlineGeometry is null || !ReferenceEquals(key._outline, _outlineGeometryKey.Loops) ||
@@ -226,7 +230,7 @@ public sealed partial class ImageCanvas
 
         if (_showShape)
         {
-            if (_shapeTool == CanvasTool.Lasso)
+            if (LassoShape)
             {
                 if (_lasso.Count > 1) DrawAnts(context, LoopsGeometry([[.. _lasso]], closed: !_selecting));
             }

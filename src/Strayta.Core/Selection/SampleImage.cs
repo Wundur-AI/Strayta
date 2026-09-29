@@ -32,7 +32,11 @@ public sealed class SampleImage
         FromPixels(layer.Pixels, layer.Bounds, width, height, palette);
 
     /// <summary>Like <see cref="FromLayer"/> for pixels read beforehand, so a background thread never touches the layer.</summary>
-    public static SampleImage FromPixels(Raster? pixels, PixelRect bounds, int width, int height, byte[]? palette = null)
+    /// <param name="mask">
+    /// The layer's mask, when the tool honors it (the Magic Wand in current-layer mode): pixels the mask hides count as
+    /// transparent, in proportion to how much it hides them. A disabled mask is ignored.
+    /// </param>
+    public static SampleImage FromPixels(Raster? pixels, PixelRect bounds, int width, int height, byte[]? palette = null, LayerMask? mask = null)
     {
         var rgba = new byte[(long)width * height * 4];
         if (pixels is null) return new SampleImage(width, height, rgba);
@@ -46,7 +50,15 @@ public sealed class SampleImage
             {
                 int s = ((y - b.Top) * b.Width + (visible.Left - b.Left)) * 4;
                 int d = (y * width + visible.Left) * 4;
-                Premultiply(src.AsSpan(s, visible.Width * 4), rgba.AsSpan(d, visible.Width * 4));
+                var row = rgba.AsSpan(d, visible.Width * 4);
+                if (mask is { Disabled: false } m)
+                {
+                    var masked = src.AsSpan(s, visible.Width * 4).ToArray();
+                    for (int x = 0; x < visible.Width; x++)
+                        masked[x * 4 + 3] = (byte)(masked[x * 4 + 3] * Painting.MaskBaker.Sample(m, visible.Left + x, y) + 0.5f);
+                    Premultiply(masked, row);
+                }
+                else Premultiply(src.AsSpan(s, visible.Width * 4), row);
             });
         }
         return new SampleImage(width, height, rgba);

@@ -36,4 +36,29 @@ public static class SelectionLayerMask
         });
         return new LayerMask { Bounds = b, Pixels = plane, DefaultColor = reveal ? (byte)0 : (byte)255 };
     }
+
+    /// <summary>The selection's coverage over <paramref name="region"/> (row-major, 255 = selected; all 0 for no selection).</summary>
+    public static byte[] Coverage(SelectionMask? selection, PixelRect region) => MaskFilters.Extract(selection, region);
+
+    /// <summary>
+    /// The selection a mask describes over <paramref name="canvas"/> (white selected, black not), as Select and Mask
+    /// starts from when a layer mask is refined. Null when the mask hides everything.
+    /// </summary>
+    public static SelectionMask? ToSelection(LayerMask mask, PixelRect canvas)
+    {
+        int w = canvas.Width, h = canvas.Height;
+        var coverage = new byte[(long)w * h];
+        coverage.AsSpan().Fill(mask.DefaultColor);
+        var inside = mask.Bounds.Intersect(canvas);
+        if (mask.Pixels is { } p && !inside.IsEmpty)
+        {
+            var b = mask.Bounds;
+            Parallel.For(inside.Top, inside.Bottom, y =>
+            {
+                int src = (y - b.Top) * b.Width + (inside.Left - b.Left), dst = (y - canvas.Top) * w + (inside.Left - canvas.Left);
+                for (int x = 0; x < inside.Width; x++) coverage[dst + x] = (byte)MathF.Round(p.GetNormalized(src + x) * 255f);
+            });
+        }
+        return SelectionMask.FromCoverage(canvas, coverage);
+    }
 }

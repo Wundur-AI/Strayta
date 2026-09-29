@@ -40,7 +40,8 @@ dotnet test
 - Tools: Move (V), Hand (H), Brush (B), Eraser (E); `[` and `]` resize the brush. Space or the middle
   button pans with any tool; the wheel zooms.
 - Eyedropper (I): click or drag to pick the foreground color (Option: background), with a sampling ring showing
-  the new color over the old; Sample Size from a point to 101×101 average, from the current layer or all layers.
+  the new color over the old; Sample Size from a point to 101×101 average; Sample: Current Layer, Current & Below,
+  All Layers, All Layers No Adjustments or Current & Below No Adjustments.
   Option with the Brush, Paint Bucket or Gradient picks colors too.
 - Gradient and Paint Bucket (G, Shift+G switches). Gradient: drag to draw Linear, Radial, Angle, Reflected or Diamond
   gradients, foreground to background or to transparent, Reverse, Dither, Opacity, Shift snaps to 45°; it previews
@@ -54,10 +55,16 @@ dotnet test
   release blends the source's texture into the surrounding colors (a Poisson heal); the Spot Healing Brush needs no
   source: it finds a nearby area whose surroundings match (Proximity Match) and heals from it. All respect the
   selection, paint a targeted layer mask (cloning mask values), keep a Background opaque and are one undo step each.
-- Zoom (Z): click zooms in, Option-click out, drag left/right zooms smoothly; double-click the tool for 100%.
-  View > Zoom In / Zoom Out (⌘+ / ⌘−), Fit on Screen (⌘0), Actual Size (⌘1).
-- History panel (Window > History): every step of the active document from Open on, with its tool's icon; click a
-  step to go back or forward to it, and a new edit discards the dimmed steps after it.
+- Zoom (Z): click zooms in, Option-click out, drag left/right zooms smoothly (Scrubby Zoom; off, the drag draws a
+  rectangle to zoom into); double-click the tool for 100%. ⌘Space / ⌘⌥Space zoom in / out over any tool while held.
+  Steps glide in a short ease (Animated Zoom, can be turned off). View > Zoom In / Zoom Out (⌘+ / ⌘−), Fit on
+  Screen (⌘0), Actual Size (⌘1). Tool keys are spring-loaded: hold Z (or any tool's key) to use the tool until you
+  let go, then the previous tool returns; a tap switches.
+- History panel (Window > History): snapshots at the top (the opened document first, each with a thumbnail; the
+  camera button takes one; clicking one restores it as a new step), then every step from Open on, with its tool's
+  icon; click a step to go back or forward to it, and a new edit discards the dimmed steps after it. The number is
+  the History States limit (50 by default; older steps are dropped). History Brush (Y) paints the selected layer back
+  to the state or snapshot marked in the panel's left column (transparency included), with the brush's settings.
 - Selections: Rectangular and Elliptical Marquee (M, Shift+M switches), Lasso (L), with Photoshop's modifiers
   (Shift adds or constrains, Option subtracts or draws from the center, Shift+Option intersects; a click
   deselects). Select > All / Deselect / Reselect / Inverse. Painting, Delete (clear), Fill, Cut, Copy and
@@ -67,30 +74,38 @@ dotnet test
   Selection, Magic Wand). The slot shows the tool used last, Shift plus the key steps through the group, and
   pressing and holding (or right-clicking) a slot with a corner triangle lists its tools.
 - Magic Wand and Quick Selection. The wand selects colors within a tolerance of the clicked
-  pixel (per channel, 0–255), contiguous or across the whole image, anti-aliased or hard, from the selected layer
-  (its transparency included) or all layers. Quick Selection is a brush (`[`/`]` size) that grows the selection to
-  similar, connected pixels and stops at edges, live while you drag; later strokes add, Option subtracts,
+  pixel (or the average of a 3×3 … 101×101 Sample Size), contiguous or across the whole image, anti-aliased or hard,
+  from the selected layer (its transparency and layer mask included) or all layers. Quick Selection is a brush
+  (`[`/`]` size) that grows the selection to similar, connected pixels and stops at edges, live while you drag; the
+  options bar's New / Add / Subtract pick what a stroke does (New switches to Add after it), Shift adds, Option subtracts,
   Auto-Enhance softens the edge. Each click or stroke is one undo step. Object-Aware (off by default; needs the
   [AI selection models](#ai-selection-models)) lets the local SAM model find the object being brushed, so a shaded
   object fills from one stroke and the selection stops at its outline.
 - Object Selection (tool strip, below Lasso): drag a box around an object or click it, and a local AI model
-  selects it; Shift adds, Option subtracts. Sample All Layers (on by default) looks at the whole image, off at the
-  selected layer. Select > Subject (also a button in the tool's options bar) selects the main subject. See
+  selects it; Shift adds, Option subtracts; Mode: Lasso draws around the object instead (the result stays inside the
+  path). Object Finder (on by default) finds the image's objects in the background once it is analyzed (SAM prompted
+  with a grid of points on two background threads, stopped when the tool or document changes): hovering highlights
+  the object under the pointer and a click selects it at once. Sample All Layers (on by default) looks at the whole
+  image, off at the selected layer. Select > Subject (also a button in the tool's options bar) selects the main subject. See
   [AI selection models](#ai-selection-models) below.
 - Select > Modify > Border, Smooth, Expand, Contract and Feather (Shift+F6), with Photoshop's pixel amounts and
   "Apply effect at canvas bounds"; soft edges stay soft when expanding or contracting. Each is one undo step.
-- Select > Select and Mask (Option+Cmd+R): a workspace that previews the selection as a red overlay, on black, on
-  white or as black and white, with Radius (edge detection that re-decides the edge from the image's colors, for
-  hair and fur), Smooth, Feather, Contrast and Shift Edge, and a Refine Edge brush (Option erases) for areas the
-  radius misses. The preview follows every slider step at screen resolution and settles at full resolution when
-  you pause. Output to the selection, a layer mask, or a new layer with a layer mask. Simpler than Photoshop's: no
-  Smart Radius, Decontaminate Colors, other brushes or view modes, and it looks at the whole image (Sample All
-  Layers).
+- Select > Select and Mask (Option+Cmd+R): a workspace in the main window (its own tools, options bar and settings
+  replace the regular ones) with Quick Selection (W), Refine Edge brush (R, Option erases), Brush (B) and Lasso (L)
+  (Add / Subtract, Option subtracts), Hand and Zoom; views Onion Skin, Marching Ants, Overlay, On Black, On White,
+  Black & White and On Layers (F cycles) with a Transparency / Opacity slider; Radius with Smart Radius (narrow at
+  hard edges, wide at soft ones), Smooth, Feather, Contrast, Shift Edge; Decontaminate Colors with Amount (the
+  output then goes to a new layer). ⌘Z / ⇧⌘Z undo and redo inside the workspace; Remember Settings keeps the
+  settings for next time. With a layer mask targeted, Select and Mask refines that mask. The preview follows every
+  slider step and stroke at screen resolution and settles at full resolution when you pause. Output to the
+  selection, a layer mask, a new layer, or a new layer with a layer mask. It looks at the whole image (Sample All
+  Layers); no Object Selection tool inside it.
 - Layers panel: blend mode, opacity and fill for the selected layer; visibility, thumbnails, rename
   (double-click), drag-and-drop reordering into and out of groups, new layer/group, duplicate, delete.
 - Layer masks on layers, groups and adjustment layers (Layer > Layer Mask, or the panel's mask button): click the
   mask thumbnail to paint in it (black hides, white reveals), Shift-click to disable it; Apply, Delete. Reveal
-  Selection / Hide Selection (and the panel's button while something is selected) make the mask from the selection.
+  Selection / Hide Selection (and the panel's button while something is selected) make the mask from the selection;
+  Option-click on the button hides instead (Hide Selection / Hide All).
 - Adjustment layers (Layer > New Adjustment Layer): Levels, Curves, Hue/Saturation, Brightness/Contrast, Invert,
   Threshold, Posterize, edited live in the Properties panel.
 - Layer styles (Layer > Layer Style, the panel's fx button, or double-click a layer row): Blending Options, Drop
@@ -131,7 +146,8 @@ dotnet run -c Release --project apps/Strayta.Editor -- [file.psd ...]
 ```
 
 Diagnostics (environment variables): `STRAYTA_SELFTEST=1` runs a scripted editing session and reports
-each step; `STRAYTA_DRAGBENCH=1` / `STRAYTA_PAINTBENCH=1` / `STRAYTA_TRANSFORMBENCH=1` / `STRAYTA_ADJUSTBENCH=1`
+each step (`=selection` only the selection, sampling, zoom and history steps, with FINDERBENCH / MASKBENCH timings);
+`STRAYTA_DRAGBENCH=1` / `STRAYTA_PAINTBENCH=1` / `STRAYTA_TRANSFORMBENCH=1` / `STRAYTA_ADJUSTBENCH=1`
 measure frame rates (layer drag, brush stroke, free transform, Properties slider drag) on the first opened file
 (`STRAYTA_TRANSFORMBENCH=new` builds a 4000×3000 document and runs the drag and transform benchmarks on it);
 `STRAYTA_WANDBENCH=1` times Magic Wand clicks and a Quick Selection drag, plain and Object-Aware (`=new` on a generated 4000×3000
