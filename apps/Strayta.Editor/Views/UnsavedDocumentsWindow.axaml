@@ -1,0 +1,44 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:Strayta.Editor.ViewModels"
+        x:Class="Strayta.Editor.Views.UnsavedDocumentsWindow"
+        x:DataType="vm:UnsavedDocumentsViewModel"
+        Title="Unsaved Changes" Width="560" SizeToContent="Height" CanResize="False"
+        WindowStartupLocation="CenterOwner" Background="{DynamicResource St.Panel}">
+  <StackPanel Margin="20" Spacing="12">
+    <TextBlock Classes="heading" FontSize="14" Text="{Binding Heading}" />
+    <TextBlock Classes="muted" TextWrapping="Wrap"
+               Text="Checked documents are saved; unchecked ones close without saving. Click a document to see it in the main window." />
+
+    <Border BorderBrush="{DynamicResource St.Border}" BorderThickness="1" CornerRadius="6">
+      <DockPanel>
+        <Border DockPanel.Dock="Top" Padding="10,6" BorderBrush="{DynamicResource St.Border}" BorderThickness="0,0,0,1">
+          <CheckBox IsThreeState="True" IsChecked="{Binding AllChecked}" Content="Save" FontSize="11"
+                    ToolTip.Tip="Check or uncheck every document" />
+        </Border>
+        <ListBox ItemsSource="{Binding Items}" SelectedItem="{Binding Selected}" MaxHeight="360" Background="Transparent">
+          <ListBox.ItemTemplate>
+            <DataTemplate x:DataType="vm:UnsavedDocumentItem">
+              <DockPanel Margin="0,2">
+                <CheckBox DockPanel.Dock="Left" IsChecked="{Binding Save}" VerticalAlignment="Center" Margin="0,0,4,0" />
+                <StackPanel VerticalAlignment="Center" Spacing="1">
+                  <TextBlock Text="{Binding Title}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                  <TextBlock Text="{Binding Detail}" Classes="muted" FontSize="11" TextTrimming="PathSegmentEllipsis" />
+                </StackPanel>
+              </DockPanel>
+            </DataTemplate>
+          </ListBox.ItemTemplate>
+        </ListBox>
+      </DockPanel>
+    </Border>
+
+    <DockPanel>
+      <Button DockPanel.Dock="Left" Content="Don't Save" Command="{Binding DiscardAllCommand}" MinWidth="100"
+              ToolTip.Tip="Close every document without saving" />
+      <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
+        <Button Content="Cancel" Command="{Binding CancelCommand}" IsCancel="True" MinWidth="90" />
+        <Button Content="{Binding SaveText}" Command="{Binding SaveCheckedCommand}" IsDefault="True" MinWidth="120" Classes="accent" />
+      </StackPanel>
+    </DockPanel>
+  </StackPanel>
+</Window>

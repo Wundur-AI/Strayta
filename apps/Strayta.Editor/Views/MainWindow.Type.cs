@@ -33,6 +33,8 @@ public partial class MainWindow
         };
         Editor.GetClipboardText = async () => Clipboard is { } clipboard ? await clipboard.TryGetTextAsync() : null;
         Editor.AskReplaceMissingFonts = AskReplaceMissingFontsAsync;
+        // Several unsaved documents closing at once get one review window (EditorViewModel.Closing.cs).
+        Editor.ReviewUnsaved = review => new UnsavedDocumentsWindow(review).ShowDialog(this);
     }
 
     /// <summary>

@@ -777,6 +777,13 @@ public sealed partial class DocumentViewModel : Dock.Model.Mvvm.Controls.Documen
 
     private bool _closeConfirmed;
 
+    /// <summary>Closes after the unsaved changes were settled elsewhere (the review of several documents).</summary>
+    internal void CloseWithoutAsking()
+    {
+        _closeConfirmed = true;
+        Factory?.CloseDockable(this);
+    }
+
     public override bool OnClose()
     {
         if (!IsModified || _closeConfirmed || ConfirmClose is null)

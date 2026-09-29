@@ -98,7 +98,7 @@ public sealed partial class EditorViewModel : ObservableObject
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasDocument))]
-    [NotifyCanExecuteChangedFor(nameof(SaveCommand), nameof(SaveAsCommand), nameof(CloseCommand), nameof(ExportAsCommand))]
+    [NotifyCanExecuteChangedFor(nameof(SaveCommand), nameof(SaveAsCommand), nameof(CloseCommand), nameof(CloseAllCommand), nameof(ExportAsCommand))]
     public partial DocumentViewModel? ActiveDocument { get; set; }
 
     public bool HasDocument => ActiveDocument is not null;
@@ -437,16 +437,5 @@ public sealed partial class EditorViewModel : ObservableObject
             case "discard": return true;
             default: return false;
         }
-    }
-
-    /// <summary>Called when the window closes; true if every document may be discarded.</summary>
-    public async Task<bool> ConfirmQuitAsync()
-    {
-        foreach (var doc in Factory.OpenDocuments().Where(d => d.IsModified).ToList())
-        {
-            Factory.SetActiveDockable(doc);
-            if (!await ConfirmCloseAsync(doc)) return false;
-        }
-        return true;
     }
 }
