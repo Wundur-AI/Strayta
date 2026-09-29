@@ -157,6 +157,20 @@ internal static partial class SelfTest
 
             // ---- Paragraph text --------------------------------------------------------------------------------
             editor.Tool = CanvasTool.Type;
+            // Reopening the font menu after a search refills its list, which recycles rows (this used to crash on a null row).
+            if (Avalonia.Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime { MainWindow: { } fontWindow }
+                && fontWindow.GetVisualDescendants().OfType<FontFamilyPicker>().FirstOrDefault(p => p.IsEffectivelyVisible) is { } picker)
+            {
+                for (int i = 0; i < 3; i++)
+                {
+                    picker.ShowMenu(true, search: i % 2 == 0 ? "a" : null); // a search, then a reopen that clears it
+                    await Task.Delay(150);
+                    picker.ShowMenu(false);
+                    await Task.Delay(50);
+                }
+                check(true, "the font menu opens and closes repeatedly");
+            }
+            else check(false, "the Type tool's options bar has a font picker");
             doc.SelectedLayer = doc.Layers.SelectMany(l => l.SelfAndDescendants()).First(i => i.Node is PixelLayer { Name: "Background" });
             editor.Type.FontSize = 20;
             var box = doc.BeginNewText(60, 170, new TextRect(60, 170, 300, 340));

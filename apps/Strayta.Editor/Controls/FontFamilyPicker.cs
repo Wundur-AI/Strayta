@@ -43,7 +43,7 @@ public sealed class FontFamilyPicker : UserControl
         {
             Height = 360,
             Width = 280,
-            ItemTemplate = new FuncDataTemplate<string>((name, _) => new TextBlock
+            ItemTemplate = new FuncDataTemplate<string?>((name, _) => new TextBlock
             {
                 Text = name,
                 FontSize = 14,
@@ -98,8 +98,21 @@ public sealed class FontFamilyPicker : UserControl
         if (change.Property == FamilyProperty) _label.Text = Family ?? "";
     }
 
-    private FontFamily FontFor(string name)
+    /// <summary>Opens or closes the family menu (as a click on the picker does), optionally typing a search; used by the self-test.</summary>
+    internal void ShowMenu(bool open, string? search = null)
     {
+        if (open) _flyout.ShowAt(_button);
+        else _flyout.Hide();
+        if (open && search is not null) _search.Text = search;
+    }
+
+    /// <summary>
+    /// The family to draw a list row in. Recycling a row while the list is refilled (reopening the menu) builds the
+    /// template once with no item, so a null name gets the default font.
+    /// </summary>
+    private FontFamily FontFor(string? name)
+    {
+        if (string.IsNullOrEmpty(name)) return FontFamily.Default;
         if (!_fonts.TryGetValue(name, out var font)) _fonts[name] = font = new FontFamily(name);
         return font;
     }
