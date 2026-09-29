@@ -296,6 +296,7 @@ public static partial class CanvasOperations
         DefaultColor = m.DefaultColor,
         Disabled = m.Disabled,
         PositionRelativeToLayer = m.PositionRelativeToLayer,
+        AppliedToPixels = m.AppliedToPixels,
     };
 
     // ---- Nearest neighbor ------------------------------------------------------------------------

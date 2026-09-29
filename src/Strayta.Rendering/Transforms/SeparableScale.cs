@@ -51,6 +51,7 @@ internal static class SeparableScale
         {
             Bounds = target.IsEmpty ? PixelRect.Empty : target, DefaultColor = mask.DefaultColor, Disabled = mask.Disabled,
             PositionRelativeToLayer = mask.PositionRelativeToLayer,
+            AppliedToPixels = mask.AppliedToPixels,
             Pixels = target.IsEmpty ? null : Plane.Create(target.Width, target.Height, pixels.BitDepth),
         };
         if (result.Pixels is not { } plane) return result;

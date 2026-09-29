@@ -29,6 +29,11 @@ internal abstract class Source
         int inStart = rowInside ? Math.Clamp(b.Left - x0, 0, n) : n;
         int inEnd = rowInside ? Math.Clamp(b.Right - x0, 0, n) : n;
 
+        if (mask.AppliedToPixels)
+        {
+            ApplyMaskMin(mask, outside, y, x0, inStart, inEnd, coverage);
+            return;
+        }
         if (outside != 1f)
         {
             for (int i = 0; i < inStart; i++) coverage[i] *= outside;
@@ -48,6 +53,19 @@ internal abstract class Source
                 for (int i = inStart; i < inEnd; i++) coverage[i] *= p.GetNormalized(src + i - inStart);
                 break;
         }
+    }
+
+    /// <summary>A mask already cut into the pixels (<see cref="LayerMask.AppliedToPixels"/>) only lowers coverage to its own value.</summary>
+    private static void ApplyMaskMin(LayerMask mask, float outside, int y, int x0, int inStart, int inEnd, Span<float> coverage)
+    {
+        int n = coverage.Length;
+        for (int i = 0; i < inStart; i++) coverage[i] = MathF.Min(coverage[i], outside);
+        for (int i = inEnd; i < n; i++) coverage[i] = MathF.Min(coverage[i], outside);
+        if (inEnd <= inStart) return;
+        var b = mask.Bounds;
+        var p = mask.Pixels!;
+        int src = (y - b.Top) * b.Width + (x0 + inStart - b.Left);
+        for (int i = inStart; i < inEnd; i++) coverage[i] = MathF.Min(coverage[i], p.GetNormalized(src + i - inStart));
     }
 
     /// <summary>
@@ -85,7 +103,7 @@ internal abstract class Source
                 }
                 m += (target - m) * cov;
             }
-            coverage[i] *= m;
+            coverage[i] = mask.AppliedToPixels ? MathF.Min(coverage[i], m) : coverage[i] * m;
         }
     }
 
@@ -141,13 +159,17 @@ internal sealed class LayerSource : Source
         return bounds;
     }
 
-    public static LayerSource? From(PixelLayer layer, Document doc, StrokeOverlay? stroke = null)
+    /// <param name="area">
+    /// Where the layer's pixels are wanted (the canvas by default). Layer styles need the pixels just beyond the canvas
+    /// too, since a glow or shadow near the edge comes from them.
+    /// </param>
+    public static LayerSource? From(PixelLayer layer, Document doc, StrokeOverlay? stroke = null, PixelRect? area = null)
     {
         var active = stroke is { TargetsMask: false } && ReferenceEquals(stroke.Target, layer) ? stroke : null;
         if (layer.Pixels is null && active is null) return null;
         // Skip fully transparent or masked-out areas; fill layers often cover the whole canvas with a mask
         // revealing a small region.
-        var bounds = VisibleBounds(layer, doc.Bounds, stroke);
+        var bounds = VisibleBounds(layer, area ?? doc.Bounds, stroke);
         return bounds.IsEmpty ? null : new LayerSource(layer, doc.Palette, active, StrokeOverlay.ForMaskOf(stroke, layer)) { Bounds = bounds };
     }
 

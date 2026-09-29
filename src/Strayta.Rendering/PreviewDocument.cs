@@ -129,7 +129,7 @@ public sealed class PreviewDocument
         var bounds = pixels is null
             ? new PixelRect(Floor(m.Bounds.Left, Factor), Floor(m.Bounds.Top, Factor), Ceil(m.Bounds.Right, Factor), Ceil(m.Bounds.Bottom, Factor))
             : Place(m.Bounds, pixels.Width, pixels.Height);
-        return new LayerMask { Bounds = bounds, Pixels = pixels, DefaultColor = m.DefaultColor, Disabled = m.Disabled, PositionRelativeToLayer = m.PositionRelativeToLayer };
+        return new LayerMask { Bounds = bounds, Pixels = pixels, DefaultColor = m.DefaultColor, Disabled = m.Disabled, PositionRelativeToLayer = m.PositionRelativeToLayer, AppliedToPixels = m.AppliedToPixels };
     }
 
     // ---- Cached downsampling ---------------------------------------------------------------------

@@ -15,4 +15,11 @@ public sealed class LayerMask
 
     /// <summary>When true the mask stays put when the layer moves (it is "unlinked").</summary>
     public bool PositionRelativeToLayer { get; init; }
+
+    /// <summary>
+    /// The layer's own transparency already has this mask cut into it, as Photoshop stores shape and fill layers: their
+    /// pixels are the fill clipped by the vector mask, and the mask is the same vector mask rasterized. Coverage is then
+    /// the smaller of the two rather than their product, so anti-aliased edges are not applied twice.
+    /// </summary>
+    public bool AppliedToPixels { get; init; }
 }

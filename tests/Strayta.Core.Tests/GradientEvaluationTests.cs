@@ -26,6 +26,18 @@ public class GradientEvaluationTests
     }
 
     [Fact]
+    public void Layer_style_gradients_ease_into_their_end_stops_when_smooth()
+    {
+        // Leaving and reaching the ends at half the straight ramp's slope: halfway between a ramp and a smoothstep.
+        var smooth = GradientLut.Build(Stops(1, (0, 0.5f, Black), (1, 0.5f, White)), GradientMethod.Classic, easedEnds: true);
+        Assert.Equal(0.2031f, Red0(smooth, 0.25f), 3);
+        Assert.Equal(0.5f, Red0(smooth, 0.5f), 3);
+        Assert.Equal(0.7969f, Red0(smooth, 0.75f), 3);
+        var plain = GradientLut.Build(Stops(0, (0, 0.5f, Black), (1, 0.5f, White)), GradientMethod.Classic, easedEnds: true);
+        Assert.Equal(0.25f, Red0(plain, 0.25f), 4); // no smoothness, no easing
+    }
+
+    [Fact]
     public void Colors_hold_before_the_first_stop_and_after_the_last()
     {
         var lut = GradientLut.Build(Stops(1, (0.2f, 0.5f, Black), (0.8f, 0.5f, White)), GradientMethod.Classic);

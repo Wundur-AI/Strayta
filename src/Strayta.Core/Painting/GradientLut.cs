@@ -51,11 +51,17 @@ public sealed class GradientLut
     /// Evaluates <paramref name="gradient"/> (stops already resolved to colors, see <see cref="GradientModel.Resolve"/>).
     /// With <paramref name="transparency"/> off the opacity stops are ignored, as Photoshop's Transparency option does.
     /// </summary>
-    public static GradientLut Build(Gradient gradient, GradientMethod method, bool transparency = true)
+    /// <param name="easedEnds">
+    /// Smoothness also eases into the first and last stops (the curve leaves and reaches them at half the end segment's
+    /// slope), so even a two-stop gradient is gently S-shaped at 100% smoothness. Photoshop draws layer-style gradients
+    /// (Gradient Overlay and gradient strokes) this way: measured against its composites, a smooth two-stop overlay
+    /// departs from a straight ramp by half as much as a smoothstep does.
+    /// </param>
+    public static GradientLut Build(Gradient gradient, GradientMethod method, bool transparency = true, bool easedEnds = false)
     {
         var lut = new GradientLut();
         if (gradient.Noise is { } noise) lut.FillNoise(noise, transparency);
-        else lut.FillStops(gradient, method, transparency);
+        else lut.FillStops(gradient, method, transparency, easedEnds);
         return lut;
     }
 
@@ -73,7 +79,7 @@ public sealed class GradientLut
 
     // ---- Stops ------------------------------------------------------------------------------------
 
-    private void FillStops(Gradient g, GradientMethod method, bool transparency)
+    private void FillStops(Gradient g, GradientMethod method, bool transparency, bool easedEnds)
     {
         var colors = g.Colors.OrderBy(c => c.Location).ToList();
         var opacities = g.Opacities.OrderBy(o => o.Location).ToList();
@@ -82,12 +88,12 @@ public sealed class GradientLut
         var locations = colors.Select(c => c.Location).ToArray();
         var mids = colors.Select(c => c.Midpoint).ToArray();
         var space = colors.Select(c => ToSpace(c.Color, method)).ToArray();
-        var c1 = new StopCurve(locations, mids, space.Select(v => v.X).ToArray(), g.Smoothness);
-        var c2 = new StopCurve(locations, mids, space.Select(v => v.Y).ToArray(), g.Smoothness);
-        var c3 = new StopCurve(locations, mids, space.Select(v => v.Z).ToArray(), g.Smoothness);
+        var c1 = new StopCurve(locations, mids, space.Select(v => v.X).ToArray(), g.Smoothness, easedEnds);
+        var c2 = new StopCurve(locations, mids, space.Select(v => v.Y).ToArray(), g.Smoothness, easedEnds);
+        var c3 = new StopCurve(locations, mids, space.Select(v => v.Z).ToArray(), g.Smoothness, easedEnds);
         var alpha = opacities.Count == 0 || !transparency ? null
             : new StopCurve(opacities.Select(o => o.Location).ToArray(), opacities.Select(o => o.Midpoint).ToArray(),
-                opacities.Select(o => o.Opacity).ToArray(), g.Smoothness);
+                opacities.Select(o => o.Opacity).ToArray(), g.Smoothness, easedEnds);
 
         for (int i = 0; i <= Size; i++)
         {
@@ -107,7 +113,7 @@ public sealed class GradientLut
         private readonly float[] _x, _mid, _p, _m;
         private readonly float _smooth;
 
-        public StopCurve(float[] x, float[] mid, float[] p, float smoothness)
+        public StopCurve(float[] x, float[] mid, float[] p, float smoothness, bool easedEnds)
         {
             _x = x;
             _mid = mid;
@@ -122,8 +128,9 @@ public sealed class GradientLut
                 float dx = x[k + 1] - x[k];
                 d[k] = dx > 1e-6f ? (p[k + 1] - p[k]) / dx : 0f;
             }
-            _m[0] = d[0];
-            _m[n - 1] = d[n - 2];
+            float end = easedEnds ? 0.5f : 1f;
+            _m[0] = d[0] * end;
+            _m[n - 1] = d[n - 2] * end;
             for (int k = 1; k < n - 1; k++)
                 _m[k] = d[k - 1] * d[k] <= 0f ? 0f : 2f / (1f / d[k - 1] + 1f / d[k]);
         }

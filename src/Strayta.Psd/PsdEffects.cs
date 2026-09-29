@@ -382,7 +382,9 @@ public static class PsdEffects
 
     /// <summary>
     /// A gradient ('Grdn'). Custom gradients ('GrdF' 'CstS') store color and opacity stops with locations in 0..4096
-    /// and midpoints in percent, each color stop's kind as its 'Type' (user color, foreground or background), and the
+    /// and midpoints in percent (a stop's 'Mdpn' is the midpoint of the segment that ends at it, where the model keeps
+    /// it on the stop that starts the segment; see <see cref="ToSegmentStart"/>), each color stop's kind as its 'Type'
+    /// (user color, foreground or background), and the
     /// Smoothness as 'Intr' (0..4096). Noise gradients ('ClNs') store their roughness ('Smth', 0..4096), color model
     /// ('ClrS'), seed ('RndS'), per-channel minimum and maximum percentages ('Mnm ', 'Mxm '), "Restrict Colors"
     /// ('VctC') and "Add Transparency" ('ShTr').
@@ -408,12 +410,28 @@ public static class PsdEffects
             (float)(o.Value.Number("Lctn") ?? 0) / 4096f,
             (float)(o.Value.Number("Mdpn") ?? 50) / 100f,
             (float)(o.Value.Number("Opct") ?? 100) / 100f)).OrderBy(s => s.Location).ToList();
+        var colorMids = ToSegmentStart(colorStops.Select(c => c.Midpoint).ToList());
+        var opacityMids = ToSegmentStart(opacityStops.Select(o => o.Midpoint).ToList());
+        colorStops = colorStops.Select((c, i) => c with { Midpoint = colorMids[i] }).ToList();
+        opacityStops = opacityStops.Select((o, i) => o with { Midpoint = opacityMids[i] }).ToList();
         return colorStops.Count == 0 ? null : new Gradient(colorStops, opacityStops)
         {
             Name = g.Text("Nm  ") ?? "Custom",
             Smoothness = (float)Math.Clamp((g.Number("Intr") ?? 4096) / 4096.0, 0, 1),
         };
     }
+
+    /// <summary>
+    /// Photoshop stores each segment's midpoint on the stop that ends it (the first stop's is unused); the model keeps
+    /// it on the stop that starts it. Moves each midpoint one stop back, the first stop's (unused) value to the last
+    /// stop, so writing (<see cref="ToSegmentEnd"/>) gives the file's values back.
+    /// </summary>
+    internal static List<float> ToSegmentStart(List<float> fileMidpoints) =>
+        fileMidpoints.Count < 2 ? fileMidpoints : [.. fileMidpoints.Skip(1), fileMidpoints[0]];
+
+    /// <summary>The model's midpoints (on segment starts) as Photoshop stores them (on segment ends).</summary>
+    internal static List<float> ToSegmentEnd(List<float> modelMidpoints) =>
+        modelMidpoints.Count < 2 ? modelMidpoints : [modelMidpoints[^1], .. modelMidpoints.Take(modelMidpoints.Count - 1)];
 
     private static Gradient NoiseGradientOf(Descriptor g)
     {

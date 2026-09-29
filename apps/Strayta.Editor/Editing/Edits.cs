@@ -77,6 +77,7 @@ public sealed class MoveEdit(LayerNode node, int dx, int dy) : IEdit
         DefaultColor = m.DefaultColor,
         Disabled = m.Disabled,
         PositionRelativeToLayer = m.PositionRelativeToLayer,
+        AppliedToPixels = m.AppliedToPixels,
     };
 }
 

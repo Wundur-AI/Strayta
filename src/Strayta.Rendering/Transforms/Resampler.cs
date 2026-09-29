@@ -225,6 +225,7 @@ public static class Resampler
         DefaultColor = m.DefaultColor,
         Disabled = m.Disabled,
         PositionRelativeToLayer = m.PositionRelativeToLayer,
+        AppliedToPixels = m.AppliedToPixels,
     };
 
     /// <summary>

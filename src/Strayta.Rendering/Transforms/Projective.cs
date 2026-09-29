@@ -169,6 +169,7 @@ public static class ProjectiveResampler
         DefaultColor = m.DefaultColor,
         Disabled = m.Disabled,
         PositionRelativeToLayer = m.PositionRelativeToLayer,
+        AppliedToPixels = m.AppliedToPixels,
     };
 
     private delegate void RowSink(int y, float[] sums, float[] weights, float[] coverage);

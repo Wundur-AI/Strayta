@@ -38,13 +38,50 @@ internal sealed class FieldSource : Source
     }
 }
 
+/// <summary>Another source's colors at full coverage: a layer's colors inside its shape, whatever its edge.</summary>
+internal sealed class OpaqueSource(Source inner) : Source
+{
+    public override void FillRow(int y, int x0, int x1, Span<float> rgb, Span<float> coverage)
+    {
+        inner.FillRow(y, x0, x1, rgb, coverage);
+        coverage[..(x1 - x0)].Fill(1f);
+    }
+}
+
+/// <summary>Where <see cref="EffectRenderer.Render"/> draws a layer and its effects.</summary>
+internal interface IEffectTarget
+{
+    /// <summary>The area that can be drawn into.</summary>
+    PixelRect Bounds { get; }
+
+    /// <summary>Composites a source with (blend mode, opacity, fill); see <see cref="EffectRenderer.Render"/>.</summary>
+    void Composite(Source source, BlendMode mode, float opacity, float fill);
+
+    /// <summary>Composites the layer's own content, as <see cref="Composite"/> but blending text the way Photoshop blends text.</summary>
+    void CompositeContent(Source source, BlendMode mode, float opacity, float fill);
+
+    /// <summary>
+    /// A buffer over <paramref name="region"/> to build a layer's interior on: a copy of what is drawn so far, or, when
+    /// the layer's content will cover it completely (<paramref name="covered"/>), an empty one.
+    /// </summary>
+    RenderBuffer BeginInterior(PixelRect region, bool covered);
+
+    /// <summary>Composites a source onto an interior buffer at full opacity; <paramref name="fill"/> as in <see cref="Composite"/>.</summary>
+    void CompositeInterior(RenderBuffer interior, Source source, BlendMode mode, float fill);
+
+    /// <summary>Replaces what is drawn by the finished interior by <paramref name="shape"/>'s coverage × <paramref name="opacity"/>.</summary>
+    void EndInterior(RenderBuffer interior, Source shape, float opacity);
+}
+
 /// <summary>
 /// Renders a layer (or a group's flattened content) together with its layer styles, in Photoshop's stacking order
 /// (the order of its Layer Style dialog, read bottom up): drop shadow and outer glow below the layer; pattern overlay,
 /// gradient overlay, color overlay, satin, inner glow, inner shadow, stroke and bevel &amp; emboss above it. Effects
-/// follow the layer's shape (pixel transparency × layer mask) and are not affected by fill opacity. Hidden effects,
-/// and all of them when the master switch is off, are skipped. Several effects of one kind draw in list order, the
-/// last on top.
+/// follow the layer's shape (pixel transparency × layer mask) and are not affected by fill opacity, except that below
+/// 100% fill the shape hides its own shadows and glows (see KnockOut). Interior effects are drawn inside the shape (see
+/// DrawInterior). An effect's own opacity acts as fill, which matters for Photoshop's special-eight blend modes; the
+/// layer's opacity fades everything. Hidden effects, and all of them when the master switch is off, are skipped. Several
+/// effects of one kind draw in list order, the last on top.
 /// </summary>
 internal static partial class EffectRenderer
 {
@@ -71,24 +108,46 @@ internal static partial class EffectRenderer
         return (int)MathF.Ceiling(reach) + 2;
     }
 
+    /// <summary>
+    /// How far beyond a pixel the layer's shape can influence its effects there, outwards or inwards: a glow near the
+    /// canvas edge needs the layer's pixels that far beyond the edge.
+    /// </summary>
+    public static int Influence(LayerEffects? effects)
+    {
+        if (effects is null) return 0;
+        float inward = effects.Visible.Select(e => e switch
+        {
+            InnerGlowEffect g => g.Size,
+            InnerShadowEffect s => s.Size + s.Distance,
+            SatinEffect s => s.Size + s.Distance,
+            StrokeEffect s => s.Size,
+            BevelEffect b => b.Size + b.Soften + 2,
+            _ => 0f,
+        }).DefaultIfEmpty(0f).Max();
+        return Math.Max(Reach(effects), (int)MathF.Ceiling(inward) + 2);
+    }
+
+    /// <summary>True when the style draws more than the layer's interior: shadows, glows, strokes or bevels.</summary>
+    public static bool DrawsOutside(LayerEffects? effects) =>
+        effects?.Visible.Any(e => e is not UnsupportedEffect && !IsInterior(e)) == true;
+
     public static bool HasRenderable(LayerEffects? effects) =>
         effects?.Visible.Any(e => e is not UnsupportedEffect) == true;
 
     /// <param name="layer">The layer (or group) whose effects, opacity, fill opacity and blend mode apply.</param>
     /// <param name="content">The layer's pixels (for a group, its flattened content), which the effects follow.</param>
-    /// <param name="targetBounds">Where the result can go (the canvas, or the buffer being rendered into).</param>
-    /// <param name="composite">
-    /// Composites a source with (blend mode, opacity, fill). An effect's own opacity acts as fill, which
-    /// matters for Photoshop's special-eight blend modes; the layer's opacity fades everything.
-    /// </param>
-    public static void Render(LayerNode layer, Source content, PixelRect targetBounds,
-        Action<Source, BlendMode, float, float> composite)
+    /// <param name="target">Where the result goes (the canvas, or the buffer being rendered into).</param>
+    /// <param name="opacity">The opacity to draw with, when not the layer's own (1 when the caller fades the result).</param>
+    public static void Render(LayerNode layer, Source content, IEffectTarget target, float? opacity = null)
     {
         var effects = layer.Effects!.Visible.Where(e => e is not UnsupportedEffect).ToList();
-        int reach = Reach(layer.Effects);
+        int reach = Reach(layer.Effects), influence = Influence(layer.Effects);
+        // The field reaches as far beyond the target as the shape there can influence the effects inside it.
+        var within = new PixelRect(target.Bounds.Left - influence, target.Bounds.Top - influence,
+            target.Bounds.Right + influence, target.Bounds.Bottom + influence);
         var area = new PixelRect(content.Bounds.Left - reach, content.Bounds.Top - reach,
-            content.Bounds.Right + reach, content.Bounds.Bottom + reach).Intersect(targetBounds);
-        if (area.IsEmpty) return;
+            content.Bounds.Right + reach, content.Bounds.Bottom + reach).Intersect(within);
+        if (area.IsEmpty || area.Intersect(target.Bounds).IsEmpty) return;
 
         int w = area.Width, h = area.Height;
         var shape = new float[w * h];
@@ -100,57 +159,29 @@ internal static partial class EffectRenderer
             content.FillRow(y, x0, x1, Span<float>.Empty, shape.AsSpan((y - area.Top) * w + (x0 - area.Left), x1 - x0));
         }
 
-        var field = EffectField.For(layer, shape, w, h, area, content.Bounds, targetBounds);
-        float layerOpacity = layer.Opacity;
+        // Patterns linked with the layer start at its bounds (for a shape, its outline's bounds), not at its first
+        // visible pixel.
+        var origin = layer is PixelLayer { Pixels: not null } pl ? pl.Bounds : content.Bounds;
+        var field = EffectField.For(layer, shape, w, h, area, origin, target.Bounds);
+        field.Rasterized = !layer.Tags.Contains("vector-mask") && !layer.Tags.Contains("text");
+        float layerOpacity = opacity ?? layer.Opacity, fill = layer.FillOpacity;
+        var mode = layer.BlendMode == BlendMode.PassThrough ? BlendMode.Normal : layer.BlendMode;
 
         foreach (var shadow in effects.OfType<DropShadowEffect>())
         {
             var alpha = Shadow(field, shadow);
-            if (shadow.Knockout && layer.FillOpacity < 1f)
-                for (int i = 0; i < alpha.Length; i++) alpha[i] *= 1f - shape[i];
-            composite(new FieldSource(area, alpha, shadow.Color), shadow.BlendMode, layerOpacity, shadow.Opacity);
+            if (shadow.Knockout) KnockOut(alpha, shape, fill);
+            target.Composite(new FieldSource(area, alpha, shadow.Color), shadow.BlendMode, layerOpacity, shadow.Opacity);
         }
 
         foreach (var glow in effects.OfType<OuterGlowEffect>())
         {
             var (alpha, rgb) = OuterGlow(field, glow);
-            composite(new FieldSource(area, alpha, glow.Color, rgb), glow.BlendMode, layerOpacity, glow.Opacity);
+            KnockOut(alpha, shape, fill);
+            target.Composite(new FieldSource(area, alpha, glow.Color, rgb), glow.BlendMode, layerOpacity, glow.Opacity);
         }
 
-        composite(content, layer.BlendMode, layerOpacity, layer.FillOpacity);
-
-        foreach (var overlay in effects.OfType<PatternOverlayEffect>())
-        {
-            if (overlay.Fill is not { Pattern.Resolved: not null } fill) continue;
-            var (rgb, alpha) = PatternFillField(fill, shape, field);
-            composite(new FieldSource(area, alpha, default, rgb), overlay.BlendMode, layerOpacity, overlay.Opacity);
-        }
-
-        foreach (var overlay in effects.OfType<GradientOverlayEffect>())
-        {
-            var fill = new GradientFill(overlay.Gradient)
-            {
-                Style = overlay.Style, Angle = overlay.Angle, Scale = overlay.Scale, Reverse = overlay.Reverse,
-                AlignWithLayer = overlay.AlignWithLayer, OffsetX = overlay.OffsetX, OffsetY = overlay.OffsetY,
-            };
-            var (rgb, alpha) = GradientFillField(fill, shape, field, shape);
-            composite(new FieldSource(area, alpha, default, rgb), overlay.BlendMode, layerOpacity, overlay.Opacity);
-        }
-
-        foreach (var overlay in effects.OfType<ColorOverlayEffect>())
-            composite(new FieldSource(area, shape, overlay.Color), overlay.BlendMode, layerOpacity, overlay.Opacity);
-
-        foreach (var satin in effects.OfType<SatinEffect>())
-            composite(new FieldSource(area, Satin(field, satin), satin.Color), satin.BlendMode, layerOpacity, satin.Opacity);
-
-        foreach (var glow in effects.OfType<InnerGlowEffect>())
-        {
-            var (alpha, rgb) = InnerGlow(field, glow);
-            composite(new FieldSource(area, alpha, glow.Color, rgb), glow.BlendMode, layerOpacity, glow.Opacity);
-        }
-
-        foreach (var shadow in effects.OfType<InnerShadowEffect>())
-            composite(new FieldSource(area, InnerShadow(field, shadow), shadow.Color), shadow.BlendMode, layerOpacity, shadow.Opacity);
+        DrawInterior(layer, content, effects, field, target, mode, layerOpacity);
 
         float[]? strokes = null;
         foreach (var stroke in effects.OfType<StrokeEffect>())
@@ -164,19 +195,19 @@ internal static partial class EffectRenderer
                 case StrokeFillType.Gradient when stroke.GradientFill is { } gradient:
                 {
                     var (rgb, a) = GradientFillField(gradient, alpha, field, shape, stroke);
-                    composite(new FieldSource(area, a, default, rgb), stroke.BlendMode, layerOpacity, stroke.Opacity);
+                    target.Composite(new FieldSource(area, a, default, rgb), stroke.BlendMode, layerOpacity, stroke.Opacity);
                     break;
                 }
                 case StrokeFillType.Pattern when stroke.PatternFill is { Pattern.Resolved: not null } pattern:
                 {
                     var (rgb, a) = PatternFillField(pattern, alpha, field);
-                    composite(new FieldSource(area, a, default, rgb), stroke.BlendMode, layerOpacity, stroke.Opacity);
+                    target.Composite(new FieldSource(area, a, default, rgb), stroke.BlendMode, layerOpacity, stroke.Opacity);
                     break;
                 }
                 case StrokeFillType.Gradient or StrokeFillType.Pattern:
                     break; // no gradient, or a pattern the file does not contain: nothing to draw
                 default:
-                    composite(new FieldSource(area, alpha, stroke.Color), stroke.BlendMode, layerOpacity, stroke.Opacity);
+                    target.Composite(new FieldSource(area, alpha, stroke.Color), stroke.BlendMode, layerOpacity, stroke.Opacity);
                     break;
             }
         }
@@ -184,9 +215,126 @@ internal static partial class EffectRenderer
         foreach (var bevel in effects.OfType<BevelEffect>())
         {
             if (Bevel(field, bevel, strokes) is not var (highlight, shadow)) continue;
-            composite(new FieldSource(area, shadow, bevel.ShadowColor), bevel.ShadowMode, layerOpacity, bevel.ShadowOpacity);
-            composite(new FieldSource(area, highlight, bevel.HighlightColor), bevel.HighlightMode, layerOpacity, bevel.HighlightOpacity);
+            target.Composite(new FieldSource(area, shadow, bevel.ShadowColor), bevel.ShadowMode, layerOpacity, bevel.ShadowOpacity);
+            target.Composite(new FieldSource(area, highlight, bevel.HighlightColor), bevel.HighlightMode, layerOpacity, bevel.HighlightOpacity);
         }
+    }
+
+    /// <summary>
+    /// Once fill opacity is below 100%, the layer's shape hides its own shadows and glows beneath it, completely,
+    /// whatever the fill (as Photoshop renders them: a knockout proportional to 1 − fill leaves glow visible inside shapes
+    /// at 42% fill that Photoshop does not show). At 100% the layer's pixels cover them anyway, and they still show
+    /// through its soft or anti-aliased edges.
+    /// </summary>
+    private static void KnockOut(float[] alpha, float[] shape, float fill)
+    {
+        if (fill >= 1f) return;
+        for (int i = 0; i < alpha.Length; i++) alpha[i] *= 1f - shape[i];
+    }
+
+    private static bool IsInterior(LayerEffect e) => InteriorRank(e) >= 0;
+
+    /// <summary>Stacking order of the interior effects, bottom up; -1 for the others.</summary>
+    private static int InteriorRank(LayerEffect e) => e switch
+    {
+        PatternOverlayEffect => 0,
+        GradientOverlayEffect => 1,
+        ColorOverlayEffect => 2,
+        SatinEffect => 3,
+        InnerGlowEffect => 4,
+        InnerShadowEffect => 5,
+        _ => -1,
+    };
+
+    /// <summary>
+    /// The layer's content and its interior effects (overlays, satin, inner glow, inner shadow), the way Photoshop
+    /// combines them: inside the shape, the content is blended onto the backdrop at fill opacity, then each interior
+    /// effect onto that result, each at its own opacity; the finished interior then covers the backdrop by the shape's
+    /// coverage (and the layer's opacity). So interior effects never add coverage at soft or anti-aliased edges, and
+    /// they still show (over the backdrop) at fill 0%.
+    /// </summary>
+    private static void DrawInterior(LayerNode layer, Source content, List<LayerEffect> effects, EffectField field,
+        IEffectTarget target, BlendMode mode, float layerOpacity)
+    {
+        if (!effects.Any(IsInterior) || mode == BlendMode.Dissolve)
+        {
+            // Nothing inside the shape but the content: plain compositing is the same, and cheaper. Dissolve scatters the
+            // shape's coverage, so its interior effects are drawn over it, limited to the shape.
+            target.CompositeContent(content, mode, layerOpacity, layer.FillOpacity);
+            foreach (var e in effects.Where(IsInterior).OrderBy(InteriorRank))
+                DrawInteriorEffect(e, field, (src, m, fx) => target.Composite(src, m, layerOpacity, fx), clipped: true);
+            return;
+        }
+
+        var region = content.Bounds.Intersect(field.Area);
+        if (region.IsEmpty) return;
+        // Normal content at full fill hides the backdrop inside the shape, so the interior starts from the content alone.
+        var interior = target.BeginInterior(region, covered: mode == BlendMode.Normal && layer.FillOpacity >= 1f);
+        target.CompositeInterior(interior, new OpaqueSource(content) { Bounds = region }, mode, layer.FillOpacity);
+        foreach (var e in effects.Where(IsInterior).OrderBy(InteriorRank))
+            DrawInteriorEffect(e, field, (src, m, fx) => target.CompositeInterior(interior, src, m, fx), clipped: false);
+        target.EndInterior(interior, new FieldSource(field.Area, field.Shape, default), layerOpacity);
+    }
+
+    /// <summary>
+    /// Draws one interior effect with <paramref name="draw"/> (source, blend mode, the effect's opacity). Unclipped, its
+    /// coverage is the effect's own strength inside the shape (1 for overlays), leaving the shape's edge to the caller.
+    /// </summary>
+    private static void DrawInteriorEffect(LayerEffect e, EffectField field, Action<Source, BlendMode, float> draw, bool clipped)
+    {
+        var area = field.Area;
+        var shape = field.Shape;
+        float[] Coverage(float[] alpha) => clipped ? alpha : Unclip(alpha, shape);
+        switch (e)
+        {
+            case PatternOverlayEffect overlay when overlay.Fill is { Pattern.Resolved: not null } fill:
+            {
+                var (rgb, alpha) = PatternFillField(fill, shape, field);
+                draw(new FieldSource(area, Coverage(alpha), default, rgb), overlay.BlendMode, overlay.Opacity);
+                break;
+            }
+            case GradientOverlayEffect overlay:
+            {
+                var fill = new GradientFill(overlay.Gradient)
+                {
+                    Style = overlay.Style, Angle = overlay.Angle, Scale = overlay.Scale, Reverse = overlay.Reverse,
+                    AlignWithLayer = overlay.AlignWithLayer, OffsetX = overlay.OffsetX, OffsetY = overlay.OffsetY,
+                };
+                var (rgb, alpha) = GradientFillField(fill, shape, field, shape);
+                draw(new FieldSource(area, Coverage(alpha), default, rgb), overlay.BlendMode, overlay.Opacity);
+                break;
+            }
+            case ColorOverlayEffect overlay:
+                draw(new FieldSource(area, clipped ? shape : Ones(shape.Length), overlay.Color), overlay.BlendMode, overlay.Opacity);
+                break;
+            case SatinEffect satin:
+                draw(new FieldSource(area, Satin(field, satin, clipped), satin.Color), satin.BlendMode, satin.Opacity);
+                break;
+            case InnerGlowEffect glow:
+            {
+                var (alpha, rgb) = InnerGlow(field, glow, clipped);
+                draw(new FieldSource(area, alpha, glow.Color, rgb), glow.BlendMode, glow.Opacity);
+                break;
+            }
+            case InnerShadowEffect shadow:
+                draw(new FieldSource(area, InnerShadow(field, shadow, clipped), shadow.Color), shadow.BlendMode, shadow.Opacity);
+                break;
+        }
+    }
+
+    /// <summary>An effect's alpha (already limited to the shape) as its strength relative to the shape's coverage.</summary>
+    private static float[] Unclip(float[] alpha, float[] shape)
+    {
+        for (int i = 0; i < alpha.Length; i++)
+            alpha[i] = shape[i] > 0f ? MathF.Min(1f, alpha[i] / shape[i]) : 0f;
+        return alpha;
+    }
+
+    private static float[] Ones(int n)
+    {
+        var a = new float[n];
+        a.AsSpan().Fill(1f);
+        return a;
     }
 
     /// <summary>Spread grows the shape, the rest of the size blurs it, then it is offset away from the light.</summary>
@@ -200,12 +348,14 @@ internal static partial class EffectRenderer
         return shifted;
     }
 
-    private static float[] InnerShadow(EffectField f, InnerShadowEffect s)
+    /// <param name="clip">Limit the shadow to the shape; otherwise it is its strength wherever the shape is.</param>
+    private static float[] InnerShadow(EffectField f, InnerShadowEffect s, bool clip = true)
     {
         var (dx, dy) = Offset(s.Angle, s.Distance);
         var outside = Outside(f.Shape, f.W, f.H, s.Choke * s.Size, s.Size * (1f - s.Choke), dx, dy);
         Quality(outside, s.Contour, s.AntiAliased, s.Noise, f);
-        for (int i = 0; i < outside.Length; i++) outside[i] *= f.Shape[i];
+        if (clip)
+            for (int i = 0; i < outside.Length; i++) outside[i] *= f.Shape[i];
         return outside;
     }
 
@@ -219,6 +369,7 @@ internal static partial class EffectRenderer
     /// <summary>The field moved by (dx, dy); what comes in from beyond the edge is <paramref name="outside"/>.</summary>
     internal static float[] Shift(float[] src, int w, int h, int dx, int dy, float outside)
     {
+        if (dx == 0 && dy == 0) return (float[])src.Clone();
         var result = new float[src.Length];
         Parallel.For(0, h, y =>
         {
@@ -238,7 +389,7 @@ internal static partial class EffectRenderer
     /// glows are made of. Beyond the field counts as outside, so it is computed as the complement of the blurred
     /// (choked) shape, whose zero padding is exactly that.
     /// </summary>
-    private static float[] Outside(float[] shape, int w, int h, float choke, float blur, int dx, int dy)
+    private static float[] Outside(float[] shape, int w, int h, float choke, float blur, int dx, int dy, bool glow = false)
     {
         var inside = shape;
         if (choke > 0f)
@@ -249,7 +400,7 @@ internal static partial class EffectRenderer
             inside = new float[shape.Length];
             for (int i = 0; i < inside.Length; i++) inside[i] = 1f - grown[i];
         }
-        var blurred = FieldOps.Blur(inside, w, h, blur);
+        var blurred = glow ? GlowBlur(inside, w, h, blur) : FieldOps.Blur(inside, w, h, blur);
         var result = Shift(blurred, w, h, dx, dy, outside: 0f);
         for (int i = 0; i < result.Length; i++) result[i] = 1f - result[i];
         return result;
@@ -293,6 +444,12 @@ internal sealed class EffectField(float[] shape, int w, int h, PixelRect area, P
 
     /// <summary>The field's place in the document.</summary>
     public PixelRect Area { get; } = area;
+
+    /// <summary>
+    /// The shape comes from pixels (a pixel layer or a group's content) rather than from a vector outline or type,
+    /// whose edges are exact.
+    /// </summary>
+    public bool Rasterized { get; set; }
 
     /// <summary>The layer's own bounds in the document (where "Link with Layer" patterns start).</summary>
     public PixelRect ContentBounds { get; } = contentBounds;

@@ -417,18 +417,20 @@ public static class PsdEffectsWriter
                 ("Mxm ", Percents4(noise.C1.Max, noise.C2.Max, noise.C3.Max, 1f)));
         }
 
+        var colorMids = PsdEffects.ToSegmentEnd(g.Colors.Select(c => c.Midpoint).ToList());
+        var opacityMids = PsdEffects.ToSegmentEnd(g.Opacities.Select(o => o.Midpoint).ToList());
         return Object("Grdn",
             ("Nm  ", new TextValue(g.Name)),
             ("GrdF", new EnumValue("GrdF", "CstS")),
             ("Intr", new DoubleValue(Math.Clamp(g.Smoothness, 0f, 1f) * 4096.0)),
-            ("Clrs", new ListValue(g.Colors.Select(c => Stop("Clrt", c.Location, c.Midpoint,
+            ("Clrs", new ListValue(g.Colors.Select((c, i) => Stop("Clrt", c.Location, colorMids[i],
                 [("Clr ", new ObjectValue(Rgb(c.Color))), ("Type", new EnumValue("Clry", c.Kind switch
                 {
                     GradientStopKind.Foreground => "FrgC",
                     GradientStopKind.Background => "BckC",
                     _ => "UsrS",
                 }))])).ToList())),
-            ("Trns", new ListValue(g.Opacities.Select(o => Stop("TrnS", o.Location, o.Midpoint,
+            ("Trns", new ListValue(g.Opacities.Select((o, i) => Stop("TrnS", o.Location, opacityMids[i],
                 [("Opct", new UnitFloatValue("#Prc", Percent(o.Opacity)))])).ToList())));
     }
 
