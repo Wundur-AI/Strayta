@@ -48,10 +48,20 @@ public sealed record SynthesisOptions
 /// Wexler et al. suggest.
 /// </para>
 /// <para>
-/// Coarse to fine: a pyramid is built until the hole is about eight pixels across; the coarsest hole starts as a
-/// smooth membrane fill from its edge, and each finer level starts from the upsampled image and matches (offsets
-/// doubled), so large structures are settled cheaply at low resolution and only detail is refined at full resolution.
-/// Only patches that overlap the hole are matched, and a source patch must lie entirely in known pixels.
+/// Coarse to fine: a pyramid is built until the hole is about eight pixels across (or the window gets too small for
+/// patches); each finer level starts from the upsampled image and matches (offsets doubled), so large structures are
+/// settled cheaply at low resolution and only detail is refined at full resolution. Only patches that overlap the hole
+/// are matched, and a source patch must lie entirely in known pixels.
+/// </para>
+/// <para>
+/// The coarsest hole starts with an "onion-peel" fill (as in Newson, Almansa, Fradet, Gousseau and Pérez, "Video
+/// Inpainting of Complex Scenes", SIAM J. Imaging Sciences 2014): ring by ring from its edge inward, each pixel takes
+/// the center of the known patch that best matches the already-filled part of its own patch. A smooth (membrane) start
+/// does not work for holes much deeper than the structure around them: diffusion flattens anything finer than the
+/// distance to the hole's edge into a grey gradient, and because patch coherence cannot tell one plausible
+/// arrangement from another (a single edge is as coherent as the stripes it replaced), the iterations then settle on
+/// whatever that gradient suggests. That is most visible where the hole meets the canvas edge (a Content-Aware crop),
+/// since structure then enters from one side only and the hole is twice as deep.
 /// </para>
 /// <para>
 /// The result is returned as a "texture" image: the vote over the hole and a thin ring around it. The callers then
@@ -116,8 +126,10 @@ public static class PatchSynthesis
             }
 
             var top = levels[^1];
-            top.MembraneFill();
+            var peeled = top.OnionPeel(r, rng);
             (nnf, dist) = top.RandomField(rng);
+            for (int i = 0; i < nnf.Length; i++)
+                if (peeled[i] >= 0) nnf[i] = peeled[i];
             for (int l = levels.Count - 1; l >= 0; l--)
             {
                 var level = levels[l];
@@ -335,12 +347,120 @@ public static class PatchSynthesis
             return result;
         }
 
-        /// <summary>The coarsest start: the hole filled by a smooth membrane from its edge.</summary>
-        public void MembraneFill()
+        /// <summary>
+        /// The coarsest start: the hole filled from its edge inward, one ring at a time. Each pixel on the current ring
+        /// takes the center of the source patch that best matches the part of its patch already filled (known pixels
+        /// and earlier rings), so structure crossing the hole's edge is carried in rather than diffused away. Returns
+        /// the matches found (−1 outside the hole).
+        /// </summary>
+        public int[] OnionPeel(int r, Random rng)
         {
-            var state = new byte[Width * Height];
-            for (int i = 0; i < state.Length; i++) state[i] = Hole[i] ? (byte)1 : (byte)0;
-            Healing.SolveMembrane(Px, state, Width, Height, C);
+            int w = Width, h = Height, c = C;
+            var filled = new bool[w * h];
+            var match = new int[w * h];
+            Array.Fill(match, -1);
+            int remaining = 0;
+            for (int i = 0; i < filled.Length; i++)
+            {
+                filled[i] = !Hole[i];
+                if (Hole[i]) remaining++;
+            }
+            int maxRadius = Math.Max(w, h);
+            var front = new List<int>();
+            var chosen = new List<int>();
+            while (remaining > 0)
+            {
+                front.Clear();
+                var box = _targetBox; // contains the hole
+                for (int y = box.Top; y < box.Bottom; y++)
+                    for (int x = box.Left; x < box.Right; x++)
+                    {
+                        int p = y * w + x;
+                        if (filled[p]) continue;
+                        bool edge = false;
+                        for (int dy = -1; dy <= 1 && !edge; dy++)
+                            for (int dx = -1; dx <= 1; dx++)
+                            {
+                                int nx = x + dx, ny = y + dy;
+                                if (nx >= 0 && ny >= 0 && nx < w && ny < h && filled[ny * w + nx]) { edge = true; break; }
+                            }
+                        if (edge) front.Add(p);
+                    }
+                if (front.Count == 0) break; // nothing known to grow from
+
+                chosen.Clear();
+                foreach (int p in front)
+                {
+                    int x = p % w, y = p / w, best = -1;
+                    float bestD = float.MaxValue;
+                    void Consider(int s)
+                    {
+                        if (s < 0 || !Valid[s] || s == best) return;
+                        float d = PartialDistance(p, s, r, bestD, filled);
+                        if (d < bestD) (best, bestD) = (s, d);
+                    }
+                    // Continue a neighbour's match (propagation), then look near the pixel itself and at random.
+                    for (int dy = -1; dy <= 1; dy++)
+                        for (int dx = -1; dx <= 1; dx++)
+                        {
+                            int nx = x + dx, ny = y + dy;
+                            if (nx < 0 || ny < 0 || nx >= w || ny >= h || match[ny * w + nx] < 0) continue;
+                            int m = match[ny * w + nx], sx = m % w - dx, sy = m / w - dy;
+                            if (sx >= 0 && sy >= 0 && sx < w && sy < h) Consider(sy * w + sx);
+                        }
+                    // The first ring has no filled neighbour match to continue: sample widely so it starts in phase.
+                    for (int k = 0; k < 64; k++) Consider(ValidList[rng.Next(ValidList.Length)]);
+                    foreach (int centre in (ReadOnlySpan<int>)[p, -1])
+                    {
+                        int from = centre >= 0 ? centre : best;
+                        if (from < 0) continue;
+                        int fx = from % w, fy = from / w;
+                        for (int radius = maxRadius; radius >= 1; radius /= 2)
+                            for (int tries = 0; tries < 2; tries++)
+                            {
+                                int cx = fx + rng.Next(-radius, radius + 1), cy = fy + rng.Next(-radius, radius + 1);
+                                if (cx >= 0 && cy >= 0 && cx < w && cy < h) Consider(cy * w + cx);
+                            }
+                    }
+                    match[p] = best; // later pixels on this ring may continue it; the pixel counts as filled next ring
+                    chosen.Add(best);
+                }
+                for (int i = 0; i < front.Count; i++)
+                {
+                    int p = front[i], s = chosen[i];
+                    if (s >= 0) Array.Copy(Px, s * c, Px, p * c, c);
+                    filled[p] = true;
+                    remaining--;
+                }
+            }
+            return match;
+        }
+
+        /// <summary><see cref="Distance"/> over only the pixels of the target patch that are <paramref name="filled"/>.</summary>
+        private float PartialDistance(int p, int s, int r, float best, bool[] filled)
+        {
+            int w = Width, c = C;
+            int px = p % w, py = p / w, sx = s % w, sy = s / w;
+            var pixels = Px;
+            float sum = 0f;
+            for (int j = -r; j <= r; j++)
+            {
+                int y = py + j;
+                if (y < 0 || y >= Height) continue;
+                for (int i = -r; i <= r; i++)
+                {
+                    int x = px + i;
+                    if (x < 0 || x >= w || !filled[y * w + x]) continue;
+                    int a = (y * w + x) * c, b = ((sy + j) * w + sx + i) * c;
+                    for (int k = 0; k < c; k++)
+                    {
+                        float d = pixels[a + k] - pixels[b + k];
+                        sum += d * d;
+                    }
+                }
+                if (sum >= best) return sum;
+            }
+            return sum;
         }
 
         /// <summary>A random match for every target patch.</summary>

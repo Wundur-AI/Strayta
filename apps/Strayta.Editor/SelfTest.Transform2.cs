@@ -393,6 +393,32 @@ internal static partial class SelfTest
             editor.CropContentAware = false;
             DocumentViewModel.ContentAwareCropFill = savedHook;
 
+            // The real hook continues structure into an added edge strip: horizontal bands 20 px wide (200/40) with
+            // the rightmost 50 columns added, which a fill diffused from one side used to turn grey.
+            if (savedHook is null) check(false, "the real Content-Aware crop fill is provided by default");
+            else
+            {
+                const int bw = 200, bh = 80, gap = 50, band = 20;
+                var bandPlanes = Enumerable.Range(0, 3).Select(_ => new Plane(bw, bh, 8, new byte[bw * bh])).ToArray();
+                for (int y = 0; y < bh; y++)
+                    for (int x = 0; x < bw; x++)
+                        foreach (var plane in bandPlanes)
+                            plane.Data[y * bw + x] = x >= bw - gap ? (byte)255 : (y / band) % 2 == 0 ? (byte)200 : (byte)40;
+                var added = SelectionMask.Rectangle(new PixelRect(bw - gap, 0, bw, bh), new PixelRect(0, 0, bw, bh))!;
+                var filled = savedHook(new Raster(ColorMode.Rgb, bandPlanes, null), added, CancellationToken.None);
+                double bandError = double.NaN;
+                if (filled is not null)
+                {
+                    double sum = 0;
+                    int n = 0;
+                    for (int y = band / 2; y < bh; y += band)
+                        for (int x = bw - gap + 5; x < bw - 5; x++, n++)
+                            sum += Math.Abs(filled.ColorPlanes[0].Data[y * bw + x] - ((y / band) % 2 == 0 ? 200 : 40));
+                    bandError = sum / n;
+                }
+                check(bandError < 5, $"the real Content-Aware crop fill continues bands into an added edge strip (mean error {bandError:F1} levels)");
+            }
+
 
             // ---- Perspective Crop ------------------------------------------------------------------------------
             editor.HandleToolKey("C", shift: true);
