@@ -37,17 +37,31 @@ public partial class LayersView
     /// <summary>Double-clicking the fx badge or an effect opens Layer Style at that effect's page.</summary>
     private void OnFxDoubleTapped(object? sender, TappedEventArgs e)
     {
-        var (item, page) = (sender as Control)?.DataContext switch
+        if (OpenLayerStyleFor((sender as Control)?.DataContext)) e.Handled = true;
+    }
+
+    /// <summary>The settings button on an effect row: Layer Style at that effect's page, with one click.</summary>
+    private void OnEffectEditPressed(object? sender, PointerPressedEventArgs e)
+    {
+        if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed) return;
+        OpenLayerStyleFor((sender as Control)?.DataContext);
+        e.Handled = true;
+    }
+
+    /// <summary>Selects the layer a row belongs to and opens Layer Style at the row's page; false if the row has none.</summary>
+    private bool OpenLayerStyleFor(object? row)
+    {
+        var (item, page) = row switch
         {
             LayerItemViewModel i => (i, LayerStylePage.BlendingOptions),
             EffectRowViewModel { IsMaster: true } r => (r.Owner, LayerStylePage.BlendingOptions),
             EffectRowViewModel r when r.Owner.Node.Effects is { } fx => (r.Owner, LayerStyleViewModel.PageOf(fx.Items[r.Index])),
             _ => (null, LayerStylePage.BlendingOptions),
         };
-        if (item is null) return;
+        if (item is null) return false;
         if (Editor?.ActiveDocument is { } doc) doc.SelectedLayer = item;
         OpenLayerStyle(page.ToString());
-        e.Handled = true;
+        return true;
     }
 
     /// <summary>An effect's eye (or the "Effects" eye) shows or hides it, as one undo step.</summary>

@@ -242,12 +242,18 @@
             <ItemsControl ItemsSource="{Binding EffectRows}" IsVisible="{Binding ShowEffectRows}">
               <ItemsControl.ItemTemplate>
                 <DataTemplate x:DataType="vm:EffectRowViewModel">
-                  <Grid ColumnDefinitions="30,*" Height="20">
+                  <Grid ColumnDefinitions="30,20,*" Height="20">
                     <Border Classes="hit eye" PointerPressed="OnEffectEyePressed" ToolTip.Tip="Show or hide">
                       <Path Classes="icon small" Width="11" Height="11" Data="{StaticResource IconEye}" Opacity="{Binding EyeOpacity}"
                             HorizontalAlignment="Center" VerticalAlignment="Center" />
                     </Border>
-                    <TextBlock Grid.Column="1" Text="{Binding Name}" Margin="{Binding Indent}" VerticalAlignment="Center"
+                    <!-- Opens this effect's page in Layer Style with a single click (double-clicking the name does too) -->
+                    <Border Grid.Column="1" Classes="hit" Background="Transparent" PointerPressed="OnEffectEditPressed"
+                            ToolTip.Tip="Edit in Layer Style">
+                      <Path Classes="icon small" Width="11" Height="11" Data="{StaticResource IconSliders}"
+                            HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                    <TextBlock Grid.Column="2" Text="{Binding Name}" Margin="{Binding Indent}" VerticalAlignment="Center"
                                Classes="muted" TextTrimming="CharacterEllipsis" Background="Transparent" DoubleTapped="OnFxDoubleTapped" />
                   </Grid>
                 </DataTemplate>

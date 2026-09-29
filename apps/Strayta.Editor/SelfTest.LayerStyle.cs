@@ -177,6 +177,21 @@ internal static partial class SelfTest
         doc.Undo();
         doc.Undo();
         check(shape.Effects is { Enabled: true } && EffectVisible(shape), "undo shows them again");
+        if (Avalonia.Application.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime { MainWindow: { } window })
+        {
+            await Task.Delay(100); // let the panel lay out the effect rows
+            var editButtons = Avalonia.VisualTree.VisualExtensions.GetVisualDescendants(window).OfType<Avalonia.Controls.Border>()
+                .Where(b => Avalonia.Controls.ToolTip.GetTip(b) as string == "Edit in Layer Style" && b.IsEffectivelyVisible).ToList();
+            check(editButtons.Count >= rows.Count, $"each effect row has an edit button next to its eye ({editButtons.Count} for {rows.Count} rows)");
+            if (Environment.GetEnvironmentVariable("STRAYTA_SELFTEST_SHOTS") is { Length: > 0 } dir
+                && Avalonia.VisualTree.VisualExtensions.GetVisualDescendants(window).OfType<Views.LayersView>().FirstOrDefault() is { } panel)
+            {
+                var size = new Avalonia.PixelSize((int)panel.Bounds.Width * 2, (int)panel.Bounds.Height * 2);
+                using var bitmap = new Avalonia.Media.Imaging.RenderTargetBitmap(size, new Avalonia.Vector(192, 192));
+                bitmap.Render(panel);
+                bitmap.Save(Path.Combine(dir, "layers-effect-rows.png"), new Avalonia.Media.Imaging.PngBitmapEncoderOptions());
+            }
+        }
 
         // ---- Save and reopen -------------------------------------------------------------------------------
         string path = Path.Combine(Path.GetTempPath(), $"strayta-selftest-styles-{Guid.NewGuid():N}.psd");
