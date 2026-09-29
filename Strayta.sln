@@ -30,9 +30,14 @@ EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Strayta.Imaging", "src\Strayta.Imaging\Strayta.Imaging.csproj", "{EF4BB128-1411-4422-A752-4A2473D1CD63}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Strayta.Imaging.Tests", "tests\Strayta.Imaging.Tests\Strayta.Imaging.Tests.csproj", "{4D50F605-EED4-40B6-B748-A8CCA5A46203}"
+EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Strayta.Segmentation", "src\Strayta.Segmentation\Strayta.Segmentation.csproj", "{C9197C90-83D1-4CAC-8D8A-3CE7204D31FB}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Strayta.Segmentation.Tests", "tests\Strayta.Segmentation.Tests\Strayta.Segmentation.Tests.csproj", "{6BCCDDA7-06A8-4689-A5EB-7772A3C224B3}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Strayta.Text", "src\Strayta.Text\Strayta.Text.csproj", "{35D6A187-2E65-4228-9C93-F2E5EFD29961}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Strayta.Text.Tests", "tests\Strayta.Text.Tests\Strayta.Text.Tests.csproj", "{BD344044-4421-473C-8B5D-CB7F1EB203EB}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -188,6 +193,30 @@ Global
 		{6BCCDDA7-06A8-4689-A5EB-7772A3C224B3}.Release|x64.Build.0 = Release|Any CPU
 		{6BCCDDA7-06A8-4689-A5EB-7772A3C224B3}.Release|x86.ActiveCfg = Release|Any CPU
 		{6BCCDDA7-06A8-4689-A5EB-7772A3C224B3}.Release|x86.Build.0 = Release|Any CPU
+		{35D6A187-2E65-4228-9C93-F2E5EFD29961}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{35D6A187-2E65-4228-9C93-F2E5EFD29961}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{35D6A187-2E65-4228-9C93-F2E5EFD29961}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{35D6A187-2E65-4228-9C93-F2E5EFD29961}.Debug|x64.Build.0 = Debug|Any CPU
+		{35D6A187-2E65-4228-9C93-F2E5EFD29961}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{35D6A187-2E65-4228-9C93-F2E5EFD29961}.Debug|x86.Build.0 = Debug|Any CPU
+		{35D6A187-2E65-4228-9C93-F2E5EFD29961}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{35D6A187-2E65-4228-9C93-F2E5EFD29961}.Release|Any CPU.Build.0 = Release|Any CPU
+		{35D6A187-2E65-4228-9C93-F2E5EFD29961}.Release|x64.ActiveCfg = Release|Any CPU
+		{35D6A187-2E65-4228-9C93-F2E5EFD29961}.Release|x64.Build.0 = Release|Any CPU
+		{35D6A187-2E65-4228-9C93-F2E5EFD29961}.Release|x86.ActiveCfg = Release|Any CPU
+		{35D6A187-2E65-4228-9C93-F2E5EFD29961}.Release|x86.Build.0 = Release|Any CPU
+		{BD344044-4421-473C-8B5D-CB7F1EB203EB}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{BD344044-4421-473C-8B5D-CB7F1EB203EB}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{BD344044-4421-473C-8B5D-CB7F1EB203EB}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{BD344044-4421-473C-8B5D-CB7F1EB203EB}.Debug|x64.Build.0 = Debug|Any CPU
+		{BD344044-4421-473C-8B5D-CB7F1EB203EB}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{BD344044-4421-473C-8B5D-CB7F1EB203EB}.Debug|x86.Build.0 = Debug|Any CPU
+		{BD344044-4421-473C-8B5D-CB7F1EB203EB}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{BD344044-4421-473C-8B5D-CB7F1EB203EB}.Release|Any CPU.Build.0 = Release|Any CPU
+		{BD344044-4421-473C-8B5D-CB7F1EB203EB}.Release|x64.ActiveCfg = Release|Any CPU
+		{BD344044-4421-473C-8B5D-CB7F1EB203EB}.Release|x64.Build.0 = Release|Any CPU
+		{BD344044-4421-473C-8B5D-CB7F1EB203EB}.Release|x86.ActiveCfg = Release|Any CPU
+		{BD344044-4421-473C-8B5D-CB7F1EB203EB}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -205,5 +234,7 @@ Global
 		{4D50F605-EED4-40B6-B748-A8CCA5A46203} = {0AB3BF05-4346-4AA6-1389-037BE0695223}
 		{C9197C90-83D1-4CAC-8D8A-3CE7204D31FB} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
 		{6BCCDDA7-06A8-4689-A5EB-7772A3C224B3} = {0AB3BF05-4346-4AA6-1389-037BE0695223}
+		{35D6A187-2E65-4228-9C93-F2E5EFD29961} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
+		{BD344044-4421-473C-8B5D-CB7F1EB203EB} = {0AB3BF05-4346-4AA6-1389-037BE0695223}
 	EndGlobalSection
 EndGlobal
