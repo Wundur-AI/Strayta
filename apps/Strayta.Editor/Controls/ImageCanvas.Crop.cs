@@ -18,8 +18,29 @@ public sealed partial class ImageCanvas
     public static readonly StyledProperty<bool> StraightenModeProperty =
         AvaloniaProperty.Register<ImageCanvas, bool>(nameof(StraightenMode));
 
+    /// <summary>The composition guide inside the crop box (<see cref="ViewModels.CropOverlay"/>).</summary>
+    public static readonly StyledProperty<ViewModels.CropOverlay> CropOverlayProperty =
+        AvaloniaProperty.Register<ImageCanvas, ViewModels.CropOverlay>(nameof(CropOverlay));
+
+    /// <summary>Quarter flips of the Triangle and Golden Spiral overlays (0..3).</summary>
+    public static readonly StyledProperty<int> CropOverlayOrientationProperty =
+        AvaloniaProperty.Register<ImageCanvas, int>(nameof(CropOverlayOrientation));
+
+    /// <summary>The Perspective Crop tool's shape to draw and drive, or null.</summary>
+    public static readonly StyledProperty<PerspectiveCropBox?> PerspectiveCropProperty =
+        AvaloniaProperty.Register<ImageCanvas, PerspectiveCropBox?>(nameof(PerspectiveCrop));
+
     /// <summary>The open crop to draw and drive, or null.</summary>
     public CropBox? CropBox { get => GetValue(CropBoxProperty); set => SetValue(CropBoxProperty, value); }
+
+    public ViewModels.CropOverlay CropOverlay { get => GetValue(CropOverlayProperty); set => SetValue(CropOverlayProperty, value); }
+
+    public int CropOverlayOrientation { get => GetValue(CropOverlayOrientationProperty); set => SetValue(CropOverlayOrientationProperty, value); }
+
+    public PerspectiveCropBox? PerspectiveCrop { get => GetValue(PerspectiveCropProperty); set => SetValue(PerspectiveCropProperty, value); }
+
+    /// <summary>Double-click inside the perspective shape: apply it.</summary>
+    public event Action? PerspectiveCropCommit;
 
     public bool StraightenMode { get => GetValue(StraightenModeProperty); set => SetValue(StraightenModeProperty, value); }
 
@@ -38,13 +59,24 @@ public sealed partial class ImageCanvas
     private static readonly IPen HandleDark = new ImmutablePen(new ImmutableSolidColorBrush(Color.FromArgb(160, 0, 0, 0)), 5, lineCap: PenLineCap.Square);
     private static readonly IPen HandleLight = new ImmutablePen(Brushes.White, 3, lineCap: PenLineCap.Square);
 
-    private void OnCropBoxChanged(AvaloniaPropertyChangedEventArgs change)
+    private void OnCropPropertyChanged(AvaloniaPropertyChangedEventArgs change)
     {
-        if (change.OldValue is CropBox old) old.Changed -= InvalidateVisual;
-        if (change.NewValue is CropBox now) now.Changed += InvalidateVisual;
-        _cropLast = _straightenStart = _straightenEnd = null;
-        UpdateCursor();
-        InvalidateVisual();
+        if (change.Property == CropBoxProperty)
+        {
+            if (change.OldValue is CropBox old) old.Changed -= InvalidateVisual;
+            if (change.NewValue is CropBox now) now.Changed += InvalidateVisual;
+            _cropLast = _straightenStart = _straightenEnd = null;
+            UpdateCursor();
+            InvalidateVisual();
+        }
+        else if (change.Property == PerspectiveCropProperty)
+        {
+            if (change.OldValue is PerspectiveCropBox old) old.Changed -= InvalidateVisual;
+            if (change.NewValue is PerspectiveCropBox now) now.Changed += InvalidateVisual;
+            InvalidateVisual();
+        }
+        else if (change.Property == CropOverlayProperty || change.Property == CropOverlayOrientationProperty)
+            InvalidateVisual();
     }
 
     /// <summary>
@@ -62,6 +94,7 @@ public sealed partial class ImageCanvas
 
     private void DrawCropOverlay(DrawingContext context)
     {
+        DrawPerspectiveCrop(context);
         if (CropBox is not { } box) return;
         var tl = ToScreen((box.Left, box.Top));
         var br = ToScreen((box.Right, box.Bottom));
@@ -74,13 +107,7 @@ public sealed partial class ImageCanvas
         context.FillRectangle(Shield, new Rect(all.Left, rect.Top, Math.Max(0, rect.Left - all.Left), rect.Height));
         context.FillRectangle(Shield, new Rect(rect.Right, rect.Top, Math.Max(0, all.Right - rect.Right), rect.Height));
 
-        // Rule of thirds.
-        for (int i = 1; i < 3; i++)
-        {
-            double x = rect.Left + rect.Width * i / 3, y = rect.Top + rect.Height * i / 3;
-            context.DrawLine(ThirdsPen, new Point(x, rect.Top), new Point(x, rect.Bottom));
-            context.DrawLine(ThirdsPen, new Point(rect.Left, y), new Point(rect.Right, y));
-        }
+        DrawCropGuide(context, rect); // ImageCanvas.CropOverlays.cs
         context.DrawRectangle(null, CropEdgeDark, rect);
         context.DrawRectangle(null, CropEdgeLight, rect);
 
@@ -117,6 +144,7 @@ public sealed partial class ImageCanvas
     private bool CropPressed(PointerPressedEventArgs e)
     {
         if (_panning) return false;
+        if (PerspectivePressed(e)) return true; // ImageCanvas.PerspectiveCrop.cs
         if (CropBox is not { } box) return Tool == CanvasTool.Crop; // between a crop and its new box: presses do nothing
         var props = e.GetCurrentPoint(this).Properties;
         if (!props.IsLeftButtonPressed || box.Locked) return true;
@@ -140,6 +168,7 @@ public sealed partial class ImageCanvas
     /// <summary>Handles pointer movement while cropping (drag or hover cursor); false when panning.</summary>
     private bool CropMoved(PointerEventArgs e)
     {
+        if (!_panning && PerspectiveMoved(e)) return true;
         if (CropBox is not { } box || _panning) return false;
         var p = ToImage(e.GetPosition(this));
         if (_straightenStart is not null)
@@ -161,6 +190,7 @@ public sealed partial class ImageCanvas
 
     private void CropReleased()
     {
+        PerspectiveCrop?.EndDrag();
         if (_straightenStart is { } s && _straightenEnd is { } e)
         {
             _straightenStart = _straightenEnd = null;

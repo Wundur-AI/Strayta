@@ -78,7 +78,7 @@ internal static partial class SelfTest
             doc.CancelCrop();
             check(!box.IsModified && box.ResultWidth == 400, "Esc puts the box back around the whole image");
 
-            editor.CropRatioIndex = 1;
+            editor.CropRatioIndex = 3; // 1:1 (Square)
             check(box.ResultWidth == box.ResultHeight && box.ResultHeight == 300, $"the 1:1 preset makes the largest square box ({box.SizeText})");
             editor.CropRatioIndex = 0;
             doc.CancelCrop();
@@ -98,7 +98,7 @@ internal static partial class SelfTest
             check(background.Bounds == model.Bounds && background.Pixels!.Alpha is null && red.Bounds == new PixelRect(0, 60, 150, 150)
                   && red.Mask!.Bounds == red.Bounds, $"layers and masks are cut to the new canvas (red {red.Bounds})");
             check(type.Bounds == new PixelRect(200, -20, 300, 20) && type.Tags.Contains("text"), "type is moved, never cut or rasterized, by a straight crop");
-            check(doc.Selection is null, "the crop drops the selection");
+            check(doc.Selection?.Bounds == new PixelRect(0, 0, 10, 20), $"the selection moves with the crop ({doc.Selection?.Bounds})");
             check(doc.CropBox is { IsModified: false, ResultWidth: 200, ResultHeight: 150 } && !ReferenceEquals(doc.CropBox, box),
                 "a new box frames the cropped canvas");
 
@@ -143,8 +143,8 @@ internal static partial class SelfTest
             box.DragTo(cx + (450 - cx) * cos, cy + (450 - cx) * sin, shift: false, alt: false);
             box.EndDrag();
             check(Math.Abs(box.Angle - 10) < 0.01 && box.ResultWidth < 400 && box.ResultHeight < 300
-                  && Math.Abs(box.ResultWidth / (double)box.ResultHeight - 4 / 3.0) < 0.02 && doc.CropNotice.Contains("rasterizes"),
-                $"dragging outside turns the image and the box shrinks to fit ({box.SizeText}); a notice warns about type");
+                  && Math.Abs(box.ResultWidth / (double)box.ResultHeight - 4 / 3.0) < 0.02 && doc.CropNotice == "",
+                $"dragging outside turns the image and the box shrinks to fit ({box.SizeText}); type stays live, so no warning");
             int turnedW = box.ResultWidth, turnedH = box.ResultHeight;
             var sw = Stopwatch.StartNew();
             await doc.CommitCropAsync();
@@ -153,7 +153,7 @@ internal static partial class SelfTest
                 $"a turned crop resamples every layer ({model.Width}×{model.Height}, {sw.ElapsedMilliseconds} ms)");
             var corner = background.Pixels;
             check(corner!.ColorPlanes[0].Data[0] == 255 && corner.ColorPlanes[1].Data[0] == 255, "no empty corners: the Background is still white there");
-            check(!type.Tags.Contains("text") && red.Mask is { Pixels: not null }, "turning rasterized the type layer and turned the mask");
+            check(type.Tags.Contains("text") && red.Mask is { Pixels: not null }, "turning keeps the type layer live and turns the mask");
             doc.Undo();
             await CanvasSettledAsync(doc);
             check(type.Tags.Contains("text") && model.Width == 400, "undo brings the type layer back");
@@ -175,7 +175,7 @@ internal static partial class SelfTest
             await doc.ResizeImageAsync(200, 150, ResampleMethod.Bicubic, 144);
             await CanvasSettledAsync(doc);
             check(model.Width == 200 && model.Height == 150 && model.Resolution == 144 && background.Pixels!.Width == 200 && background.Pixels.Alpha is null
-                  && red.Bounds.Width == 120 && red.Mask!.Bounds == red.Bounds && doc.UndoText == "Undo Image Size" && !type.Tags.Contains("text"),
+                  && red.Bounds.Width == 120 && red.Mask!.Bounds == red.Bounds && doc.UndoText == "Undo Image Size" && type.Tags.Contains("text"),
                 $"Image Size resamples layers and masks to exact dimensions ({model.Width}×{model.Height}, red {red.Bounds}, {sw.ElapsedMilliseconds} ms)");
             doc.Undo();
             await CanvasSettledAsync(doc);
@@ -204,7 +204,7 @@ internal static partial class SelfTest
             doc.SetSelection(SelectionMask.Rectangle(new PixelRect(20, 30, 120, 90), model.Bounds), "Rectangular Marquee");
             await doc.CropToSelectionAsync();
             await CanvasSettledAsync(doc);
-            check(model.Width == 100 && model.Height == 60 && doc.Selection is null, "Image › Crop crops to the selection");
+            check(model.Width == 100 && model.Height == 60 && doc.Selection?.Bounds == new PixelRect(0, 0, 100, 60), "Image › Crop crops to the selection, which stays on the same pixels");
             doc.Undo();
             await CanvasSettledAsync(doc);
 

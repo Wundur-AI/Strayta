@@ -3,13 +3,15 @@ using Strayta.Core;
 namespace Strayta.Editor.Editing;
 
 /// <summary>
-/// A committed Free Transform: new pixels, bounds and masks for every layer it touched (one layer, or all
-/// layers in a group). Rasters are immutable, so undo just swaps references back.
+/// A committed Free Transform: new pixels, bounds, masks and file data for every layer it touched (one layer, or
+/// all layers in a group). The file data carries live content (type transform, smart object corners, vector
+/// outlines) moved with the transform, so those layers stay editable. Rasters are immutable, so undo just swaps
+/// references back.
 /// </summary>
 public sealed class TransformEdit : IEdit
 {
     /// <summary>What a transform changes on one layer. Groups and adjustment layers only have a mask.</summary>
-    public sealed record State(Raster? Pixels, PixelRect Bounds, LayerMask? Mask);
+    public sealed record State(Raster? Pixels, PixelRect Bounds, LayerMask? Mask, object? Source);
 
     private readonly List<(LayerNode Node, State Before, State After)> _changes;
 
@@ -31,14 +33,15 @@ public sealed class TransformEdit : IEdit
 
     public static State Read(LayerNode node) => node switch
     {
-        PixelLayer p => new State(p.Pixels, p.Bounds, p.Mask),
-        AdjustmentLayer a => new State(null, PixelRect.Empty, a.Mask),
-        LayerGroup g => new State(null, PixelRect.Empty, g.Mask),
-        _ => new State(null, PixelRect.Empty, null),
+        PixelLayer p => new State(p.Pixels, p.Bounds, p.Mask, p.SourceData),
+        AdjustmentLayer a => new State(null, PixelRect.Empty, a.Mask, a.SourceData),
+        LayerGroup g => new State(null, PixelRect.Empty, g.Mask, g.SourceData),
+        _ => new State(null, PixelRect.Empty, null, node.SourceData),
     };
 
     private static void Write(LayerNode node, State s)
     {
+        node.SourceData = s.Source;
         switch (node)
         {
             case PixelLayer p:

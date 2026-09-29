@@ -118,6 +118,16 @@ public sealed record ListValue(IReadOnlyList<DescriptorValue> Items) : Descripto
     }
 }
 
+/// <summary>'ObAr': <paramref name="Count"/> objects stored field by field in <paramref name="Columns"/> (warp meshes, slices).</summary>
+public sealed record ObjectArrayValue(int Count, Descriptor Columns) : DescriptorValue
+{
+    internal override void Dump(StringBuilder sb, int indent)
+    {
+        sb.Append('[').Append(Count).Append("] ");
+        Columns.Dump(sb, indent);
+    }
+}
+
 /// <summary>A reference to other objects; kept as a list of its parts.</summary>
 public sealed record ReferenceValue(IReadOnlyList<(string Form, string Detail)> Parts) : DescriptorValue;
 
