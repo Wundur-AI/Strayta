@@ -381,6 +381,21 @@ internal static partial class SelfTest
                 editor.AskReplaceMissingFonts = _ => Task.FromResult<string?>(null);
                 check(await doc.BeginEditTextAsync(layer) is null && !doc.IsEditingType && TypeLayers.Read(layer)!.FontsUsed.SequenceEqual(original.FontsUsed),
                     $"{file}: cancelling the prompt leaves the layer and its font names alone");
+
+                // More clicks while the prompt is open must not stack further prompts.
+                int prompts = 0;
+                var answer = new TaskCompletionSource<string?>();
+                editor.AskReplaceMissingFonts = _ =>
+                {
+                    prompts++;
+                    return answer.Task;
+                };
+                var first = doc.BeginEditTextAsync(layer);
+                var second = doc.BeginEditTextAsync(layer);
+                var third = doc.BeginEditTextAsync(layer);
+                answer.SetResult(null);
+                await Task.WhenAll(first, second, third);
+                check(prompts == 1 && !doc.IsEditingType, $"{file}: clicks while the missing-fonts prompt is open don't open more prompts ({prompts} shown)");
             }
             editor.Tool = CanvasTool.Move;
             doc.MarkSavedForTest();

@@ -61,13 +61,22 @@ public sealed partial class DocumentViewModel
     public async Task<TypeSession?> BeginEditTextAsync(PixelLayer layer, double? x = null, double? y = null)
     {
         if (TypeSession is { } open && ReferenceEquals(open.Layer, layer)) return open;
+        if (_askingForFonts) return null; // one missing-fonts question at a time
         CommitType();
         if (TypeLayers.Read(layer) is not { } data) return null;
         var missing = data.FontsUsed.Where(f => f.Length > 0 && !FontCatalog.System.Contains(f)).ToList();
         string? replacement = null;
         if (missing.Count > 0)
         {
-            replacement = Editor.AskReplaceMissingFonts is { } ask ? await ask(missing) : null;
+            _askingForFonts = true;
+            try
+            {
+                replacement = Editor.AskReplaceMissingFonts is { } ask ? await ask(missing) : null;
+            }
+            finally
+            {
+                _askingForFonts = false;
+            }
             if (replacement is null)
             {
                 Notice = $"Editing \"{layer.Name}\" needs {string.Join(", ", missing)}, which {(missing.Count == 1 ? "is" : "are")} not installed. Replace {(missing.Count == 1 ? "it" : "them")} to edit the text.";
@@ -87,6 +96,9 @@ public sealed partial class DocumentViewModel
         }
         return session;
     }
+
+    /// <summary>True while the missing-fonts dialog is open, so further clicks on type don't ask again.</summary>
+    private bool _askingForFonts;
 
     private void StartType(TypeSession session)
     {
