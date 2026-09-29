@@ -1,0 +1,21 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <!-- The Pen group, path selection, shape tools and Paths panel, in Icons.axaml's style (24×24, stroked). -->
+  <StreamGeometry x:Key="IconPen">M12 2L18 10L14 19H10L6 10Z M12 2V10.5 M12 10.5a1.5 1.5 0 1 0 0 3a1.5 1.5 0 1 0 0-3Z M9 22h6</StreamGeometry>
+  <StreamGeometry x:Key="IconPenAdd">M10 2L15 8.5L12 16H8L5 8.5Z M10 2V9 M10 9a1.2 1.2 0 1 0 0 2.4a1.2 1.2 0 1 0 0-2.4Z M18.5 14v7 M15 17.5h7</StreamGeometry>
+  <StreamGeometry x:Key="IconPenDelete">M10 2L15 8.5L12 16H8L5 8.5Z M10 2V9 M10 9a1.2 1.2 0 1 0 0 2.4a1.2 1.2 0 1 0 0-2.4Z M15 17.5h7</StreamGeometry>
+  <StreamGeometry x:Key="IconConvertPoint">M3 20L12 6L21 20 M10 3h4v4h-4Z M5 9l7-4.5 M19 9l-7-4.5</StreamGeometry>
+  <StreamGeometry x:Key="IconPathSelect">M6 3V19L10 15L13 21L15.5 20L12.5 14H18Z</StreamGeometry>
+  <StreamGeometry x:Key="IconDirectSelect">M8 3V17L11 14L13.5 19L15.5 18L13 13H17Z M3 18h4v4H3Z</StreamGeometry>
+  <StreamGeometry x:Key="IconShapeRect">M4 6h16v12H4Z</StreamGeometry>
+  <StreamGeometry x:Key="IconShapeEllipse">M12 5a9 7 0 1 0 0 14a9 7 0 1 0 0-14Z</StreamGeometry>
+  <StreamGeometry x:Key="IconShapeTriangle">M12 4L21 20H3Z</StreamGeometry>
+  <StreamGeometry x:Key="IconShapePolygon">M8 4h8l5 8-5 8H8l-5-8Z</StreamGeometry>
+  <StreamGeometry x:Key="IconShapeLine">M4 20L20 4</StreamGeometry>
+  <StreamGeometry x:Key="IconShapeCustom">M12 20s-7.5-4.6-7.5-10.2A4 4 0 0 1 12 7.4a4 4 0 0 1 7.5 2.4C19.5 15.4 12 20 12 20Z</StreamGeometry>
+  <StreamGeometry x:Key="IconFillPath">M12 4a8 8 0 1 0 0 16a8 8 0 1 0 0-16Z M12 8a4 4 0 1 0 0 8a4 4 0 1 0 0-8Z M12 11a1 1 0 1 0 0 2a1 1 0 1 0 0-2Z</StreamGeometry>
+  <StreamGeometry x:Key="IconStrokePath">M12 4a8 8 0 1 0 0 16a8 8 0 1 0 0-16Z M9 9l6 6</StreamGeometry>
+  <StreamGeometry x:Key="IconPathToSelection">M12 4v2 M12 18v2 M4 12h2 M18 12h2 M6.3 6.3l1.4 1.4 M16.3 16.3l1.4 1.4 M6.3 17.7l1.4-1.4 M16.3 7.7l1.4-1.4</StreamGeometry>
+  <StreamGeometry x:Key="IconSelectionToPath">M6 6h12v12H6Z M4 4h4v4H4Z M16 4h4v4h-4Z M4 16h4v4H4Z M16 16h4v4h-4Z</StreamGeometry>
+  <StreamGeometry x:Key="IconPaths">M4 18C8 4 16 20 20 6 M3 17h2v2H3Z M19 5h2v2h-2Z</StreamGeometry>
+</ResourceDictionary>

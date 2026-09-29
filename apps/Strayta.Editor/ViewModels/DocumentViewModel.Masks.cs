@@ -30,6 +30,7 @@ public sealed partial class DocumentViewModel
         newValue?.RefreshTarget();
         UpdateProperties();
         OnTypeSelectionChanged(newValue); // DocumentViewModel.TypeTool.cs
+        OnPathLayerSelectionChanged(oldValue, newValue); // DocumentViewModel.Paths.cs
     }
 
     partial void OnEditMaskChanged(bool value)

@@ -5,6 +5,7 @@
     <ResourceDictionary>
       <ResourceDictionary.MergedDictionaries>
         <ResourceInclude Source="avares://Strayta/Themes/Icons.axaml" />
+        <ResourceInclude Source="avares://Strayta/Themes/PathIcons.axaml" />
       </ResourceDictionary.MergedDictionaries>
 
       <!-- Design tokens. Custom surfaces use these; Fluent controls get the matching palette in App.axaml. -->

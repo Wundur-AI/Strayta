@@ -16,6 +16,8 @@ return args switch
     ["text", var path] => TextCommands.Dump(path),
     ["textfid", .. var rest] when rest.Length > 0 => TextCommands.Fidelity(rest),
     ["textsamples", .. var rest] => TextSamples.Run(rest),
+    ["shapes", .. var rest] when rest.Length > 0 => ShapeCommands.Dump(rest.Where(a => a != "-v").ToArray(), rest.Contains("-v")),
+    ["shapefid", .. var rest] when rest.Length > 0 => ShapeCommands.Fidelity(rest.Where(a => a != "-v").ToArray(), rest.Contains("-v")),
     ["adjustsamples", .. var rest] => AdjustmentSamples.Run(rest),
     ["fidelity", var target] => Fidelity(target, exportDir: null),
     ["fidelity", var target, "--export", var dir] => Fidelity(target, dir),

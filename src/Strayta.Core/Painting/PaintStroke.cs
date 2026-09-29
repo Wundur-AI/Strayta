@@ -201,6 +201,16 @@ public sealed class PaintStroke
     }
 
     /// <summary>
+    /// Lifts the brush: the next <see cref="StrokeTo"/> starts a new line with a dab of its own instead of continuing
+    /// from the last point (Stroke Path paints every subpath as one stroke this way).
+    /// </summary>
+    public void Lift()
+    {
+        _started = false;
+        _carry = 0;
+    }
+
+    /// <summary>
     /// Airbrush build-up: one more dab where the stroke is now, for while the pointer rests (called at a steady rate
     /// while the button is held). Each dab adds <see cref="BrushSettings.Flow"/>, up to the stroke's opacity.
     /// </summary>

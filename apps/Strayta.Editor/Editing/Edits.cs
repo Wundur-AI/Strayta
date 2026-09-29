@@ -29,8 +29,12 @@ public sealed class PropertyEdit<T>(LayerNode node, string property, T before, T
     }
 }
 
-/// <summary>Moves a layer (and everything attached to it) by an offset; consecutive moves of the same layer merge.</summary>
-public sealed class MoveEdit(LayerNode node, int dx, int dy) : IEdit
+/// <summary>
+/// Moves a layer (and everything attached to it) by an offset; consecutive moves of the same layer merge. Given the
+/// canvas size, live data in the file (vector masks and shape outlines, live shape boxes, the type transform, smart
+/// object corners) moves along, so shapes and type stay where their pixels are.
+/// </summary>
+public sealed class MoveEdit(LayerNode node, int dx, int dy, int canvasWidth = 0, int canvasHeight = 0) : IEdit
 {
     private int _dx = dx, _dy = dy;
 
@@ -38,8 +42,31 @@ public sealed class MoveEdit(LayerNode node, int dx, int dy) : IEdit
     public string Description => "Move";
     public bool ChangesStructure => false;
 
-    public void Do() => Offset(Node, _dx, _dy);
-    public void Undo() => Offset(Node, -_dx, -_dy);
+    public void Do()
+    {
+        Offset(Node, _dx, _dy);
+        MoveLiveData(Node, _dx, _dy, canvasWidth, canvasHeight);
+    }
+
+    public void Undo()
+    {
+        Offset(Node, -_dx, -_dy);
+        MoveLiveData(Node, -_dx, -_dy, canvasWidth, canvasHeight);
+    }
+
+    private static void MoveLiveData(LayerNode node, int dx, int dy, int w, int h)
+    {
+        if (w <= 0 || h <= 0) return;
+        var map = Strayta.Psd.CanvasMap.Translation(dx, dy);
+        node.SourceData = node.SourceData switch
+        {
+            Strayta.Psd.PsdLayerRecord r => Strayta.Psd.PsdCanvas.WithCanvas(r, w, h, w, h, map),
+            Strayta.Psd.PsdGroupRecords g => g with { Folder = Strayta.Psd.PsdCanvas.WithCanvas(g.Folder, w, h, w, h, map) },
+            var other => other,
+        };
+        if (node is LayerGroup group)
+            foreach (var child in group.Children) MoveLiveData(child, dx, dy, w, h);
+    }
 
     public bool TryMerge(IEdit next)
     {
@@ -151,16 +178,22 @@ public sealed class RasterizeEdit(LayerNode node) : IEdit
     public string Description => "Rasterize Layer";
     public bool ChangesStructure => true; // the panel's kind badges and icons change
 
+    // A shape or fill layer's pixels already carry its rasterized vector mask; once the vector is gone the mask would
+    // show as an ordinary layer mask, so it goes too (Photoshop's Rasterize Layer leaves no mask either).
+    private readonly LayerMask? _oldMask = node.GetMask();
+
     public void Do()
     {
         if (_oldSource is Strayta.Psd.PsdLayerRecord r) node.SourceData = r.Rasterized();
         foreach (var t in LiveTags) node.Tags.Remove(t);
+        if (_oldMask is { AppliedToPixels: true }) node.SetMask(null);
     }
 
     public void Undo()
     {
         node.SourceData = _oldSource;
         foreach (var t in _oldTags) node.Tags.Add(t);
+        if (_oldMask is { AppliedToPixels: true }) node.SetMask(_oldMask);
     }
 
     public static bool CanRasterize(LayerNode node) => node is PixelLayer && LiveTags.Any(node.Tags.Contains);

@@ -96,6 +96,7 @@
                   <ToggleButton Classes="icon" IsChecked="{Binding Type.JustifyAll}" ToolTip.Tip="Justify all"><Path Classes="icon small" Data="{StaticResource IconJustifyAll}" /></ToggleButton>
                 </StackPanel>
               </StackPanel>
+              <Panel IsVisible="{Binding Shape, Converter={x:Static ObjectConverters.IsNotNull}}"><v:ShapePropertiesView DataContext="{Binding Shape}" /></Panel> <!-- ShapePanel.cs -->
               <Separator IsVisible="{Binding Mask, Converter={x:Static ObjectConverters.IsNotNull}}" Margin="0,4" />
               <ContentControl Content="{Binding Mask}" />
             </StackPanel>
