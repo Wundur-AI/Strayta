@@ -126,15 +126,26 @@ dotnet test
   scales from the center), sides to stretch, outside to rotate (Shift snaps to 15°), inside to move; or type
   X/Y/W/H/angle in the options bar. Enter or double-click applies (bicubic, area-filtered when shrinking,
   masks follow), Esc cancels.
+- Type, smart objects, shapes and fill layers stay editable through Free Transform, turned crops and Image Size:
+  the file's type transform, smart object corners (`SoLd`/`PlLd`), vector mask points and live shape boxes
+  (`vogk`) move with them. Smart objects are redrawn from their embedded file (sharp when enlarged; warped ones and
+  ones with smart filters are resampled), solid color fills are filled again, and type and shapes show their
+  resampled pixels until Photoshop redraws them.
 - Crop tool (C): a box around the whole canvas; drag its edges (Shift keeps the shape, Option from the center),
   drag inside to move the image under it, outside to turn it (the box shrinks so no empty corners appear), or use
-  Straighten to draw a line to level. Ratio presets, rule-of-thirds grid, and Delete Cropped Pixels (off keeps
-  pixels outside the canvas in the layers, which PSD stores). Enter or double-click crops as one undo step, Esc
-  resets. A straight crop only moves layers; a turned one resamples them and rasterizes type and smart objects.
-- Image > Image Size (⌥⌘I: pixels or percent, resolution, Bicubic Automatic / Bilinear / Nearest Neighbor),
-  Canvas Size (⌥⌘C: absolute or relative, 9-way anchor, extension color for the Background), Crop (to the
-  selection) and Trim (transparent or corner-colored edges). Masks, the stored composite, saved selections,
-  guides, paths, vector masks and type positions follow the canvas.
+  Straighten to draw a line to level. Ratio presets and W x H x Resolution (crops to exact pixels and sets the
+  resolution); overlays Rule of Thirds, Grid, Diagonal, Triangle, Golden Ratio and Golden Spiral (O cycles,
+  Shift+O turns them); Delete Cropped Pixels (off keeps pixels outside the canvas in the layers, which PSD
+  stores); Content-Aware (enabled once content-aware filling is available). Enter or double-click crops as one
+  undo step, Esc resets; switching tools with a changed box asks "Crop the image?" (Crop, Don't Crop, Cancel). A
+  straight crop only moves layers; a turned one resamples them.
+- Perspective Crop (Shift+C): drag a box, then drag its corners (or sides) onto the edges of something that
+  should be rectangular; Enter straightens it onto a new canvas (bicubic, area-filtered where the perspective
+  shrinks). Live layers are rasterized, as their data cannot be put in perspective.
+- Image > Image Size (⌥⌘I: pixels or percent, resolution, Bicubic Automatic / Bilinear / Nearest Neighbor, Scale
+  Styles), Canvas Size (⌥⌘C: absolute or relative, 9-way anchor, extension color for the Background), Crop (to the
+  selection) and Trim (transparent or corner-colored edges). Masks, the selection, the stored composite, saved
+  selections, guides, paths, vector masks and live layers follow the canvas; a quarter turn turns guides exactly.
 - Filter menu: Blur › Box Blur, Gaussian Blur (radius 0.1–1000 px as the Gaussian's σ), Motion Blur (angle, distance);
   Noise › Add Noise (uniform or Gaussian, monochromatic); Other › High Pass; Sharpen › Unsharp Mask (amount, radius,
   threshold). Each dialog has a zoomable, draggable preview, sliders with number fields, and Preview for the canvas,

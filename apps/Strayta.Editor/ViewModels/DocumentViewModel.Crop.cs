@@ -2,6 +2,7 @@ using System.Diagnostics;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using Strayta.Core;
+using Strayta.Core.Selection;
 using Strayta.Editor.Controls;
 using Strayta.Editor.Editing;
 using Strayta.Rendering;
@@ -17,7 +18,7 @@ public sealed partial class DocumentViewModel
     private bool _canvasPending;
     private int _canvasVersion;
     private bool _canvasFrameHooked;
-    private int _cropLiveLayers; // type, smart object, fill and shape layers a turned crop would rasterize
+    private bool _cropPromptOpen;
 
     /// <summary>The open crop (the Crop tool is active on this document), or null.</summary>
     [ObservableProperty]
@@ -26,19 +27,54 @@ public sealed partial class DocumentViewModel
 
     public bool IsCropping => CropBox is not null;
 
-    /// <summary>Why committing the crop will change more than the canvas (e.g. rasterize type when the image is turned).</summary>
+    /// <summary>Why committing the crop will change more than the canvas (e.g. Content-Aware filling the new area).</summary>
     [ObservableProperty] public partial string CropNotice { get; private set; } = "";
+
+    /// <summary>
+    /// Content-Aware for the Crop tool: given the cropped Background layer's pixels (covering the new canvas) and the
+    /// area the crop added beyond the image, returns the pixels with that area synthesized from the rest, or null to
+    /// keep the background color. It is the seam for the content-aware synthesis (Edit › Content-Aware Fill); while
+    /// it is null the options bar's Content-Aware box stays disabled. Filled by DocumentViewModel.ContentAwareCrop.cs.
+    /// </summary>
+    public static Func<Raster, SelectionMask, CancellationToken, Raster?>? ContentAwareCropFill { get; set; } = FillCropContentAware;
 
     /// <summary>Opens or closes the crop to match the editor's tool (called when the tool or the active document changes).</summary>
     public void SyncCropSession()
     {
         bool wanted = Editor.Tool == CanvasTool.Crop;
         if (wanted && CropBox is null && !_canvasPending) BeginCrop();
-        else if (!wanted && CropBox is { Locked: false } box)
+        else if (!wanted && CropBox is { Locked: false } box && !_cropPromptOpen)
         {
-            // Photoshop asks and defaults to cropping; switching tools applies a changed crop (it can be undone).
-            if (box.IsModified) _ = CommitCropAsync();
+            if (box.IsModified) _ = AskAndCropAsync();
             else EndCrop();
+        }
+    }
+
+    /// <summary>Leaving the Crop tool with a changed box asks, as Photoshop does: "Crop the image?"</summary>
+    private async Task AskAndCropAsync()
+    {
+        _cropPromptOpen = true;
+        CropPromptChoice choice;
+        try
+        {
+            choice = await Editor.AskApplyCrop();
+        }
+        finally
+        {
+            _cropPromptOpen = false;
+        }
+        if (CropBox is not { Locked: false }) return;
+        switch (choice)
+        {
+            case CropPromptChoice.Crop:
+                await CommitCropAsync();
+                break;
+            case CropPromptChoice.DontCrop:
+                EndCrop();
+                break;
+            default:
+                Editor.Tool = CanvasTool.Crop; // back to the crop, box as it was
+                break;
         }
     }
 
@@ -49,7 +85,6 @@ public sealed partial class DocumentViewModel
         if (IsTransforming) _ = CommitTransformAsync();
         var box = new CropBox(Model.Width, Model.Height);
         if (Editor.CropAspectRatio(Model) is { } ratio) box.SetAspectRatio(ratio);
-        _cropLiveLayers = Model.Root.Descendants().Count(n => n is PixelLayer { Pixels: not null } && CanvasOperations.IsLive(n));
         box.Changed += OnCropChanged;
         CropBox = box;
         OnCropChanged();
@@ -65,9 +100,21 @@ public sealed partial class DocumentViewModel
     private void OnCropChanged()
     {
         if (CropBox is not { } box) return;
-        int live = box.IsRotated ? _cropLiveLayers : 0;
-        CropNotice = live == 0 ? ""
-            : $"Turning the image rasterizes {live} type, smart object or shape layer{(live == 1 ? "" : "s")}.";
+        // Type, smart objects and shapes stay editable however the image is turned (LiveContent.cs).
+        CropNotice = Editor.CropContentAware && ContentAwareCropFill is not null && ReachesPastImage(box)
+            ? "Content-Aware fills the area beyond the image." : "";
+    }
+
+    /// <summary>True when the box shows area outside the image (the crop would add canvas).</summary>
+    private bool ReachesPastImage(CropBox box)
+    {
+        var inv = box.View.Invert();
+        foreach (var (x, y) in new[] { (box.Left, box.Top), (box.Right, box.Top), (box.Right, box.Bottom), (box.Left, box.Bottom) })
+        {
+            var (ix, iy) = inv.Apply(x, y);
+            if (ix < -1e-6 || iy < -1e-6 || ix > Model.Width + 1e-6 || iy > Model.Height + 1e-6) return true;
+        }
+        return false;
     }
 
     /// <summary>Esc: puts the box back around the whole image.</summary>
@@ -87,13 +134,53 @@ public sealed partial class DocumentViewModel
         }
         box.Locked = true;
         var (map, width, height) = (box.ResultMap, box.ResultWidth, box.ResultHeight);
+        double? resolution = null;
+        if (Editor.CropTargetSize is { } target)
+        {
+            // W × H × Resolution: the box's content is resampled to exactly the size asked for.
+            map = map.Then(Affine.Scale(target.Width / (box.Right - box.Left), target.Height / (box.Bottom - box.Top)));
+            (width, height, resolution) = (target.Width, target.Height, target.Resolution);
+        }
         bool delete = Editor.CropDeletePixels;
         var fill = BackgroundFill();
-        if (!await ChangeCanvasAsync("Crop", () => CanvasOperations.Crop(Model, map, width, height, delete, fill)))
+        var contentAware = Editor.CropContentAware && ContentAwareCropFill is { } hook && ReachesPastImage(box) ? hook : null;
+        var doc = Model;
+        CanvasChange Compute()
+        {
+            var change = CanvasOperations.Crop(doc, map, width, height, delete, fill);
+            return contentAware is null ? change : FillBeyondImage(doc, change, contentAware);
+        }
+        if (!await ChangeCanvasAsync("Crop", Compute, resolution))
             box.Locked = false;
     }
 
-    /// <summary>Image › Crop: crops to the selection's bounds (and drops the selection).</summary>
+    /// <summary>
+    /// Content-Aware crop: the Background's new area (outside the old image, turned and moved as the crop says) is
+    /// synthesized by <paramref name="fill"/> instead of showing the background color.
+    /// </summary>
+    private static CanvasChange FillBeyondImage(Document doc, CanvasChange change, Func<Raster, SelectionMask, CancellationToken, Raster?> fill)
+    {
+        if (CanvasOperations.FindBackground(doc) is not { } background) return change;
+        var canvas = PixelRect.FromSize(change.Width, change.Height);
+        var m = change.Map;
+        var image = SelectionMask.Polygon(
+            [ToVector(m.Apply(0, 0)), ToVector(m.Apply(doc.Width, 0)), ToVector(m.Apply(doc.Width, doc.Height)), ToVector(m.Apply(0, doc.Height))], canvas);
+        if (SelectionMask.Invert(image, canvas) is not { } beyond) return change;
+        var layers = change.Layers.Select(entry =>
+        {
+            if (!ReferenceEquals(entry.Node, background) || entry.Geometry.Pixels is not { } pixels || entry.Geometry.Bounds != canvas) return entry;
+            return fill(pixels, beyond, default) is { } filled ? (entry.Node, entry.Geometry with { Pixels = filled }) : entry;
+        }).ToList();
+        return new CanvasChange
+        {
+            Width = change.Width, Height = change.Height, Map = change.Map, Method = change.Method, Layers = layers,
+            Composite = change.Composite, ResampledLiveLayers = change.ResampledLiveLayers, Perspective = change.Perspective,
+        };
+
+        static System.Numerics.Vector2 ToVector((double X, double Y) p) => new((float)p.X, (float)p.Y);
+    }
+
+    /// <summary>Image › Crop: crops to the selection's bounds (the selection moves with the image).</summary>
     public async Task CropToSelectionAsync()
     {
         if (Selection is not { } selection) return;
@@ -128,8 +215,12 @@ public sealed partial class DocumentViewModel
         await ChangeCanvasAsync("Trim", () => CanvasOperations.Crop(doc, rect, deleteCroppedPixels: true));
     }
 
-    /// <summary>Image › Image Size. Unchanged pixel dimensions with a new resolution change only the resolution.</summary>
-    public async Task ResizeImageAsync(int width, int height, ResampleMethod method, double resolution)
+    /// <summary>
+    /// Image › Image Size. Unchanged pixel dimensions with a new resolution change only the resolution. With
+    /// <paramref name="scaleStyles"/> layer effects scale with the image (by the width's factor, as Photoshop's Scale
+    /// Styles requires constrained proportions).
+    /// </summary>
+    public async Task ResizeImageAsync(int width, int height, ResampleMethod method, double resolution, bool scaleStyles = true)
     {
         CloseCropForCommand();
         if (width == Model.Width && height == Model.Height)
@@ -137,7 +228,8 @@ public sealed partial class DocumentViewModel
             if (resolution != Model.Resolution) Apply(new CanvasEdit(Model, null, resolution, Selection, s => Selection = s, "Image Size"));
             return;
         }
-        await ChangeCanvasAsync("Image Size", () => CanvasOperations.ResizeImage(Model, width, height, method), resolution);
+        double? styleScale = scaleStyles ? Math.Sqrt(width / (double)Model.Width * (height / (double)Model.Height)) : null;
+        await ChangeCanvasAsync("Image Size", () => CanvasOperations.ResizeImage(Model, width, height, method), resolution, styleScale);
     }
 
     /// <summary>Image › Canvas Size: the old canvas placed at (<paramref name="offsetX"/>, <paramref name="offsetY"/>) on the new one.</summary>
@@ -160,7 +252,7 @@ public sealed partial class DocumentViewModel
     /// Computes a canvas change in the background and applies it as one step; false (with a notice) if it failed.
     /// Every layer's resampling runs off the UI thread, so the window stays responsive.
     /// </summary>
-    private async Task<bool> ChangeCanvasAsync(string description, Func<CanvasChange> compute, double? resolution = null)
+    private async Task<bool> ChangeCanvasAsync(string description, Func<CanvasChange> compute, double? resolution = null, double? styleScale = null)
     {
         if (_canvasPending) return false;
         _canvasPending = true;
@@ -176,7 +268,7 @@ public sealed partial class DocumentViewModel
             var doc = Model;
             var selection = Selection;
             double ppi = resolution ?? doc.Resolution;
-            var edit = await Task.Run(() => new CanvasEdit(doc, compute(), ppi, selection, s => Selection = s, description));
+            var edit = await Task.Run(() => new CanvasEdit(doc, compute(), ppi, selection, s => Selection = s, description, styleScale));
             LastCanvasChangeMs = sw.Elapsed.TotalMilliseconds;
             Apply(edit);
             return true;

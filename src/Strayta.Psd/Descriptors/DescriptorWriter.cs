@@ -67,6 +67,7 @@ public sealed class DescriptorWriter
             case BoolValue b: Type("bool"); _o.WriteByte(b.Value ? (byte)1 : (byte)0); break;
             case ClassValue c: Type("type"); Unicode(c.Name); Id(c.ClassId); break;
             case RawValue r: Type(r.Type); U32((uint)r.Data.Length); _o.Write(r.Data); break;
+            case ObjectArrayValue a: Type("ObAr"); U32((uint)a.Count); WriteObject(a.Columns); break;
             default:
                 // References are only read (they appear in actions, not in the layer data Strayta writes).
                 throw new NotSupportedException($"Writing descriptor values of type {value.GetType().Name} is not supported.");

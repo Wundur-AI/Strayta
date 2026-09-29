@@ -30,14 +30,12 @@ public sealed partial class DocumentViewModel
         if (IsTransforming) return true;
         var node = SelectedLayer?.Node;
         var targets = node is LayerGroup g ? g.Descendants().Prepend(g).ToList() : node is null ? [] : [node];
-        var live = targets.FirstOrDefault(n => n.Tags.Contains("text") || n.Tags.Contains("smart-object") || n.Tags.Contains("fill") || n.Tags.Contains("shape"));
         var content = targets.OfType<PixelLayer>().Select(Resampler.ContentBounds).Where(b => !b.IsEmpty).ToList();
         string? problem = node switch
         {
             null => "Select a layer to transform.",
             { Visible: false } => $"\"{node.Name}\" is hidden. Show it to transform it.",
             AdjustmentLayer => "Adjustment layers have no pixels to transform.",
-            _ when live is not null => $"\"{live.Name}\" is a {LiveKind(live)} layer. Photoshop redraws these from their own data, so a transform of its pixels would be lost. Rasterize it first.",
             _ when content.Count == 0 => $"\"{node.Name}\" has no pixels to transform.",
             _ => null,
         };
@@ -58,9 +56,6 @@ public sealed partial class DocumentViewModel
         FreeTransform = transform;
         PropertyChanged += CommitOnSelectionChange;
         return true;
-
-        static string LiveKind(LayerNode n) =>
-            n.Tags.Contains("text") ? "text" : n.Tags.Contains("smart-object") ? "smart object" : n.Tags.Contains("fill") ? "fill" : "shape";
     }
 
     private void OnTransformChanged()
@@ -95,6 +90,7 @@ public sealed partial class DocumentViewModel
         // Photoshop keeps pixels pushed off the canvas; keep a canvas-sized margin all round so a huge enlargement
         // cannot exhaust memory.
         var clip = new PixelRect(-Model.Width, -Model.Height, 2 * Model.Width, 2 * Model.Height);
+        var doc = Model;
         try
         {
             var results = await Task.Run(() => inputs.Select(i =>
@@ -104,7 +100,12 @@ public sealed partial class DocumentViewModel
                     ? Resampler.TransformRaster(s.Pixels, s.Bounds, matrix, ResampleFilter.Bicubic, clip)
                     : (s.Pixels, s.Bounds);
                 var mask = Resampler.TransformMask(s.Mask, matrix, ResampleFilter.Bicubic);
-                return (i.Node, new TransformEdit.State(pixels, pixels is null ? PixelRect.Empty : bounds, mask));
+                // Type, smart objects, shapes and fills stay live: their data follows (LiveContent.cs).
+                var source = TransformedSource(s.Source, matrix, doc);
+                if (i.Node is PixelLayer layer && s.Pixels is not null && LiveContent.IsLive(layer) && source is Psd.PsdLayerRecord record
+                    && LiveContent.Redraw(layer, record, doc.SourceData as Psd.PsdFile, doc, s.Bounds, doc.Bounds, doc.Bounds, matrix) is { } redrawn)
+                    (pixels, bounds) = redrawn;
+                return (i.Node, new TransformEdit.State(pixels, pixels is null ? PixelRect.Empty : bounds, mask, source));
             }).ToList());
             EndTransform();
             Apply(new TransformEdit(results));
@@ -114,6 +115,18 @@ public sealed partial class DocumentViewModel
             transform.Locked = false;
             Notice = $"Could not apply the transform: {ex.Message}";
         }
+    }
+
+    /// <summary>A layer's file data with its live content (vector outlines, type, smart object corners) moved by <paramref name="m"/>.</summary>
+    private static object? TransformedSource(object? source, Affine m, Document doc)
+    {
+        var map = new Psd.CanvasMap(m.M11, m.M12, m.M21, m.M22, m.Dx, m.Dy);
+        return source switch
+        {
+            Psd.PsdLayerRecord r => Psd.PsdCanvas.WithCanvas(r, doc.Width, doc.Height, doc.Width, doc.Height, map),
+            Psd.PsdGroupRecords g => g with { Folder = Psd.PsdCanvas.WithCanvas(g.Folder, doc.Width, doc.Height, doc.Width, doc.Height, map) },
+            _ => source,
+        };
     }
 
     /// <summary>Esc: closes the transform without changing anything.</summary>

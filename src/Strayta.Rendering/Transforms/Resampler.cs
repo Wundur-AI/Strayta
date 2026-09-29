@@ -50,6 +50,23 @@ public sealed class ResampleSource
         int w = raster.Width, h = raster.Height, colors = raster.ColorPlanes.Count, ch = colors + 1;
         var data = new float[(long)w * h * ch];
         var alpha = raster.Alpha;
+        if (raster.BitDepth == 8 && colors == 3)
+        {
+            // The common case, without per-sample depth dispatch: one vector per pixel.
+            byte[] r = raster.ColorPlanes[0].Data, g = raster.ColorPlanes[1].Data, b = raster.ColorPlanes[2].Data;
+            byte[]? a8 = alpha?.Data;
+            Parallel.For(0, h, y =>
+            {
+                ref float dst = ref MemoryMarshal.GetArrayDataReference(data);
+                for (int x = 0, i = y * w; x < w; x++, i++)
+                {
+                    float a = a8 is null ? 1f : a8[i] * (1f / 255f);
+                    var v = Vector128.Create(r[i] * (1f / 255f), g[i] * (1f / 255f), b[i] * (1f / 255f), 1f) * a;
+                    v.StoreUnsafe(ref dst, (nuint)i * 4);
+                }
+            });
+            return new ResampleSource(data, w, h, ch, premultiplied: true, raster.ColorMode, raster.BitDepth);
+        }
         Parallel.For(0, h, y =>
         {
             for (int x = 0, i = y * w; x < w; x++, i++)
@@ -127,6 +144,13 @@ public static class Resampler
     {
         if (m.IsIntegerTranslation(out int dx, out int dy))
             return Clip(raster, Shift(bounds, dx, dy), clip);
+        // A crop only needs the part of the source that lands on the canvas (a turned crop keeps well under the whole
+        // image): convert just that, plus the kernel's reach, to floats.
+        if (clip is { } c && NeededSource(bounds, m, c) is { } needed && needed != bounds)
+        {
+            if (needed.IsEmpty) return (null, PixelRect.Empty);
+            (raster, bounds) = Clip(raster, bounds, needed) is ({ } part, var partBounds) ? (part, partBounds) : (raster, bounds);
+        }
         return TransformRaster(ResampleSource.FromRaster(raster), bounds, m, filter, clip, cancel);
     }
 
@@ -141,6 +165,7 @@ public static class Resampler
 
         int colors = source.Channels - 1, ch = source.Channels, w = target.Width;
         var planes = Enumerable.Range(0, ch).Select(_ => Plane.Create(w, target.Height, source.BitDepth)).ToArray();
+        bool bytes = source.BitDepth == 8;
         Resample(source, bounds, m, filter, target, cancel, (y, sums, weights, coverage) =>
         {
             for (int x = 0, i = y * w; x < w; x++, i++)
@@ -149,6 +174,12 @@ public static class Resampler
                 float alphaSum = sums[o + colors];
                 float a = Math.Clamp(alphaSum / weights[x], 0f, 1f) * coverage[x];
                 float inv = alphaSum > 1e-9f ? 1f / alphaSum : 0f;
+                if (bytes)
+                {
+                    for (int k = 0; k < colors; k++) planes[k].Data[i] = RgbaConverter.ToByte(Math.Clamp(sums[o + k] * inv, 0f, 1f));
+                    planes[colors].Data[i] = RgbaConverter.ToByte(a);
+                    continue;
+                }
                 for (int k = 0; k < colors; k++) Store(planes[k], i, sums[o + k] * inv);
                 Store(planes[colors], i, a);
             }
@@ -215,6 +246,9 @@ public static class Resampler
         // Without reduction a tent filter touches exactly 2×2 source pixels; that case (interactive previews)
         // gets a direct path.
         bool simpleBilinear = !cubic && fx == 1 && fy == 1;
+        // Turns and enlargements with the cubic touch exactly 4×4 source pixels with weights from a fixed
+        // polynomial: that case (rotated crops, Free Transform commits) gets its own vectorized path.
+        bool simpleCubic = cubic && fx == 1 && fy == 1;
         double support = cubic ? 2 : 1;
         double rx = support * fx, ry = support * fy;
         int maxTapsX = (int)Math.Ceiling(2 * rx) + 2, maxTapsY = (int)Math.Ceiling(2 * ry) + 2;
@@ -228,8 +262,14 @@ public static class Resampler
         {
             float[] sums = buf.Sums, weights = buf.Weights, coverage = buf.Coverage, wx = buf.Wx, wy = buf.Wy;
             int[] cols = buf.Cols;
-            Array.Clear(sums);
             double py = y + 0.5;
+            if (simpleCubic)
+            {
+                CubicRow(src, srcBounds, inv, target, py, stepX, stepY, sums, weights, coverage);
+                sink(y - target.Top, sums, weights, coverage);
+                return buf;
+            }
+            Array.Clear(sums);
             for (int x = 0; x < w; x++)
             {
                 double px = target.Left + x + 0.5;
@@ -288,6 +328,105 @@ public static class Resampler
         }, _ => { });
     }
 
+    /// <summary>
+    /// The part of the source (within <paramref name="bounds"/>) that output pixels inside <paramref name="clip"/> can
+    /// read, with a margin wider than the kernel so its cut edges never show as layer edges; null when it is most
+    /// of the source anyway.
+    /// </summary>
+    internal static PixelRect? NeededSource(PixelRect bounds, Affine m, PixelRect clip)
+    {
+        var inv = m.Invert();
+        double stepX = Math.Sqrt(inv.M11 * inv.M11 + inv.M12 * inv.M12), stepY = Math.Sqrt(inv.M21 * inv.M21 + inv.M22 * inv.M22);
+        int margin = (int)Math.Ceiling(2 * Math.Max(1, Math.Max(stepX, stepY))) + 3;
+        var reach = TransformBounds(clip, inv);
+        var needed = new PixelRect(reach.Left - margin, reach.Top - margin, reach.Right + margin, reach.Bottom + margin).Intersect(bounds);
+        return (long)needed.Width * needed.Height < (long)bounds.Width * bounds.Height * 9 / 10 ? needed : null;
+    }
+
+    /// <summary>
+    /// One output row of a map that does not shrink the source (turns, enlargements) with the Catmull-Rom cubic:
+    /// every output pixel takes exactly 4×4 source pixels, with weights from the kernel's polynomial in the
+    /// fractional position (they sum to one), and RGBA pixels are summed as vectors, a row of four taps at a time.
+    /// </summary>
+    private static void CubicRow(ResampleSource src, PixelRect srcBounds, Affine inv, PixelRect target, double py, double stepX, double stepY,
+        float[] sums, float[] weights, float[] coverage)
+    {
+        int sw = src.Width, sh = src.Height, ch = src.Channels, w = target.Width;
+        float[] data = src.Data;
+        double px0 = target.Left + 0.5;
+        double sx0 = inv.M11 * px0 + inv.M12 * py + inv.Dx - srcBounds.Left;
+        double sy0 = inv.M21 * px0 + inv.M22 * py + inv.Dy - srcBounds.Top;
+        Span<float> wx = stackalloc float[4], wy = stackalloc float[4];
+        bool vector = ch == 4 && Vector128.IsHardwareAccelerated;
+        ref float d = ref MemoryMarshal.GetArrayDataReference(data);
+        for (int x = 0; x < w; x++)
+        {
+            double sx = sx0 + inv.M11 * x, sy = sy0 + inv.M21 * x;
+            double cov = EdgeCoverage(sx, sw, stepX) * EdgeCoverage(sy, sh, stepY);
+            coverage[x] = (float)cov;
+            weights[x] = 1;
+            var acc = sums.AsSpan(x * ch, ch);
+            if (cov <= 0)
+            {
+                acc.Clear();
+                continue;
+            }
+            double gx = sx - 0.5, gy = sy - 0.5;
+            int ix = (int)Math.Floor(gx), iy = (int)Math.Floor(gy);
+            CubicWeights((float)(gx - ix), wx);
+            CubicWeights((float)(gy - iy), wy);
+            bool inside = ix >= 1 && ix + 2 < sw && iy >= 1 && iy + 2 < sh;
+            if (inside && vector)
+            {
+                var total = Vector128<float>.Zero;
+                for (int j = 0; j < 4; j++)
+                {
+                    nuint at = (nuint)(((long)(iy - 1 + j) * sw + ix - 1) * 4);
+                    var row = Vector128.LoadUnsafe(ref d, at) * wx[0] + Vector128.LoadUnsafe(ref d, at + 4) * wx[1]
+                              + Vector128.LoadUnsafe(ref d, at + 8) * wx[2] + Vector128.LoadUnsafe(ref d, at + 12) * wx[3];
+                    total += row * wy[j];
+                }
+                total.StoreUnsafe(ref MemoryMarshal.GetReference(acc));
+                continue;
+            }
+            if (inside && ch == 1)
+            {
+                // Masks: the four taps of a row are adjacent, so they load as one vector.
+                float sum = 0;
+                var weightsX = Vector128.Create(wx[0], wx[1], wx[2], wx[3]);
+                for (int j = 0; j < 4; j++)
+                {
+                    nuint at = (nuint)((long)(iy - 1 + j) * sw + ix - 1);
+                    sum += Vector128.Dot(Vector128.LoadUnsafe(ref d, at), weightsX) * wy[j];
+                }
+                acc[0] = sum;
+                continue;
+            }
+            acc.Clear();
+            for (int j = 0; j < 4; j++)
+            {
+                long row = (long)Math.Clamp(iy - 1 + j, 0, sh - 1) * sw;
+                for (int i = 0; i < 4; i++)
+                {
+                    float wt = wx[i] * wy[j];
+                    long at = (row + Math.Clamp(ix - 1 + i, 0, sw - 1)) * ch;
+                    for (int c = 0; c < ch; c++) acc[c] += data[at + c] * wt;
+                }
+            }
+        }
+    }
+
+    /// <summary>Catmull-Rom weights of the four taps around a sample <paramref name="t"/> (0..1) past the second one.</summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static void CubicWeights(float t, Span<float> w)
+    {
+        float t2 = t * t, t3 = t2 * t;
+        w[0] = 0.5f * (-t3 + 2 * t2 - t);
+        w[1] = 0.5f * (3 * t3 - 5 * t2 + 2);
+        w[2] = 0.5f * (-3 * t3 + 4 * t2 + t);
+        w[3] = 0.5f * (t3 - t2);
+    }
+
     /// <summary>Scratch space for one worker thread, reused across the rows it processes.</summary>
     private sealed class RowBuffers(int width, int channels, int tapsX, int tapsY)
     {
@@ -343,7 +482,7 @@ public static class Resampler
     private static PixelRect Shift(PixelRect r, int dx, int dy) => new(r.Left + dx, r.Top + dy, r.Right + dx, r.Bottom + dy);
 
     /// <summary>Crops already-positioned pixels to <paramref name="clip"/> (the whole-pixel move shortcut).</summary>
-    private static (Raster?, PixelRect) Clip(Raster raster, PixelRect bounds, PixelRect? clip)
+    internal static (Raster?, PixelRect) Clip(Raster raster, PixelRect bounds, PixelRect? clip)
     {
         if (clip is not { } c) return (raster, bounds);
         var inside = bounds.Intersect(c);

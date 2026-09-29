@@ -156,6 +156,7 @@ internal static partial class SelfTest
         await RunGradientAndFillStepsAsync(editor, Check); // SelfTest.Gradients.cs
         await RunRefineSelectionStepsAsync(editor, Check); // SelfTest.RefineSelection.cs
         await RunCropStepsAsync(editor, Check); // SelfTest.Crop.cs
+        await RunTransformGapStepsAsync(editor, Check); // SelfTest.Transform2.cs
         await RunRetouchStepsAsync(editor, Check); // SelfTest.Retouch.cs
         await RunBrushStepsAsync(editor, Check); // SelfTest.Brush.cs
         await RunRetouchExtrasStepsAsync(editor, Check); // SelfTest.Brush.cs

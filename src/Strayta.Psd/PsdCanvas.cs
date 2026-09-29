@@ -55,7 +55,7 @@ public static class PsdCanvas
             if (r.Id == SlicesResource) continue;
             var data = r.Id switch
             {
-                GuidesResource => RemapGuides(r.Data, oldW, oldH, map),
+                GuidesResource => RemapGuides(r.Data, width, height, map),
                 WorkPathResource or (>= FirstSavedPath and <= LastSavedPath) => RemapPath(r.Data, 0, oldW, oldH, width, height, map),
                 _ => r.Data,
             };
@@ -65,8 +65,10 @@ public static class PsdCanvas
     }
 
     /// <summary>
-    /// Moves the vector content stored in a layer's blocks (vector masks and shape outlines, and the position of
-    /// type) with the canvas. Returns <paramref name="record"/> itself when nothing needed changing.
+    /// Moves the live content stored in a layer's blocks with the canvas: vector masks and shape outlines, live shape
+    /// rectangles ('vogk'), the transform of type and the corners of placed smart objects (see
+    /// <see cref="PsdLiveContent"/>). Free Transform uses it too, with the canvas size unchanged. Returns
+    /// <paramref name="record"/> itself when nothing needed changing.
     /// </summary>
     public static PsdLayerRecord WithCanvas(PsdLayerRecord record, int oldWidth, int oldHeight, int width, int height, CanvasMap map)
     {
@@ -80,6 +82,9 @@ public static class PsdCanvas
                 // Vector masks: 4-byte version, 4-byte flags, then path records.
                 "vmsk" or "vsms" when data.Length >= 8 => RemapPath(data, 8, oldWidth, oldHeight, width, height, map),
                 "TySh" or "tySh" => RemapTypeTransform(data, map),
+                "SoLd" or "SoLE" => PsdLiveContent.TransformPlacedDescriptor(data, map),
+                "PlLd" or "plLd" => PsdLiveContent.TransformPlacedLegacy(data, map),
+                "vogk" => PsdLiveContent.TransformOrigination(data, map),
                 _ => null,
             };
             if (mapped is null || ReferenceEquals(mapped, data)) return b;
@@ -106,8 +111,14 @@ public static class PsdCanvas
     /// <summary>
     /// Guides (resource 1032): version, grid cycle, count, then per guide a location in 1/32 pixel and a direction
     /// (0 vertical, 1 horizontal).
+    /// <para>
+    /// A guide is a line; the map takes it to another line. Moves, scales and quarter turns keep it horizontal or
+    /// vertical, and the guide becomes exactly that line (a quarter turn swaps its direction). A slight turn tilts it,
+    /// which a guide cannot be: it stays on its nearer axis and passes through the point where the tilted line
+    /// crosses the middle of the new canvas, so it is exact at the center and off by at most the tilt elsewhere.
+    /// </para>
     /// </summary>
-    private static byte[] RemapGuides(byte[] data, int oldW, int oldH, CanvasMap map)
+    internal static byte[] RemapGuides(byte[] data, int newW, int newH, CanvasMap map)
     {
         if (data.Length < 16) return data;
         var o = (byte[])data.Clone();
@@ -115,10 +126,14 @@ public static class PsdCanvas
         for (int i = 0, at = 16; i < count && at + 5 <= o.Length; i++, at += 5)
         {
             double location = BinaryPrimitives.ReadInt32BigEndian(o.AsSpan(at)) / 32.0;
-            // Guides stay horizontal or vertical: a rotated crop moves them with the point where they cross the
-            // middle of the old canvas.
-            double moved = o[at + 4] == 0 ? map.Apply(location, oldH / 2.0).X : map.Apply(oldW / 2.0, location).Y;
+            bool horizontal = o[at + 4] != 0;
+            // A point on the guide and its direction, after the map.
+            var (px, py) = horizontal ? map.Apply(0, location) : map.Apply(location, 0);
+            double dx = horizontal ? map.M11 : map.M12, dy = horizontal ? map.M21 : map.M22;
+            bool nowHorizontal = Math.Abs(dx) > Math.Abs(dy);
+            double moved = nowHorizontal ? py + (newW / 2.0 - px) / dx * dy : px + (newH / 2.0 - py) / dy * dx;
             BinaryPrimitives.WriteInt32BigEndian(o.AsSpan(at), (int)Math.Clamp(Math.Round(moved * 32), int.MinValue, int.MaxValue));
+            o[at + 4] = nowHorizontal ? (byte)1 : (byte)0;
         }
         return o;
     }

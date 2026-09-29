@@ -9,6 +9,7 @@ public sealed class DescriptorReader
     private readonly byte[] _data;
     private int _pos;
     private int _depth;
+    private readonly List<string> _path = [];
 
     public DescriptorReader(byte[] data, int offset = 0)
     {
@@ -17,6 +18,12 @@ public sealed class DescriptorReader
     }
 
     public int Position => _pos;
+
+    /// <summary>
+    /// When set, receives where each number ('doub' and 'UntF' values) sits in the data, with its path of keys and
+    /// list indices joined by '/' (e.g. "Trnf/3"), so callers can patch values in place without re-encoding the rest.
+    /// </summary>
+    public List<(string Path, int Offset)>? NumberOffsets { get; init; }
 
     /// <summary>Reads a block that starts with a 4-byte descriptor version (16) followed by a descriptor.</summary>
     public static Descriptor ReadVersioned(byte[] data, int offset = 0)
@@ -40,7 +47,9 @@ public sealed class DescriptorReader
             for (uint i = 0; i < count; i++)
             {
                 string key = Id();
+                _path.Add(key.TrimEnd());
                 items.Add(new(key, Value(Type4())));
+                _path.RemoveAt(_path.Count - 1);
             }
             return new Descriptor { Name = name, ClassId = classId, Items = items };
         }
@@ -54,8 +63,8 @@ public sealed class DescriptorReader
     {
         "Objc" or "GlbO" => new ObjectValue(ReadDescriptor()),
         "VlLs" => ListOf(U32()),
-        "doub" => new DoubleValue(F64()),
-        "UntF" => new UnitFloatValue(Type4(), F64()),
+        "doub" => new DoubleValue(Number()),
+        "UntF" => UnitFloat(),
         "UnFl" => UnitFloats(),
         "TEXT" => new TextValue(UnicodeString()),
         "enum" => new EnumValue(Id(), Id()),
@@ -65,6 +74,7 @@ public sealed class DescriptorReader
         "type" or "GlbC" => new ClassValue(UnicodeString(), Id()),
         "obj " => Reference(),
         "alis" or "tdta" or "Pth " => new RawValue(type, BytesArray(checked((int)U32()))),
+        "ObAr" => ObjectArray(),
         _ => throw new PsdFormatException($"Unknown descriptor value type '{type}' at {_pos - 4}"),
     };
 
@@ -72,8 +82,36 @@ public sealed class DescriptorReader
     {
         if (count > 1_000_000) throw new PsdFormatException($"Descriptor list claims {count} items");
         var items = new List<DescriptorValue>((int)Math.Min(count, 1024));
-        for (uint i = 0; i < count; i++) items.Add(Value(Type4()));
+        for (uint i = 0; i < count; i++)
+        {
+            _path.Add(i.ToString(System.Globalization.CultureInfo.InvariantCulture));
+            items.Add(Value(Type4()));
+            _path.RemoveAt(_path.Count - 1);
+        }
         return new ListValue(items);
+    }
+
+    private UnitFloatValue UnitFloat()
+    {
+        string unit = Type4();
+        return new UnitFloatValue(unit, Number());
+    }
+
+    /// <summary>Reads a double, first noting where it is when <see cref="NumberOffsets"/> is set.</summary>
+    private double Number()
+    {
+        NumberOffsets?.Add((string.Join('/', _path), _pos));
+        return F64();
+    }
+
+    /// <summary>
+    /// 'ObAr', an object array (warp meshes, slices): a count, then one descriptor whose items hold the objects'
+    /// fields column by column, e.g. "Hrzn" and "Vrtc" as 'UnFl' lists of that many values.
+    /// </summary>
+    private ObjectArrayValue ObjectArray()
+    {
+        uint count = U32();
+        return new ObjectArrayValue((int)count, ReadDescriptor());
     }
 
     private UnitFloatsValue UnitFloats()

@@ -3,24 +3,55 @@
              xmlns:vm="using:Strayta.Editor.ViewModels"
              x:Class="Strayta.Editor.Views.CropOptionsBar"
              x:DataType="vm:EditorViewModel">
-  <!-- Crop tool options: ratio presets, the box's size, Straighten, Delete Cropped Pixels; Esc/✕ resets, Enter/✓ crops -->
-  <StackPanel Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
-    <ComboBox ItemsSource="{Binding CropRatioNames}" SelectedIndex="{Binding CropRatioIndex}" MinWidth="130" FontSize="11"
-              VerticalAlignment="Center" ToolTip.Tip="Keep the box at a fixed shape" />
-    <Button Content="⇄" Command="{Binding SwapCropRatioCommand}" Padding="6,2" VerticalAlignment="Center"
-            ToolTip.Tip="Swap width and height" />
-    <TextBlock Text="{Binding ActiveDocument.CropBox.SizeText, FallbackValue=''}" VerticalAlignment="Center" MinWidth="120" />
-    <ToggleButton Content="Straighten" IsChecked="{Binding CropStraighten}" Padding="8,2" VerticalAlignment="Center"
-                  ToolTip.Tip="Draw a line along something that should be level (or upright)" />
-    <CheckBox Content="Delete Cropped Pixels" IsChecked="{Binding CropDeletePixels}" FontSize="11" VerticalAlignment="Center"
-              ToolTip.Tip="Off, layers keep the pixels outside the crop, hidden beyond the canvas" />
-    <Button Classes="icon" ToolTip.Tip="Reset the crop (Esc)" Command="{Binding CancelCropCommand}">
-      <Path Classes="icon" Data="{StaticResource IconCancel}" />
-    </Button>
-    <Button Classes="icon" ToolTip.Tip="Crop (Enter)" Command="{Binding CommitCropCommand}">
-      <Path Classes="icon" Data="{StaticResource IconCommit}" Stroke="{DynamicResource St.Accent}" />
-    </Button>
-    <TextBlock Classes="label" Foreground="{DynamicResource St.Warning}" Text="{Binding ActiveDocument.CropNotice, FallbackValue=''}" />
-    <TextBlock Classes="label" Text="Drag the edges · inside moves the image · outside turns it · Shift keeps the shape · Enter crops" />
-  </StackPanel>
+  <Panel>
+    <!-- Crop tool options: presets (W x H x Resolution among them), the box's size, overlay, Straighten, Delete Cropped
+         Pixels, Content-Aware; Esc/✕ resets, Enter/✓ crops -->
+    <StackPanel Orientation="Horizontal" Spacing="12" VerticalAlignment="Center" IsVisible="{Binding IsRectCropTool}">
+      <ComboBox ItemsSource="{Binding CropRatioNames}" SelectedIndex="{Binding CropRatioIndex}" MinWidth="130" FontSize="11"
+                VerticalAlignment="Center" ToolTip.Tip="Keep the box at a fixed shape, or crop to an exact size and resolution" />
+      <StackPanel Orientation="Horizontal" Spacing="6" IsVisible="{Binding IsCropSizeMode}" VerticalAlignment="Center">
+        <NumericUpDown Value="{Binding CropTargetWidth}" Minimum="1" Maximum="300000" FormatString="0" Width="92" FontSize="11"
+                       ShowButtonSpinner="False" PlaceholderText="W px" ToolTip.Tip="Width in pixels" />
+        <Button Content="⇄" Command="{Binding SwapCropRatioCommand}" Padding="6,2" ToolTip.Tip="Swap width and height" />
+        <NumericUpDown Value="{Binding CropTargetHeight}" Minimum="1" Maximum="300000" FormatString="0" Width="92" FontSize="11"
+                       ShowButtonSpinner="False" PlaceholderText="H px" ToolTip.Tip="Height in pixels" />
+        <NumericUpDown Value="{Binding CropTargetResolution}" Minimum="1" Maximum="30000" FormatString="0.##" Width="80" FontSize="11"
+                       ShowButtonSpinner="False" PlaceholderText="px/in" ToolTip.Tip="Resolution (pixels per inch) of the cropped image" />
+        <TextBlock Classes="label" Text="px/in" VerticalAlignment="Center" />
+        <Button Content="Clear" Command="{Binding ClearCropSizeCommand}" Padding="8,2" FontSize="11" />
+      </StackPanel>
+      <Button Content="⇄" Command="{Binding SwapCropRatioCommand}" Padding="6,2" VerticalAlignment="Center"
+              IsVisible="{Binding !IsCropSizeMode}" ToolTip.Tip="Swap width and height" />
+      <TextBlock Text="{Binding ActiveDocument.CropBox.SizeText, FallbackValue=''}" VerticalAlignment="Center" MinWidth="120" />
+      <ToggleButton Content="Straighten" IsChecked="{Binding CropStraighten}" Padding="8,2" VerticalAlignment="Center"
+                    ToolTip.Tip="Draw a line along something that should be level (or upright)" />
+      <ComboBox ItemsSource="{Binding CropOverlayNames}" SelectedIndex="{Binding CropOverlayIndex}" MinWidth="120" FontSize="11"
+                VerticalAlignment="Center" ToolTip.Tip="Overlay (O cycles, Shift+O turns the Triangle and Golden Spiral)" />
+      <CheckBox Content="Delete Cropped Pixels" IsChecked="{Binding CropDeletePixels}" FontSize="11" VerticalAlignment="Center"
+                ToolTip.Tip="Off, layers keep the pixels outside the crop, hidden beyond the canvas" />
+      <CheckBox Content="Content-Aware" IsChecked="{Binding CropContentAware}" IsEnabled="{Binding CanCropContentAware}" FontSize="11"
+                VerticalAlignment="Center" ToolTip.Tip="{Binding CropContentAwareTip}" ToolTip.ShowOnDisabled="True" />
+      <Button Classes="icon" ToolTip.Tip="Reset the crop (Esc)" Command="{Binding CancelCropCommand}">
+        <Path Classes="icon" Data="{StaticResource IconCancel}" />
+      </Button>
+      <Button Classes="icon" ToolTip.Tip="Crop (Enter)" Command="{Binding CommitCropCommand}">
+        <Path Classes="icon" Data="{StaticResource IconCommit}" Stroke="{DynamicResource St.Accent}" />
+      </Button>
+      <TextBlock Classes="label" Foreground="{DynamicResource St.Warning}" Text="{Binding ActiveDocument.CropNotice, FallbackValue=''}" />
+      <TextBlock Classes="label" Text="Drag the edges · inside moves the image · outside turns it · Shift keeps the shape · Enter crops" />
+    </StackPanel>
+
+    <!-- Perspective Crop: the result's size, cancel and commit -->
+    <StackPanel Orientation="Horizontal" Spacing="12" VerticalAlignment="Center" IsVisible="{Binding IsPerspectiveCropTool}">
+      <TextBlock Text="{Binding ActiveDocument.PerspectiveCrop.SizeText, FallbackValue=''}" VerticalAlignment="Center" MinWidth="120" />
+      <Button Classes="icon" ToolTip.Tip="Clear the shape (Esc)" Command="{Binding CancelPerspectiveCropCommand}">
+        <Path Classes="icon" Data="{StaticResource IconCancel}" />
+      </Button>
+      <Button Classes="icon" ToolTip.Tip="Crop and straighten (Enter)" Command="{Binding CommitPerspectiveCropCommand}">
+        <Path Classes="icon" Data="{StaticResource IconCommit}" Stroke="{DynamicResource St.Accent}" />
+      </Button>
+      <TextBlock Classes="label" Foreground="{DynamicResource St.Warning}" Text="{Binding ActiveDocument.PerspectiveCropNotice, FallbackValue=''}" />
+      <TextBlock Classes="label" Text="Drag the corners onto the edges of something rectangular · Enter straightens it onto a new canvas" />
+    </StackPanel>
+  </Panel>
 </UserControl>
