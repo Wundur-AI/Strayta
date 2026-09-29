@@ -14,6 +14,10 @@ return args switch
     ["roundtrip", var target] => RoundTrip(target, keepDir: null),
     ["roundtrip", var target, "--keep", var dir] => RoundTrip(target, dir),
     ["text", var path] => TextCommands.Dump(path),
+    ["smart", var target] => SmartCommands.Dump(target),
+    ["smartx", var path, var dir] => SmartCommands.Extract(path, dir),
+    ["smartfid", var target] => SmartCommands.Fidelity(target, null),
+    ["smartfid", var target, "--export", var dir] => SmartCommands.Fidelity(target, dir),
     ["textfid", .. var rest] when rest.Length > 0 => TextCommands.Fidelity(rest),
     ["textsamples", .. var rest] => TextSamples.Run(rest),
     ["shapes", .. var rest] when rest.Length > 0 => ShapeCommands.Dump(rest.Where(a => a != "-v").ToArray(), rest.Contains("-v")),
@@ -34,6 +38,8 @@ static int Usage()
           strayta-inspect bench <file>                        time full renders and cached layer toggles
           strayta-inspect roundtrip <file|dir> [--keep dir]   read, save, re-read and compare everything
           strayta-inspect adjustsamples <dir>                 write one PSD per adjustment kind for checking in Photoshop
+          strayta-inspect smart <file|dir>                    dump smart objects' placed-layer data and embedded files
+          strayta-inspect smartfid <file|dir> [--export d]    redraw smart objects from their content, compare with Photoshop's pixels
           strayta-inspect text <file.psd>                     print the type layers' text model
           strayta-inspect textfid <file|dir>... [--fonts d] [--all] [--export d]
                                                               render type layers, compare with Photoshop's pixels

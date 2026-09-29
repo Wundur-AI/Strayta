@@ -85,7 +85,11 @@ public sealed record UnitFloatValue(string Unit, double Value) : DescriptorValue
     internal override void Dump(StringBuilder sb, int indent) => sb.Append(Value.ToString("0.###")).Append(' ').Append(Unit);
 }
 
-public sealed record UnitFloatsValue(string Unit, IReadOnlyList<double> Values) : DescriptorValue;
+public sealed record UnitFloatsValue(string Unit, IReadOnlyList<double> Values) : DescriptorValue
+{
+    internal override void Dump(StringBuilder sb, int indent) =>
+        sb.Append(Unit).Append(" [").AppendJoin(' ', Values.Select(v => v.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture))).Append(']');
+}
 
 public sealed record TextValue(string Value) : DescriptorValue
 {

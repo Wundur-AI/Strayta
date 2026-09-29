@@ -33,6 +33,17 @@ internal static partial class SelfTest
             check(reopened.Pixels!.ColorPlanes[0].Data[24 * 64 + 32] == 255 && !doc.IsModified,
                 "painting then saving writes the change back into the PNG");
 
+            // A single smart object (or type or shape layer) covering the canvas is not a flat image either: saving it as
+            // PNG would lose the smart object.
+            doc.SelectedLayer = doc.Layers[0];
+            if (await doc.ConvertToSmartObjectAsync())
+            {
+                check(doc.Model.Root.Children is [PixelLayer only] && only.Tags.Contains("smart-object") && !doc.IsFlatImage,
+                    "a PNG whose one layer became a smart object is no longer a flat image (Save asks for a PSD)");
+                doc.Undo();
+            }
+            else check(false, "Convert to Smart Object works on a PNG's Background layer");
+
             // Adding a layer means a PNG can no longer hold it all.
             doc.NewLayer();
             check(!doc.IsFlatImage, "after adding a layer the document is no longer a flat image (Save asks for a PSD)");

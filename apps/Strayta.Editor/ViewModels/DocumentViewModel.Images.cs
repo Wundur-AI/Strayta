@@ -20,7 +20,9 @@ public sealed partial class DocumentViewModel
     public bool IsFlatImage =>
         Model.Root.Children is [PixelLayer { Visible: true, Pixels: not null, Mask: null, Effects: null, Clipped: false } layer]
         && layer.Opacity >= 1f && layer.FillOpacity >= 1f && layer.BlendMode == BlendMode.Normal
-        && layer.Bounds == Model.Bounds;
+        && layer.Bounds == Model.Bounds
+        // Type, shapes, fills and smart objects only survive in a PSD; saving them as PNG/JPEG would lose them.
+        && !Editing.LiveContent.IsLive(layer);
 
     /// <summary>
     /// Writes the document as PNG or JPEG. A flat document's PNG is written straight from its pixels (exact

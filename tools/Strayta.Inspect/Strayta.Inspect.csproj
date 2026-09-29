@@ -10,5 +10,6 @@
     <ProjectReference Include="..\..\src\Strayta.Psd\Strayta.Psd.csproj" />
     <ProjectReference Include="..\..\src\Strayta.Rendering\Strayta.Rendering.csproj" />
     <ProjectReference Include="..\..\src\Strayta.Text\Strayta.Text.csproj" />
+    <ProjectReference Include="..\..\src\Strayta.Imaging\Strayta.Imaging.csproj" />
   </ItemGroup>
 </Project>

@@ -158,7 +158,8 @@ public sealed partial class LayerItemViewModel : ObservableObject
     }
 
     public bool HasUnsupported =>
-        Node.Effects?.Items.Any(e => e is UnsupportedEffect) == true || Node is AdjustmentLayer { Adjustment: null };
+        Node.Effects?.Items.Any(e => e is UnsupportedEffect) == true || Node is AdjustmentLayer { Adjustment: null }
+        || SmartFilterRows.Any(r => r.IsUnknown); // LayerItemViewModel.SmartFilters.cs
 
     private bool _isRenaming;
 

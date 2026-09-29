@@ -181,6 +181,20 @@ public sealed class PsdFile
         HasRealMergedData = HasRealMergedData,
     };
 
+    /// <summary>A copy with other document-level tagged blocks (e.g. an updated linked-files block); everything else is shared.</summary>
+    public PsdFile WithGlobalBlocks(IReadOnlyList<TaggedBlock> blocks) => new()
+    {
+        Header = Header,
+        ColorModeData = ColorModeData,
+        Resources = Resources,
+        Layers = Layers,
+        CompositeHasTransparency = CompositeHasTransparency,
+        GlobalLayerMaskInfo = GlobalLayerMaskInfo,
+        GlobalBlocks = blocks,
+        CompositeChannels = CompositeChannels,
+        HasRealMergedData = HasRealMergedData,
+    };
+
     /// <summary>
     /// The application that last saved the file, from resource 1057 (e.g. "Adobe Photoshop", "Strayta"),
     /// or null if unknown. Only Photoshop-written composites are a trustworthy rendering reference.

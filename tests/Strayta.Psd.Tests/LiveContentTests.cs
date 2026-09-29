@@ -31,7 +31,7 @@ public class LiveContentTests
                 Items =
                 [
                     new("warpStyle", new EnumValue("warpStyle", warped ? "warpArc" : "warpNone")),
-                    new("warpValue", new DoubleValue(0)),
+                    new("warpValue", new DoubleValue(warped ? 30 : 0)), // an arc of 0 changes nothing
                     new("bounds", new ObjectValue(new Descriptor
                     {
                         ClassId = "classFloatRect",

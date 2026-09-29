@@ -1,5 +1,3 @@
-using System.Collections.Concurrent;
-using System.Runtime.CompilerServices;
 using Strayta.Core;
 using Strayta.Core.Paths;
 using Strayta.Imaging;
@@ -16,9 +14,10 @@ namespace Strayta.Editor.Editing;
 /// the type transform, placed-layer corners, vector mask points and live shape boxes), and their pixels, which only
 /// show that data, are redrawn where Strayta can:
 /// <list type="bullet">
-/// <item>Smart objects from their embedded file (the file's own composite, or a render of it), placed through the
-/// new corners with the bicubic (projective when in perspective) resampler, so enlarging stays sharp. Warped
-/// smart objects, ones with smart filters, linked files and unreadable content keep the resampled pixels.</item>
+/// <item>Smart objects from their embedded or linked file (the file's own composite, or a render of it), placed through
+/// the new corners and their warp with the bicubic resampler, so enlarging stays sharp, and their smart filters applied
+/// again (<see cref="SmartObjects"/>). Unreadable content and filters Strayta does not have keep the resampled
+/// pixels.</item>
 /// <item>Solid color fill layers ('SoCo') without a vector mask are filled again, covering the canvas they
 /// covered before.</item>
 /// <item>Type is drawn again by the text engine through its new transform (sharp at any scale, as Photoshop redraws
@@ -31,8 +30,6 @@ namespace Strayta.Editor.Editing;
 /// </summary>
 internal static class LiveContent
 {
-    private static readonly ConditionalWeakTable<PsdFile, ConcurrentDictionary<string, Raster?>> Embedded = new();
-
     /// <summary>True for layers whose file data holds their content (type, smart objects, fills, shapes).</summary>
     public static bool IsLive(LayerNode node) => CanvasOperations.IsLive(node);
 
@@ -78,70 +75,9 @@ internal static class LiveContent
 
     private static (Raster?, PixelRect)? RedrawSmartObject(PsdLayerRecord record, PsdFile file, Document doc, PixelRect canvas, CancellationToken cancel)
     {
-        if (PsdLiveContent.ReadSmartObject(record) is not { Warped: false, HasFilters: false } so) return null;
-        var content = Embedded.GetOrCreateValue(file).GetOrAdd(so.UniqueId, id => Decode(file, id, doc));
-        if (content is null) return null;
-        var place = Projective.FromAffine(Affine.Scale(so.Width / content.Width, so.Height / content.Height))
-            .Then(Projective.RectToQuad(so.Width, so.Height, so.Corners));
         // Like Free Transform, keep what lands off the canvas, within a canvas-sized margin.
         var clip = new PixelRect(canvas.Left - canvas.Width, canvas.Top - canvas.Height, canvas.Right + canvas.Width, canvas.Bottom + canvas.Height);
-        var (pixels, bounds) = ProjectiveResampler.TransformRaster(content, PixelRect.FromSize(content.Width, content.Height), place,
-            ResampleFilter.Bicubic, clip, cancel);
-        return (pixels, pixels is null ? PixelRect.Empty : bounds);
-    }
-
-    /// <summary>The embedded file's image in the host document's color mode and depth, or null if it cannot be shown.</summary>
-    private static Raster? Decode(PsdFile file, string uniqueId, Document host)
-    {
-        if (PsdLiveContent.FindEmbeddedFile(file, uniqueId) is not { } embedded) return null;
-        try
-        {
-            Raster? image;
-            if (embedded.FileType is "8BPB" or "8BPS")
-            {
-                using var stream = new MemoryStream(embedded.Data, writable: false);
-                var inner = PsdFile.Read(stream);
-                var doc = inner.ToDocument();
-                if (doc.Composite is { } composite && inner.HasRealMergedData != false && composite.Width == doc.Width && composite.Height == doc.Height)
-                    image = composite;
-                else
-                {
-                    using var renderer = new CpuRenderer();
-                    image = renderer.Render(doc).ToRaster(doc.ColorMode, doc.BitDepth);
-                }
-            }
-            else
-            {
-                var doc = ImageImporter.Decode(embedded.Data);
-                image = doc.Root.Descendants().OfType<PixelLayer>().FirstOrDefault()?.Pixels;
-            }
-            return image is null ? null : Convert(image, host);
-        }
-        catch (Exception e) when (e is PsdFormatException or IOException or ArgumentException or InvalidOperationException or NotSupportedException)
-        {
-            return null;
-        }
-    }
-
-    /// <summary>Brings an image to the host's color mode and bit depth (same mode only; 32-bit is linear, so only to and from itself).</summary>
-    private static Raster? Convert(Raster image, Document host)
-    {
-        if (image.ColorMode != host.ColorMode) return null;
-        if (image.BitDepth == host.BitDepth) return image;
-        if (image.BitDepth == 32 || host.BitDepth == 32) return null;
-        Plane To(Plane p)
-        {
-            var o = Plane.Create(p.Width, p.Height, host.BitDepth);
-            int n = p.Width * p.Height;
-            for (int i = 0; i < n; i++)
-            {
-                float v = p.GetNormalized(i);
-                if (host.BitDepth == 8) o.Data[i] = RgbaConverter.ToByte(v);
-                else o.AsUInt16()[i] = (ushort)Math.Clamp(MathF.Round(v * 65535f), 0f, 65535f);
-            }
-            return o;
-        }
-        return new Raster(image.ColorMode, image.ColorPlanes.Select(To).ToArray(), image.Alpha is null ? null : To(image.Alpha));
+        return SmartObjects.Draw(record, file, doc, clip, cancel: cancel);
     }
 
     /// <summary>

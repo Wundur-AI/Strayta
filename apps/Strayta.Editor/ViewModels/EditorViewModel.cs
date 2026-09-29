@@ -154,6 +154,7 @@ public sealed partial class EditorViewModel : ObservableObject
             Factory.AddDocument(document);
             ActiveDocument = document;
             await document.RenderAsync();
+            WatchLinkedFiles(document); // linked smart objects redraw when their files change (EditorViewModel.SmartObjects.cs)
             if (Environment.GetEnvironmentVariable("STRAYTA_DRAGBENCH") == "1")
             {
                 await Task.Delay(1500); // let the view fit the image and the preview warm up
@@ -372,6 +373,7 @@ public sealed partial class EditorViewModel : ObservableObject
     /// <returns>False if the user cancelled or saving failed.</returns>
     private async Task<bool> SaveDocumentAsync(DocumentViewModel doc, bool saveAs)
     {
+        if (!saveAs && doc.SmartContent is { } link) return await SaveSmartContentAsync(doc, link); // EditorViewModel.SmartObjects.cs
         if (!doc.CanSave)
         {
             await _dialogs.ShowErrorAsync("Cannot save", $"Saving {doc.Model.ColorMode} documents is not supported yet.");
