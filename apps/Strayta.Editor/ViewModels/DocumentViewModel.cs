@@ -388,6 +388,7 @@ public sealed partial class DocumentViewModel : Dock.Model.Mvvm.Controls.Documen
         // The stored Photoshop image can't show an edit, so a change brings back Strayta's render.
         if (Mode == ViewMode.Photoshop) Mode = ViewMode.Strayta;
         if (edit is CanvasEdit) OnCanvasChanged(); // Crop, Image Size, Canvas Size: DocumentViewModel.Crop.cs
+        AfterGuideChange(edit); // DocumentViewModel.Guides.cs
         switch (edit)
         {
             case { ChangesStructure: true }:
@@ -395,8 +396,8 @@ public sealed partial class DocumentViewModel : Dock.Model.Mvvm.Controls.Documen
                 break;
             case MoveEdit:
                 break; // nothing the panels show changes while dragging
-            case SelectionEdit:
-                break; // only the canvas outline changes
+            case SelectionEdit or GuideEdit:
+                break; // only the canvas overlay changes
             case ILayerPropertyEdit p:
                 Layers.SelectMany(l => l.SelfAndDescendants()).FirstOrDefault(i => i.Node == p.Node)?.Refresh();
                 break;
@@ -409,7 +410,7 @@ public sealed partial class DocumentViewModel : Dock.Model.Mvvm.Controls.Documen
         OnPropertyChanged(nameof(UndoText));
         OnPropertyChanged(nameof(RedoText));
         HistoryChanged?.Invoke(); // History panel (DocumentViewModel.History.cs)
-        if (edit is not SelectionEdit) RequestRender();
+        if (edit is not (SelectionEdit or GuideEdit)) RequestRender();
     }
 
     /// <summary>Recreates the panel's layer items, keeping the selection and folder state.</summary>

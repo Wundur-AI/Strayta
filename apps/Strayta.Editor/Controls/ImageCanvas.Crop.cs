@@ -161,6 +161,7 @@ public sealed partial class ImageCanvas
             return true;
         }
         box.BeginDrag(handle, p.X, p.Y);
+        BeginCropSnap(box, handle); // ImageCanvas.Snapping.cs
         _cropLast = p;
         return true;
     }
@@ -178,6 +179,7 @@ public sealed partial class ImageCanvas
         }
         else if (box.IsDragging)
         {
+            p = SnapDrag(p, e.KeyModifiers);
             _cropLast = p;
             box.DragTo(p.X, p.Y, e.KeyModifiers.HasFlag(KeyModifiers.Shift), e.KeyModifiers.HasFlag(KeyModifiers.Alt));
         }

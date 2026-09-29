@@ -109,14 +109,8 @@ public static class PsdCanvas
     }
 
     /// <summary>
-    /// Guides (resource 1032): version, grid cycle, count, then per guide a location in 1/32 pixel and a direction
-    /// (0 vertical, 1 horizontal).
-    /// <para>
-    /// A guide is a line; the map takes it to another line. Moves, scales and quarter turns keep it horizontal or
-    /// vertical, and the guide becomes exactly that line (a quarter turn swaps its direction). A slight turn tilts it,
-    /// which a guide cannot be: it stays on its nearer axis and passes through the point where the tilted line
-    /// crosses the middle of the new canvas, so it is exact at the center and off by at most the tilt elsewhere.
-    /// </para>
+    /// Guides (resource 1032, see <see cref="PsdGuides"/>), each moved as <see cref="PsdGuides.Remap(Guide, int, int, CanvasMap)"/>
+    /// describes. Only the guide entries change; the header and anything after them stay as they were.
     /// </summary>
     internal static byte[] RemapGuides(byte[] data, int newW, int newH, CanvasMap map)
     {
@@ -125,15 +119,11 @@ public static class PsdCanvas
         int count = BinaryPrimitives.ReadInt32BigEndian(o.AsSpan(12));
         for (int i = 0, at = 16; i < count && at + 5 <= o.Length; i++, at += 5)
         {
-            double location = BinaryPrimitives.ReadInt32BigEndian(o.AsSpan(at)) / 32.0;
-            bool horizontal = o[at + 4] != 0;
-            // A point on the guide and its direction, after the map.
-            var (px, py) = horizontal ? map.Apply(0, location) : map.Apply(location, 0);
-            double dx = horizontal ? map.M11 : map.M12, dy = horizontal ? map.M21 : map.M22;
-            bool nowHorizontal = Math.Abs(dx) > Math.Abs(dy);
-            double moved = nowHorizontal ? py + (newW / 2.0 - px) / dx * dy : px + (newH / 2.0 - py) / dy * dx;
-            BinaryPrimitives.WriteInt32BigEndian(o.AsSpan(at), (int)Math.Clamp(Math.Round(moved * 32), int.MinValue, int.MaxValue));
-            o[at + 4] = nowHorizontal ? (byte)1 : (byte)0;
+            var guide = new Guide(o[at + 4] != 0 ? GuideOrientation.Horizontal : GuideOrientation.Vertical,
+                BinaryPrimitives.ReadInt32BigEndian(o.AsSpan(at)) / 32.0);
+            var moved = PsdGuides.Remap(guide, newW, newH, map);
+            BinaryPrimitives.WriteInt32BigEndian(o.AsSpan(at), (int)Math.Clamp(Math.Round(moved.Position * 32), int.MinValue, int.MaxValue));
+            o[at + 4] = moved.IsHorizontal ? (byte)1 : (byte)0;
         }
         return o;
     }

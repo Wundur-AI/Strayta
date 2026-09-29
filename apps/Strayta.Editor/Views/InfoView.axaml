@@ -1,0 +1,47 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Strayta.Editor.ViewModels"
+             x:Class="Strayta.Editor.Views.InfoView"
+             x:DataType="vm:InfoToolViewModel"
+             Background="{DynamicResource St.Panel}"
+             FontSize="11">
+  <UserControl.Styles>
+    <Style Selector="TextBlock.label">
+      <Setter Property="Foreground" Value="{DynamicResource St.TextMuted}" />
+      <Setter Property="Margin" Value="0,1,6,1" />
+    </Style>
+    <Style Selector="TextBlock.value">
+      <Setter Property="Margin" Value="0,1,0,1" />
+      <Setter Property="FontFeatures" Value="+tnum" />
+    </Style>
+  </UserControl.Styles>
+  <!-- Photoshop's Info panel: color on the left, position and size below, the document size at the bottom -->
+  <StackPanel Margin="10,8" Spacing="8">
+    <Grid ColumnDefinitions="Auto,*,Auto,*" RowDefinitions="Auto,Auto,Auto">
+      <TextBlock Grid.Row="0" Grid.Column="0" Classes="label" Text="R:" />
+      <TextBlock Grid.Row="0" Grid.Column="1" Classes="value" Text="{Binding Info.R}" />
+      <TextBlock Grid.Row="1" Grid.Column="0" Classes="label" Text="G:" />
+      <TextBlock Grid.Row="1" Grid.Column="1" Classes="value" Text="{Binding Info.G}" />
+      <TextBlock Grid.Row="2" Grid.Column="0" Classes="label" Text="B:" />
+      <TextBlock Grid.Row="2" Grid.Column="1" Classes="value" Text="{Binding Info.B}" />
+      <TextBlock Grid.Row="0" Grid.Column="2" Grid.ColumnSpan="2" Classes="label" Text="{Binding Info.Depth}" HorizontalAlignment="Right" />
+    </Grid>
+    <Border Height="1" Background="{DynamicResource St.Border}" />
+    <Grid ColumnDefinitions="Auto,*,Auto,*" RowDefinitions="Auto,Auto">
+      <TextBlock Grid.Row="0" Grid.Column="0" Classes="label" Text="X:" />
+      <TextBlock Grid.Row="0" Grid.Column="1" Classes="value" Text="{Binding Info.X}" />
+      <TextBlock Grid.Row="1" Grid.Column="0" Classes="label" Text="Y:" />
+      <TextBlock Grid.Row="1" Grid.Column="1" Classes="value" Text="{Binding Info.Y}" />
+      <TextBlock Grid.Row="0" Grid.Column="2" Classes="label" Text="W:" Margin="12,1,6,1" />
+      <TextBlock Grid.Row="0" Grid.Column="3" Classes="value" Text="{Binding Info.W}" />
+      <TextBlock Grid.Row="1" Grid.Column="2" Classes="label" Text="H:" Margin="12,1,6,1" />
+      <TextBlock Grid.Row="1" Grid.Column="3" Classes="value" Text="{Binding Info.H}" />
+    </Grid>
+    <TextBlock Classes="label" HorizontalAlignment="Right" Text="{Binding Info.Unit, StringFormat='in {0}'}" />
+    <Border Height="1" Background="{DynamicResource St.Border}" />
+    <StackPanel Orientation="Horizontal">
+      <TextBlock Classes="label" Text="Doc:" />
+      <TextBlock Classes="value" Text="{Binding Info.DocumentSize}" />
+    </StackPanel>
+  </StackPanel>
+</UserControl>

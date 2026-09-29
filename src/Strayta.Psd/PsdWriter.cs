@@ -120,9 +120,19 @@ public static class PsdWriter
             [GlobalAngleResource] = (int)MathF.Round(doc.GlobalLightAngle),
             [GlobalAltitudeResource] = (int)MathF.Round(doc.GlobalLightAltitude),
         };
+        // Guides are modeled too: the stored block is kept byte for byte while it still says the same, rewritten
+        // (keeping its grid cycle) when they changed, and added when a document without one gets guides.
+        bool guidesWritten = false;
         foreach (var r in source?.Resources ?? [])
         {
             if (DroppedResources.Contains(r.Id) || r.Id == PsdVersionInfo.ResourceId) continue;
+            if (r.Id == PsdGuides.ResourceId)
+            {
+                if (guidesWritten) continue;
+                guidesWritten = true;
+                Write(PsdGuides.SameAsStored(PsdGuides.Read(r.Data), doc.Guides) ? r : r with { Data = PsdGuides.Write(doc.Guides, r.Data) });
+                continue;
+            }
             if (globalLight.Remove(r.Id, out int degrees))
             {
                 Write(r.Data.Length == 4 && BinaryPrimitives.ReadInt32BigEndian(r.Data) == degrees ? r : r with { Data = Int32(degrees) });
@@ -132,6 +142,8 @@ public static class PsdWriter
         }
         if (writeResolution && resolution is null)
             Write(new ImageResource("8BIM", PsdResolution.ResourceId, "", PsdResolution.Write(doc.Resolution, null)));
+        if (!guidesWritten && doc.Guides.Count > 0)
+            Write(new ImageResource("8BIM", PsdGuides.ResourceId, "", PsdGuides.Write(doc.Guides)));
         if (doc.Root.Descendants().Any(n => n.Effects is not null))
             foreach (var (id, degrees) in globalLight)
                 Write(new ImageResource("8BIM", id, "", Int32(degrees)));

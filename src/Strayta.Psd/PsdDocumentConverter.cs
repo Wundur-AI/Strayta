@@ -23,6 +23,7 @@ internal static class PsdDocumentConverter
         };
 
         if (PsdResolution.Read(file.FindResource(PsdResolution.ResourceId)?.Data) is { } ppi) doc.Resolution = ppi;
+        doc.Guides = PsdGuides.Read(file.FindResource(PsdGuides.ResourceId)?.Data);
         doc.Composite = BuildComposite(file);
         doc.Patterns.AddRange(context.Patterns); // PsdPatterns.cs; pattern effects find theirs here too
         BuildLayerTree(file, doc.Root, context);

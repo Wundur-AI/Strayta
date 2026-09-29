@@ -73,5 +73,11 @@ public sealed class Document
     /// </summary>
     public List<Painting.Pattern> Patterns { get; } = [];
 
+    /// <summary>
+    /// The document's guides, in the order they were made (PSD image resource 1032). The list is replaced, never changed
+    /// in place, so an undo step can keep the old one.
+    /// </summary>
+    public IReadOnlyList<Guide> Guides { get; set; } = [];
+
     public PixelRect Bounds => PixelRect.FromSize(Width, Height);
 }

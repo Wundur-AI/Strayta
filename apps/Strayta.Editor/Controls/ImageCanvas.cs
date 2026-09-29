@@ -132,6 +132,7 @@ public sealed partial class ImageCanvas : Control
         if (change.Property == FreeTransformProperty) OnFreeTransformChanged(change);
         OnTypePropertyChanged(change); // ImageCanvas.Type.cs
         OnCropPropertyChanged(change); // ImageCanvas.Crop.cs
+        OnGuidesPropertyChanged(change); // ImageCanvas.Guides.cs
     }
 
     public void FitToView()
@@ -139,7 +140,7 @@ public sealed partial class ImageCanvas : Control
         var size = ImageSize;
         if (Source is null || size.Width == 0 || Bounds.Width <= 0) return;
         StopZoomAnimation(); // ImageCanvas.Zoom.cs
-        double z = Math.Min(Bounds.Width / size.Width, Bounds.Height / size.Height) * 0.95;
+        double z = Math.Min((Bounds.Width - RulerInset) / size.Width, (Bounds.Height - RulerInset) / size.Height) * 0.95; // rulers: ImageCanvas.Guides.cs
         Zoom = z >= 1 ? Math.Floor(z) : z;
         Center();
     }
@@ -155,7 +156,7 @@ public sealed partial class ImageCanvas : Control
     {
         if (Source is null) return;
         var size = ImageSize;
-        _offset = new Vector((Bounds.Width - size.Width * Zoom) / 2, (Bounds.Height - size.Height * Zoom) / 2);
+        _offset = new Vector(RulerInset + (Bounds.Width - RulerInset - size.Width * Zoom) / 2, RulerInset + (Bounds.Height - RulerInset - size.Height * Zoom) / 2);
         InvalidateVisual();
     }
 
@@ -181,6 +182,7 @@ public sealed partial class ImageCanvas : Control
             context.FillRectangle(_checker, dest);
             context.DrawImage(bmp, new Rect(0, 0, bmp.PixelSize.Width, bmp.PixelSize.Height), dest);
         }
+        RenderGridAndGuides(context); // ImageCanvas.Guides.cs
         if (CropBox is null) // while cropping the outline would not follow the turned image (the selection follows the crop)
         {
             RenderLiveOutline(context); // first: it decides whether the selection's own outline shows
@@ -201,6 +203,7 @@ public sealed partial class ImageCanvas : Control
             context.DrawEllipse(null, new Pen(new SolidColorBrush(Color.FromArgb(160, 0, 0, 0)), 1.5), h, r, r);
             context.DrawEllipse(null, new Pen(new SolidColorBrush(Color.FromArgb(220, 255, 255, 255)), 0.75), h, r, r);
         }
+        RenderRulers(context); // last: the rulers are drawn over everything (ImageCanvas.Guides.cs)
     }
 
     protected override void OnPointerWheelChanged(PointerWheelEventArgs e)
@@ -221,6 +224,13 @@ public sealed partial class ImageCanvas : Control
         var props = e.GetCurrentPoint(this).Properties;
         _panning = Tool == CanvasTool.Hand || _spaceHeld || props.IsMiddleButtonPressed;
         _dragStart = e.GetPosition(this);
+        if (GuidesPressed(e, props)) // rulers, guides and the ruler origin (ImageCanvas.Guides.cs)
+        {
+            _dragStart = null;
+            _panning = false;
+            e.Pointer.Capture(this);
+            return;
+        }
         if (TransformPressed(e) || CropPressed(e))
         {
             _dragStart = null;
@@ -269,6 +279,7 @@ public sealed partial class ImageCanvas : Control
     protected override void OnPointerMoved(PointerEventArgs e)
     {
         base.OnPointerMoved(e);
+        if (GuidesMoved(e)) return; // ImageCanvas.Guides.cs
         if (TransformMoved(e) || CropMoved(e) || ZoomMoved(e)) return;
         ObjectFinderMoved(e); // ImageCanvas.ObjectFinder.cs
         if (TypeMoved(e)) return;
@@ -308,19 +319,15 @@ public sealed partial class ImageCanvas : Control
             return;
         }
 
-        // Convert screen movement to image pixels, carrying fractions so slow drags still move.
-        _moveRemainder += (pos - start) / Zoom;
-        _dragStart = pos;
-        int dx = (int)Math.Truncate(_moveRemainder.X), dy = (int)Math.Truncate(_moveRemainder.Y);
-        if (dx == 0 && dy == 0) return;
-        _moveRemainder -= new Vector(dx, dy);
-        MoveDelta?.Invoke(dx, dy);
+        // Convert screen movement to image pixels, carrying fractions so slow drags still move; snaps (ImageCanvas.Snapping.cs).
+        MoveDragged(pos, start, e.KeyModifiers);
     }
 
     protected override void OnPointerExited(PointerEventArgs e)
     {
         base.OnPointerExited(e);
         _hover = null;
+        GuidesPointerExited(); // ImageCanvas.Guides.cs
         ObjectFinderExited();
         InvalidateVisual();
     }
@@ -328,6 +335,11 @@ public sealed partial class ImageCanvas : Control
     protected override void OnPointerReleased(PointerReleasedEventArgs e)
     {
         base.OnPointerReleased(e);
+        if (GuidesReleased(e)) // ImageCanvas.Guides.cs
+        {
+            e.Pointer.Capture(null);
+            return;
+        }
         TransformReleased();
         TypeReleased(e);
         ZoomReleased(e);

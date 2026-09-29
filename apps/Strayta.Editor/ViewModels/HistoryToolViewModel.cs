@@ -280,6 +280,7 @@ public sealed partial class HistoryToolViewModel : Tool, IDisposable
         "Rasterize Layer" => "IconChecker",
         "Change Visibility" => "IconEye",
         _ when edit is RestoreSnapshotEdit => "IconSnapshot",
+        _ when edit is GuideEdit => "IconMove", // guides are moved with the Move tool
         var d when d.Contains("Mask") || d is "Reveal All" or "Hide All" => "IconMask",
         _ when edit is SelectionEdit => "IconMarqueeRect",
         var d when d.StartsWith("Change ", StringComparison.Ordinal) || d.StartsWith("New ", StringComparison.Ordinal) => "IconAdjust",
