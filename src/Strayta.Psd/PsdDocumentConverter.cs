@@ -185,6 +185,20 @@ internal static class PsdDocumentConverter
                 layer.Pixels = new Raster(header.ColorMode, planes, alpha);
         }
 
+        // A fill (or shape) layer's pixels are its fill already cut out by the vector mask, and its user mask is that
+        // vector mask rasterized (mask flag bit 3: "came from rendering other data").
+        if (layer.Mask is { } vector && record.Mask is { } m && (m.Flags & 0x08) != 0 && layer.Pixels?.Alpha is not null
+            && PsdLayerKinds.Classify(record) == PsdLayerKind.Fill)
+            layer.Mask = new LayerMask
+            {
+                Bounds = vector.Bounds,
+                Pixels = vector.Pixels,
+                DefaultColor = vector.DefaultColor,
+                Disabled = vector.Disabled,
+                PositionRelativeToLayer = vector.PositionRelativeToLayer,
+                AppliedToPixels = true,
+            };
+
         return layer;
     }
 

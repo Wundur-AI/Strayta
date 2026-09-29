@@ -256,6 +256,22 @@ export STRAYTA_CORPUS=/path/to/psd-corpus
 
 Tests that need the corpus are skipped when it is not set.
 
+### How layer styles are composited
+
+Measured against Photoshop's composites (see `EffectRenderer`):
+
+- Interior effects (pattern, gradient and color overlays, satin, inner glow, inner shadow) are drawn inside the
+  layer's shape: the content is blended onto the backdrop at fill opacity, each interior effect onto that, and the
+  result covers the backdrop by the shape's coverage, so they add nothing at soft edges and still show at fill 0%.
+- Below 100% fill the shape hides its own drop shadow (with "Layer Knocks Out Drop Shadow") and outer glow.
+- Layer opacity fades the layer and its effects together, not each on its own.
+- Softer glows grow the shape by the spread in whole pixels and blur it with a tent reaching exactly the rest of the
+  size; at the default 50% range a glow is at full strength against the shape (Range spans that blurred falloff).
+- Type layers blend with Photoshop's "Blend Text Colors Using Gamma" (1.45; `RenderOptions.TextGamma`).
+- Fill layers' pixels already carry their vector mask, which Photoshop also stores rasterized as the user mask: the
+  two are combined as the smaller, not multiplied. Gradient midpoints are read from the stop that ends their segment,
+  and smooth layer-style gradients ease into their end stops.
+
 ## Clean-room policy
 
 Strayta is implemented from Adobe's published file format specification, direct

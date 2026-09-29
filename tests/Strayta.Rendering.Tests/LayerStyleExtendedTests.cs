@@ -183,10 +183,15 @@ public class LayerStyleExtendedTests
         var b = Render(Doc(precise));
         Assert.True(At(b, 20, 13)[3] > At(a, 20, 13)[3], "a precise glow stays solid near the edge");
 
-        // Linear at any range from 50% up is the plain falloff.
+        // A Softer glow at the default 50% range is at full strength against the shape; a wider range spreads the
+        // contour over more of the falloff, so the glow is fainter, and a narrower one fuller.
+        Assert.True(At(a, 14, 20)[3] > 180, "strong right against the shape");
         var wide = Square(10, 15);
         wide.Effects = new LayerEffects([new OuterGlowEffect { Color = new RgbColor(1, 1, 1), BlendMode = BlendMode.Normal, Size = 8, Range = 1 }]);
-        Assert.Equal(a, Render(Doc(wide)));
+        var narrow = Square(10, 15);
+        narrow.Effects = new LayerEffects([new OuterGlowEffect { Color = new RgbColor(1, 1, 1), BlendMode = BlendMode.Normal, Size = 8, Range = 0.25f }]);
+        Assert.True(At(Render(Doc(wide)), 12, 20)[3] < At(a, 12, 20)[3], "range 100% is fainter");
+        Assert.True(At(Render(Doc(narrow)), 10, 20)[3] > At(a, 10, 20)[3], "range 25% is fuller");
         var cone = Square(10, 15);
         cone.Effects = new LayerEffects([new OuterGlowEffect { Color = new RgbColor(1, 1, 1), BlendMode = BlendMode.Normal, Size = 8, Contour = Contour.Presets[1] }]);
         Assert.NotEqual(a, Render(Doc(cone)));

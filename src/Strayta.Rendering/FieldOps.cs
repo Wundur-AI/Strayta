@@ -21,6 +21,144 @@ internal static class FieldOps
         return a;
     }
 
+    /// <summary>
+    /// A tent blur (two chained box blurs) reaching <paramref name="radius"/> pixels and no further: the blur of a Softer
+    /// glow. Chained box blurs of a rounded radius overshoot (by up to a pixel per box), which small glows show. Above a
+    /// pixel the tent is blended from whole tents of the two nearest sizes (above eight, the nearest one), in constant
+    /// time per pixel.
+    /// </summary>
+    public static float[] TentBlur(float[] src, int w, int h, float radius)
+    {
+        if (radius <= 0.01f) return (float[])src.Clone();
+        if (radius > 1f) return LargeTent(src, w, h, radius);
+        // Under a pixel: the tent integrated over the center pixel and its neighbours.
+        float side = radius > 0.5f ? (radius - 0.5f) * (radius - 0.5f) / 2f : 0f;
+        float center = radius > 0.5f ? radius * radius - 2f * side : radius * radius;
+        float total = center + 2f * side;
+        return Convolve(src, w, h, [center / total, side / total]);
+    }
+
+    /// <summary>A tent of reach <paramref name="radius"/>: whole tents of the two nearest sizes, blended by the fraction.</summary>
+    private static float[] LargeTent(float[] src, int w, int h, float radius)
+    {
+        // The whole tent of n reaches n + 1 pixels (its weights n + 1 - |k| end there).
+        float r = radius - 1f;
+        int n = (int)r;
+        float frac = r - n;
+        // Past a few pixels, the nearest whole tent is as good (and half the work).
+        if (radius > 8f) return Tent(src, w, h, frac < 0.5f ? n : n + 1);
+        var lo = Tent(src, w, h, n);
+        if (frac < 1e-3f) return lo;
+        var hi = Tent(src, w, h, n + 1);
+        for (int i = 0; i < lo.Length; i++) lo[i] += (hi[i] - lo[i]) * frac;
+        return lo;
+    }
+
+    /// <summary>The discrete tent with weights n + 1 − |k| for |k| ≤ n: a box of n + 1 pixels applied twice, mirrored.</summary>
+    private static float[] Tent(float[] src, int w, int h, int n)
+    {
+        if (n == 0) return (float[])src.Clone();
+        int a = n / 2, b = n - a;
+        var t1 = new float[src.Length];
+        var t2 = new float[src.Length];
+        AsymmetricBox(src, t1, w, h, a, b, horizontal: true);
+        AsymmetricBox(t1, t2, w, h, b, a, horizontal: true);
+        AsymmetricBox(t2, t1, w, h, a, b, horizontal: false);
+        AsymmetricBox(t1, t2, w, h, b, a, horizontal: false);
+        return t2;
+    }
+
+    /// <summary>dst = the mean of src from <paramref name="before"/> pixels before to <paramref name="after"/> after, along rows or columns; zero beyond the edges.</summary>
+    private static void AsymmetricBox(float[] src, float[] dst, int w, int h, int before, int after, bool horizontal)
+    {
+        float inv = 1f / (before + after + 1);
+        if (horizontal)
+        {
+            Parallel.For(0, h, y =>
+            {
+                int start = y * w;
+                float sum = 0f;
+                for (int k = 0; k <= Math.Min(after, w - 1); k++) sum += src[start + k];
+                for (int x = 0; x < w; x++)
+                {
+                    dst[start + x] = sum * inv;
+                    int add = x + after + 1, remove = x - before;
+                    if (add < w) sum += src[start + add];
+                    if (remove >= 0) sum -= src[start + remove];
+                }
+            });
+            return;
+        }
+
+        // Down the columns a band at a time, keeping one running sum per column: whole rows are read and written in
+        // order, which is much faster than walking each column.
+        const int Band = 256;
+        Parallel.For(0, (w + Band - 1) / Band, band =>
+        {
+            int x0 = band * Band, n = Math.Min(Band, w - x0);
+            Span<float> sum = stackalloc float[Band];
+            sum = sum[..n];
+            sum.Clear();
+            for (int k = 0; k <= Math.Min(after, h - 1); k++)
+            {
+                var row = src.AsSpan(k * w + x0, n);
+                for (int i = 0; i < n; i++) sum[i] += row[i];
+            }
+            for (int y = 0; y < h; y++)
+            {
+                var o = dst.AsSpan(y * w + x0, n);
+                for (int i = 0; i < n; i++) o[i] = sum[i] * inv;
+                int add = y + after + 1, remove = y - before;
+                if (add < h)
+                {
+                    var row = src.AsSpan(add * w + x0, n);
+                    for (int i = 0; i < n; i++) sum[i] += row[i];
+                }
+                if (remove >= 0)
+                {
+                    var row = src.AsSpan(remove * w + x0, n);
+                    for (int i = 0; i < n; i++) sum[i] -= row[i];
+                }
+            }
+        });
+    }
+
+    /// <summary>Separable convolution with the symmetric kernel <paramref name="kernel"/> (index 0 is the center).</summary>
+    public static float[] Convolve(float[] src, int w, int h, float[] kernel)
+    {
+        int r = kernel.Length - 1;
+        var tmp = new float[src.Length];
+        var dst = new float[src.Length];
+        Parallel.For(0, h, y =>
+        {
+            int row = y * w;
+            for (int x = 0; x < w; x++)
+            {
+                float sum = src[row + x] * kernel[0];
+                for (int k = 1; k <= r; k++)
+                {
+                    if (x - k >= 0) sum += src[row + x - k] * kernel[k];
+                    if (x + k < w) sum += src[row + x + k] * kernel[k];
+                }
+                tmp[row + x] = sum;
+            }
+        });
+        Parallel.For(0, h, y =>
+        {
+            for (int x = 0; x < w; x++)
+            {
+                float sum = tmp[y * w + x] * kernel[0];
+                for (int k = 1; k <= r; k++)
+                {
+                    if (y - k >= 0) sum += tmp[(y - k) * w + x] * kernel[k];
+                    if (y + k < h) sum += tmp[(y + k) * w + x] * kernel[k];
+                }
+                dst[y * w + x] = sum;
+            }
+        });
+        return dst;
+    }
+
     private static void BoxHorizontal(float[] src, float[] dst, int w, int h, int r)
     {
         float inv = 1f / (2 * r + 1);

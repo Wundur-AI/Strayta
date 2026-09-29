@@ -10,10 +10,18 @@ internal static partial class EffectRenderer
     /// exact distance (Precise); then the Quality settings. A gradient glow takes its colors (and opacities) from the
     /// gradient along that falloff, from the edge outwards.
     /// </summary>
+    /// <remarks>
+    /// Softer grows the shape by the spread in whole pixels, then blurs it with a tent (two chained boxes) reaching exactly
+    /// the rest of the size, which is how far Photoshop's glows reach whatever their size (a longer-tailed blur leaves
+    /// halos around small glows and starves large ones; a fractional spread overdraws small shapes). A pixel
+    /// layer that spreads first has its alpha brought up to full opacity (see <see cref="Solidify"/>); vector and type
+    /// layers spread their exact outline.
+    /// </remarks>
     private static (float[] Alpha, float[]? Rgb) OuterGlow(EffectField f, OuterGlowEffect g)
     {
         float[] falloff;
-        if (g.Technique == GlowTechnique.Precise)
+        bool softer = g.Technique != GlowTechnique.Precise;
+        if (!softer)
         {
             var d = f.DistanceToShape;
             float solid = g.Spread * g.Size, fade = MathF.Max(g.Size * (1f - g.Spread), 1e-3f);
@@ -21,12 +29,38 @@ internal static partial class EffectRenderer
             for (int i = 0; i < d.Length; i++)
                 falloff[i] = MathF.Max(f.Shape[i], Math.Clamp(1f - (d[i] - 0.5f - solid) / fade, 0f, 1f));
         }
-        else falloff = FieldOps.Blur(FieldOps.Dilate(f.Shape, f.W, f.H, g.Spread * g.Size), f.W, f.H, g.Size * (1f - g.Spread));
-        return GlowColors(f, falloff, g.Gradient, g.Contour, g.AntiAliased, g.Noise, g.Range, g.Jitter, inside: false, edge: g.Technique == GlowTechnique.Precise ? 1f : 0.5f);
+        else
+        {
+            // The spread grows the shape by whole pixels (as Photoshop's does); the rest of the size is the blur.
+            float spread = MathF.Round(g.Spread * g.Size);
+            var matte = g.Spread > 0f && f.Rasterized ? Solidify(f.Shape) : f.Shape;
+            falloff = GlowBlur(FieldOps.Dilate(matte, f.W, f.H, spread), f.W, f.H, g.Size - spread);
+        }
+        return GlowColors(f, falloff, g.Gradient, g.Contour, g.AntiAliased, g.Noise, g.Range, g.Jitter, inside: false, softer, softer);
     }
 
+    /// <summary>
+    /// A pixel layer's matte for a spreading glow: its alpha scaled so its most opaque pixel is fully opaque. Photoshop
+    /// glows faint artwork (a line drawn at 25%) at full strength once the glow spreads; a spread of 0 glows it as faint
+    /// as it is.
+    /// </summary>
+    private static float[] Solidify(float[] shape)
+    {
+        float max = 0f;
+        foreach (var v in shape) max = MathF.Max(max, v);
+        if (max <= 0f || max >= 1f) return shape;
+        var solid = new float[shape.Length];
+        float scale = 1f / max;
+        for (int i = 0; i < solid.Length; i++) solid[i] = MathF.Min(1f, shape[i] * scale);
+        return solid;
+    }
+
+    /// <summary>A Softer glow's blur: a tent reaching <paramref name="size"/> pixels.</summary>
+    internal static float[] GlowBlur(float[] src, int w, int h, float size) => FieldOps.TentBlur(src, w, h, size);
+
     /// <summary>Inner glow from the edges (or from the center), inside the shape; see <see cref="OuterGlow"/>.</summary>
-    private static (float[] Alpha, float[]? Rgb) InnerGlow(EffectField f, InnerGlowEffect g)
+    /// <param name="clip">Limit the glow to the shape; otherwise it is its strength wherever the shape is.</param>
+    private static (float[] Alpha, float[]? Rgb) InnerGlow(EffectField f, InnerGlowEffect g, bool clip = true)
     {
         float[] edge;
         if (g.Technique == GlowTechnique.Precise)
@@ -36,11 +70,20 @@ internal static partial class EffectRenderer
             edge = new float[d.Length];
             for (int i = 0; i < d.Length; i++) edge[i] = Math.Clamp(1f - (d[i] - 0.5f - solid) / fade, 0f, 1f);
         }
-        else edge = Outside(f.Shape, f.W, f.H, g.Choke * g.Size, g.Size * (1f - g.Choke), 0, 0);
+        else
+        {
+            float choke = MathF.Round(g.Choke * g.Size); // whole pixels, as an outer glow's spread
+            edge = Outside(f.Shape, f.W, f.H, choke, g.Size - choke, 0, 0, glow: true);
+        }
+        bool softer = g.Technique != GlowTechnique.Precise;
         if (g.FromCenter)
             for (int i = 0; i < edge.Length; i++) edge[i] = 1f - edge[i];
-        var (alpha, rgb) = GlowColors(f, edge, g.Gradient, g.Contour, g.AntiAliased, g.Noise, g.Range, g.Jitter, inside: true, edge: g.Technique == GlowTechnique.Precise ? 1f : 0.5f);
-        for (int i = 0; i < alpha.Length; i++) alpha[i] *= f.Shape[i];
+        // A glow from the edges ranges over its blurred falloff as an outer glow does; a glow from the center keeps the
+        // plain range (no Photoshop render of one has been compared yet).
+        var (alpha, rgb) = GlowColors(f, edge, g.Gradient, g.Contour, g.AntiAliased, g.Noise, g.Range, g.Jitter, inside: true,
+            softer, blurredRange: softer && !g.FromCenter);
+        if (clip)
+            for (int i = 0; i < alpha.Length; i++) alpha[i] *= f.Shape[i];
         return (alpha, rgb);
     }
 
@@ -48,11 +91,17 @@ internal static partial class EffectRenderer
     /// Range, contour and noise applied to a glow's falloff; for a gradient glow, the gradient sampled along it
     /// (jittered) gives the color and the opacity, and the glow ends where the falloff does.
     /// </summary>
+    /// <param name="softer">A blurred falloff (Softer), which is 0.5 at the shape's edge; else a distance falloff (Precise).</param>
+    /// <param name="blurredRange">Range the falloff as a blurred one (<see cref="RangeMap.ForBlur"/>).</param>
     private static (float[] Alpha, float[]? Rgb) GlowColors(EffectField f, float[] falloff, Gradient? gradient, Contour contour,
-        bool antiAliased, float noise, float range, float jitter, bool inside, float edge)
+        bool antiAliased, float noise, float range, float jitter, bool inside, bool softer, bool blurredRange)
     {
         int n = falloff.Length;
-        if (RangeMap.For(contour, antiAliased, range) is { } map)
+        // The falloff's value at the shape's edge: a blur's 0.5, which a blurred range maps to 1, or a distance's 1.
+        float edge = softer && !blurredRange ? 0.5f : 1f;
+        // How steeply an opaque gradient's ring fades at its outer end (a blurred range doubles the falloff there).
+        float ringEdge = blurredRange ? 8f : 16f;
+        if ((blurredRange ? RangeMap.ForBlur(contour, antiAliased, range) : RangeMap.For(contour, antiAliased, range)) is { } map)
             for (int i = 0; i < n; i++) falloff[i] = map.Apply(falloff[i]);
 
         if (gradient is null)
@@ -80,7 +129,7 @@ internal static partial class EffectRenderer
                 rgb[i * 3 + 1] = c.G;
                 rgb[i * 3 + 2] = c.B;
                 // Opaque gradients make a solid ring the size of the glow; its outer edge stays soft for a pixel or so.
-                alpha[i] = o * Math.Clamp(a * 16f, 0f, 1f);
+                alpha[i] = o * Math.Clamp(a * ringEdge, 0f, 1f);
             }
         });
         if (noise > 0f) Noise(alpha, noise, f, salt: inside ? 3u : 2u);
@@ -134,27 +183,40 @@ internal static partial class EffectRenderer
 /// </summary>
 internal sealed class RangeMap
 {
-    private readonly ContourLut _lut;
+    private readonly ContourLut? _lut;
     private readonly float _low, _span, _start;
+    private readonly bool _blurred;
 
-    private RangeMap(Contour contour, bool antiAliased, float range)
+    private RangeMap(Contour contour, bool antiAliased, float range, bool blurred)
     {
-        _lut = ContourLut.Of(contour, antiAliased);
+        // A Linear contour maps a value to itself: no table needed.
+        _lut = contour.IsIdentity && !antiAliased ? null : ContourLut.Of(contour, antiAliased);
         float r = Math.Clamp(range, 0.01f, 1f);
-        _span = 2f * r;
-        _low = r > 0.5f ? 1f - _span : 0f;
-        _start = _low < 0f ? _lut.Map(-_low / _span) : 0f;
+        _blurred = blurred;
+        _span = blurred ? r : 2f * r;
+        _low = !blurred && r > 0.5f ? 1f - _span : 0f;
+        _start = _low < 0f ? Map(-_low / _span) : 0f;
     }
 
     /// <summary>Null when the falloff stays as it is (a Linear contour at 50% or more).</summary>
     public static RangeMap? For(Contour contour, bool antiAliased, float range) =>
-        contour.IsIdentity && !antiAliased && range >= 0.5f - 1e-4f ? null : new RangeMap(contour, antiAliased, range);
+        contour.IsIdentity && !antiAliased && range >= 0.5f - 1e-4f ? null : new RangeMap(contour, antiAliased, range, blurred: false);
+
+    /// <summary>
+    /// For a blurred (Softer) glow, whose falloff is 0.5 at the shape's edge: the contour spans falloffs 0 to
+    /// <paramref name="range"/>, so at the default 50% the glow is at full strength at the edge (as Photoshop draws it)
+    /// and fades to nothing at the glow's size; a smaller range makes it harder and fuller, a larger one fainter.
+    /// </summary>
+    public static RangeMap? ForBlur(Contour contour, bool antiAliased, float range) =>
+        contour.IsIdentity && !antiAliased && range >= 1f - 1e-4f ? null : new RangeMap(contour, antiAliased, range, blurred: true);
+
+    private float Map(float v) => _lut?.Map(v) ?? v;
 
     public float Apply(float g)
     {
         if (g <= 0f) return 0f;
-        float v = _lut.Map(Math.Clamp((g - _low) / _span, 0f, 1f));
-        if (_start <= 0f) return v;
+        float v = Map(Math.Clamp((g - _low) / _span, 0f, 1f));
+        if (_blurred || _start <= 0f) return v;
         return _start < 0.999f ? Math.Clamp((v - _start) / (1f - _start), 0f, 1f) : 0f;
     }
 }

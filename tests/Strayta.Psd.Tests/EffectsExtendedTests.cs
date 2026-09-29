@@ -220,6 +220,24 @@ public class EffectsExtendedTests
     }
 
     [Fact]
+    public void A_gradient_midpoint_is_stored_on_the_stop_that_ends_its_segment()
+    {
+        // In the model the midpoint between two stops belongs to the first; Photoshop's 'Mdpn' belongs to the second.
+        var gradient = new Gradient(
+            [new GradientColorStop(0, 0.35f, new RgbColor(0, 0, 1)), new GradientColorStop(1, 0.5f, new RgbColor(1, 1, 1))],
+            [new GradientOpacityStop(0, 0.2f, 1), new GradientOpacityStop(0.5f, 0.7f, 0.5f), new GradientOpacityStop(1, 0.5f, 1)]);
+        var effects = new LayerEffects([new GradientOverlayEffect { Gradient = gradient }]);
+        var (file, again) = Reload(NewDocument(effects));
+
+        var grad = DescriptorReader.ReadVersioned(file.Layers[0].FindBlock("lfx2")!.Data!, 4).Object("GrFl")!.Object("Grad")!;
+        var colorMids = grad.List("Clrs")!.OfType<ObjectValue>().Select(o => o.Value.Number("Mdpn")).ToList();
+        var opacityMids = grad.List("Trns")!.OfType<ObjectValue>().Select(o => o.Value.Number("Mdpn")).ToList();
+        Assert.Equal([50.0, 35.0], colorMids);
+        Assert.Equal([50.0, 20.0, 70.0], opacityMids);
+        Assert.Equal(effects, again.Root.Children[0].Effects);
+    }
+
+    [Fact]
     public void A_stroke_that_changes_its_fill_type_drops_the_old_settings()
     {
         var doc = NewDocument(new LayerEffects([Samples()["stroke-gradient"]]));

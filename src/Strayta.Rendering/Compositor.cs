@@ -19,6 +19,14 @@ public sealed class RenderOptions
 
     /// <summary>A brush or eraser stroke in progress, drawn over its target layer.</summary>
     public StrokeOverlay? ActiveStroke { get; init; }
+
+    /// <summary>
+    /// Photoshop's "Blend Text Colors Using Gamma" color setting (on, at 1.45, by default): type layers are mixed with
+    /// what is under them in a space of this gamma rather than in the document's own encoding, which makes light type on
+    /// a dark ground (and its anti-aliased edges) heavier. Null blends type like any other layer. Not used for 32-bit
+    /// documents, which blend linearly.
+    /// </summary>
+    public float? TextGamma { get; init; } = 1.45f;
 }
 
 /// <summary>Result of rendering: the image plus notes about content that could not be reproduced.</summary>
@@ -94,6 +102,10 @@ public sealed partial class Compositor
         var canvas = c.RunSteps(steps);
         return new RenderResult(canvas, c.CollectWarnings(), doc.BitDepth == 32);
     }
+
+    /// <summary>The gamma type layers blend with (see <see cref="RenderOptions.TextGamma"/>); 0 for other layers.</summary>
+    private float TextGamma(LayerNode node) =>
+        node.Tags.Contains("text") && _doc.BitDepth != 32 && _options.TextGamma is > 0f and var g ? g : 0f;
 
     private bool IsVisible(LayerNode node) =>
         _options.Hidden?.Contains(node) == true ? false :
@@ -273,12 +285,14 @@ public sealed partial class Compositor
         switch (baseNode)
         {
             case PixelLayer layer:
-                if (LayerSource.From(layer, _doc, _options.ActiveStroke) is not { } source) return;
-                if (EffectRenderer.HasRenderable(layer.Effects))
-                    EffectRenderer.Render(layer, source, target.Bounds,
-                        (src, mode, opacity, fill) => Composite(target, src, mode, opacity, fill, clip: null, clipOpacity: 1f));
+                bool styled = EffectRenderer.HasRenderable(layer.Effects);
+                // A style's glow or shadow near the canvas edge comes from pixels beyond it too.
+                var wanted = styled ? Inflate(_doc.Bounds, EffectRenderer.Influence(layer.Effects)) : _doc.Bounds;
+                if (LayerSource.From(layer, _doc, _options.ActiveStroke, wanted) is not { } source) return;
+                if (styled)
+                    CompositeWithEffects(layer, source, target, clip: null, clipOpacity: 1f);
                 else
-                    Composite(target, source, layer.BlendMode, layer.Opacity, layer.FillOpacity, clip: null, clipOpacity: 1f);
+                    Composite(target, source, layer.BlendMode, layer.Opacity, layer.FillOpacity, clip: null, clipOpacity: 1f, TextGamma(layer));
 
                 // Clipped layers are limited to the base layer's shape and opacity.
                 foreach (var node in unit.Clipped.Where(IsVisible))
@@ -474,7 +488,8 @@ public sealed partial class Compositor
     /// </summary>
     /// <param name="opacity">Fades the blended result (layer opacity).</param>
     /// <param name="fill">Fill opacity; identical to opacity except for the special-eight modes.</param>
-    private void Composite(RenderBuffer target, Source source, BlendMode mode, float opacity, float fill, Source? clip, float clipOpacity)
+    private void Composite(RenderBuffer target, Source source, BlendMode mode, float opacity, float fill, Source? clip, float clipOpacity,
+        float textGamma = 0f)
     {
         var region = source.Bounds.Intersect(target.Bounds);
         if (clip is not null) region = region.Intersect(clip.Bounds);
@@ -513,7 +528,9 @@ public sealed partial class Compositor
                 }
 
                 int t = target.IndexOf(region.Left, y);
-                if (mode == BlendMode.Normal)
+                if (mode == BlendMode.Normal && textGamma > 0f)
+                    GammaNormalRow(px.AsSpan(t, w * 4), rgb, cov, textGamma);
+                else if (mode == BlendMode.Normal)
                     NormalRow(px.AsSpan(t, w * 4), rgb, cov);
                 else
                     BlendRow(px.AsSpan(t, w * 4), rgb, cov, mode, separable, region.Left, y, fill);
@@ -540,6 +557,30 @@ public sealed partial class Compositor
             dst[t + 1] = o.Y;
             dst[t + 2] = o.Z;
             dst[t + 3] = o.W;
+        }
+    }
+
+    /// <summary>
+    /// "Over" with the colors mixed in a space of the given gamma (see <see cref="TextMix"/>): the result's alpha is as
+    /// usual, its color the mix of source and backdrop there.
+    /// </summary>
+    private static void GammaNormalRow(Span<float> dst, ReadOnlySpan<float> rgb, ReadOnlySpan<float> cov, float gamma)
+    {
+        for (int i = 0; i < cov.Length; i++)
+        {
+            float sa = cov[i];
+            if (sa <= 0f) continue;
+            int t = i * 4;
+            float ba = dst[t + 3], oa = sa + ba * (1f - sa);
+            float wb = ba * (1f - sa) / oa, ws = sa / oa;
+            for (int c = 0; c < 3; c++)
+            {
+                float b = ba > 0f ? Math.Clamp(dst[t + c] / ba, 0f, 1f) : 0f;
+                float s = Math.Clamp(rgb[i * 3 + c], 0f, 1f);
+                float mixed = TextMix.Decode(ws * TextMix.Encode(s, gamma) + wb * TextMix.Encode(b, gamma), gamma);
+                dst[t + c] = mixed * oa;
+            }
+            dst[t + 3] = oa;
         }
     }
 
@@ -666,7 +707,22 @@ public sealed partial class Compositor
         foreach (var fx in node.Effects?.Visible.OfType<UnsupportedEffect>() ?? [])
             warnings.Add($"{fx.Name} on \"{node.Name}\" is not rendered yet.");
         GroupEffectWarnings(node, warnings);
-        if (node.Tags.Contains("vector-mask") && node.Tags.Contains("fill"))
+        // A fill layer whose pixels carry Photoshop's own rasterization of its vector mask renders exactly; one without
+        // (a shape that has been resampled, or a file without the rasterized mask) shows its pixels' edges instead.
+        if (node.Tags.Contains("vector-mask") && node.Tags.Contains("fill") && node is not PixelLayer { Mask.AppliedToPixels: true })
             warnings.Add($"Vector mask edges on \"{node.Name}\" are approximated.");
     }
+}
+
+/// <summary>
+/// Photoshop's "Blend Text Colors Using Gamma": type is mixed with what is under it in a space of the given gamma. The
+/// document's colors (taken as sRGB) are linearized and re-encoded with that gamma, mixed, and converted back.
+/// </summary>
+internal static class TextMix
+{
+    public static float Encode(float v, float gamma) => MathF.Pow(SrgbToLinear(Math.Clamp(v, 0f, 1f)), 1f / gamma);
+
+    public static float Decode(float w, float gamma) => RgbaConverter.LinearToSrgb(MathF.Pow(MathF.Max(w, 0f), gamma));
+
+    private static float SrgbToLinear(float v) => v <= 0.04045f ? v / 12.92f : MathF.Pow((v + 0.055f) / 1.055f, 2.4f);
 }

@@ -11,6 +11,13 @@ public sealed class RenderBuffer
         Pixels = new float[(long)bounds.Width * bounds.Height * 4];
     }
 
+    /// <summary>A buffer whose pixels the caller overwrites entirely (so they need not be cleared first).</summary>
+    private RenderBuffer(PixelRect bounds, bool uninitialized)
+    {
+        Bounds = bounds;
+        Pixels = uninitialized ? GC.AllocateUninitializedArray<float>(bounds.Width * bounds.Height * 4) : new float[(long)bounds.Width * bounds.Height * 4];
+    }
+
     public PixelRect Bounds { get; }
 
     /// <summary>Premultiplied RGBA, row-major over <see cref="Bounds"/>.</summary>
@@ -30,9 +37,9 @@ public sealed class RenderBuffer
 
     public RenderBuffer CopyRegion(PixelRect region)
     {
-        var copy = new RenderBuffer(region);
-        for (int y = region.Top; y < region.Bottom; y++)
-            Array.Copy(Pixels, IndexOf(region.Left, y), copy.Pixels, copy.IndexOf(region.Left, y), region.Width * 4);
+        var copy = new RenderBuffer(region, uninitialized: true);
+        Parallel.For(region.Top, region.Bottom, y =>
+            Array.Copy(Pixels, IndexOf(region.Left, y), copy.Pixels, copy.IndexOf(region.Left, y), region.Width * 4));
         return copy;
     }
 

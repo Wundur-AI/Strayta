@@ -38,5 +38,6 @@ public static class LayerMasks
         DefaultColor = m.DefaultColor,
         Disabled = disabled,
         PositionRelativeToLayer = m.PositionRelativeToLayer,
+        AppliedToPixels = m.AppliedToPixels,
     };
 }

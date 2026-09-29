@@ -130,7 +130,8 @@ internal static partial class EffectRenderer
     /// Satin: the shape blurred by the size, as two copies offset by the distance in opposite directions along the
     /// angle; the satin is where they differ, reshaped by the contour and (by default) inverted, inside the shape.
     /// </summary>
-    private static float[] Satin(EffectField f, SatinEffect s)
+    /// <param name="clip">Limit the satin to the shape; otherwise it is its strength wherever the shape is.</param>
+    private static float[] Satin(EffectField f, SatinEffect s, bool clip = true)
     {
         var blurred = FieldOps.Blur(f.Shape, f.W, f.H, s.Size);
         var (dx, dy) = Offset(s.Angle, s.Distance);
@@ -142,7 +143,7 @@ internal static partial class EffectRenderer
             float v = MathF.Abs(a[i] - b[i]);
             if (lut is not null) v = lut.Map(v);
             if (s.Invert) v = 1f - v;
-            a[i] = v * f.Shape[i];
+            a[i] = clip ? v * f.Shape[i] : v;
         }
         return a;
     }
@@ -157,7 +158,7 @@ internal static class GradientSampler
     private static readonly ConditionalWeakTable<Gradient, Strayta.Core.Painting.GradientLut> Cache = new();
 
     public static Strayta.Core.Painting.GradientLut Of(Gradient gradient) =>
-        Cache.GetValue(gradient, g => Strayta.Core.Painting.GradientLut.Build(g, Strayta.Core.Painting.GradientMethod.Classic));
+        Cache.GetValue(gradient, g => Strayta.Core.Painting.GradientLut.Build(g, Strayta.Core.Painting.GradientMethod.Classic, easedEnds: true));
 }
 
 /// <summary>A pattern tile as straight RGBA floats, cached per raster, sampled with wrap-around.</summary>
