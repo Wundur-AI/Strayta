@@ -18,15 +18,16 @@ public enum GradientType
 }
 
 /// <summary>
-/// A two-stop gradient as the Gradient tool draws it: a shape, the drag from <see cref="Start"/> to
-/// <see cref="End"/> (document pixels), and the colors at either end, each with its own opacity (so
-/// "Foreground to Transparent" is the foreground color at both ends, fading from 1 to 0).
+/// A gradient as the Gradient tool draws it: a shape, the drag from <see cref="Start"/> to <see cref="End"/> (document
+/// pixels), and the colors: a multi-stop <see cref="Stops"/> gradient, or when that is null the two colors at either
+/// end, each with its own opacity (so "Foreground to Transparent" is the foreground color at both ends, fading from 1
+/// to 0).
 /// </summary>
 /// <remarks>
-/// Colors are interpolated in the document's own encoding, which is what Photoshop calls the Classic method.
-/// <see cref="Dither"/> adds a fixed, position-dependent offset of up to half a level before rounding, which
-/// breaks the visible bands of a long, low-contrast gradient into noise; being a pure function of the pixel's
-/// position, the same gradient always produces the same pixels.
+/// Colors are blended in the space <see cref="Method"/> names (Classic, the document's own encoding, by default) and
+/// looked up in a <see cref="GradientLut"/> built once per spec. <see cref="Dither"/> adds a fixed, position-dependent
+/// offset of up to half a level before rounding, which breaks the visible bands of a long, low-contrast gradient into
+/// noise; being a pure function of the pixel's position, the same gradient always produces the same pixels.
 /// </remarks>
 public sealed record GradientSpec(
     GradientType Type,
@@ -44,6 +45,64 @@ public sealed record GradientSpec(
 
     /// <summary>Overall opacity, 0..1, applied on top of the stops' own.</summary>
     public float Opacity { get; init; } = 1f;
+
+    /// <summary>A multi-stop (or noise) gradient with its foreground/background stops resolved; null for the two end colors.</summary>
+    public Gradient? Stops { get; init; }
+
+    /// <summary>The color space stops blend in (Photoshop's Method option).</summary>
+    public GradientMethod Method { get; init; } = GradientMethod.Classic;
+
+    /// <summary>Photoshop's Transparency option: off ignores the opacity stops (everything opaque).</summary>
+    public bool Transparency { get; init; } = true;
+
+    /// <summary>How the gradient combines with the pixels it is drawn over (Photoshop's Mode option).</summary>
+    public PaintMode Mode { get; init; } = PaintMode.Normal;
+
+    // Built on first use and shared by copies made with `with`; it remembers what it was built from, so a copy with
+    // other colors rebuilds it. It never takes part in equality.
+    private readonly LutCache _cache = new();
+
+    /// <summary>The gradient's colors as used for drawing: <see cref="Stops"/>, or the two end colors as stops.</summary>
+    public Gradient EffectiveGradient => Stops ?? new Gradient(
+        [new GradientColorStop(0f, 0.5f, StartColor), new GradientColorStop(1f, 0.5f, EndColor)],
+        [new GradientOpacityStop(0f, 0.5f, StartAlpha), new GradientOpacityStop(1f, 0.5f, EndAlpha)]);
+
+    /// <summary>The evaluated gradient (built once; read it once per drawing rather than per pixel).</summary>
+    public GradientLut Lut
+    {
+        get
+        {
+            var key = new LutKey(Stops, StartColor, StartAlpha, EndColor, EndAlpha, Method, Transparency);
+            if (_cache.Entry is { } entry && entry.Key == key) return entry.Lut;
+            var lut = GradientLut.Build(EffectiveGradient, Method, Transparency);
+            _cache.Entry = (key, lut);
+            return lut;
+        }
+    }
+
+    private readonly record struct LutKey(Gradient? Stops, RgbColor StartColor, float StartAlpha, RgbColor EndColor, float EndAlpha,
+        GradientMethod Method, bool Transparency)
+    {
+        // The stops compare by reference: equal gradients built separately just build the table again.
+        public bool Equals(LutKey o) => ReferenceEquals(Stops, o.Stops) && StartColor == o.StartColor && StartAlpha == o.StartAlpha
+            && EndColor == o.EndColor && EndAlpha == o.EndAlpha && Method == o.Method && Transparency == o.Transparency;
+
+        public override int GetHashCode() => HashCode.Combine(StartColor, StartAlpha, EndColor, EndAlpha, Method, Transparency);
+    }
+
+    private sealed class LutCache
+    {
+        public volatile Tuple<LutKey, GradientLut>? Box;
+
+        public (LutKey Key, GradientLut Lut)? Entry
+        {
+            get => Box is { } b ? (b.Item1, b.Item2) : null;
+            set => Box = value is { } v ? Tuple.Create(v.Key, v.Lut) : null;
+        }
+
+        public override bool Equals(object? obj) => obj is LutCache;
+        public override int GetHashCode() => 0;
+    }
 
     /// <summary>True for a click without a drag, which Photoshop ignores.</summary>
     public bool IsDegenerate => Vector2.DistanceSquared(Start, End) < 1e-6f;
@@ -90,11 +149,11 @@ public sealed record GradientSpec(
     }
 
     /// <summary>Color and opacity (0..1, <see cref="Opacity"/> included) at position <paramref name="t"/>.</summary>
-    public (float R, float G, float B, float A) ColorAt(float t) => (
-        StartColor.R + (EndColor.R - StartColor.R) * t,
-        StartColor.G + (EndColor.G - StartColor.G) * t,
-        StartColor.B + (EndColor.B - StartColor.B) * t,
-        (StartAlpha + (EndAlpha - StartAlpha) * t) * Opacity);
+    public (float R, float G, float B, float A) ColorAt(float t)
+    {
+        var (r, g, b, a) = Lut.At(t);
+        return (r, g, b, a * Opacity);
+    }
 
     /// <summary>
     /// The dither offset at a pixel, in output levels, within ±0.49: an integer hash of the position, so it is the

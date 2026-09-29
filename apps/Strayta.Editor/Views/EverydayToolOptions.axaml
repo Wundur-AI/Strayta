@@ -40,23 +40,34 @@
 
     <StackPanel Orientation="Horizontal" Spacing="14" IsVisible="{Binding IsPaintBucketTool}">
       <StackPanel Orientation="Horizontal" Spacing="6">
+        <ComboBox ItemsSource="{Binding BucketSourceNames}" SelectedIndex="{Binding BucketSourceIndex}" Width="110"
+                  ToolTip.Tip="Fill with the foreground color or a pattern" />
+        <c:PatternPicker Pattern="{Binding BucketPattern}" DocumentPatterns="{Binding ActiveDocument.Model.Patterns, FallbackValue={x:Null}}"
+                         IsVisible="{Binding BucketUsesPattern}" />
+      </StackPanel>
+      <StackPanel Orientation="Horizontal" Spacing="6">
+        <TextBlock Classes="label" Text="Mode" VerticalAlignment="Center" />
+        <ComboBox ItemsSource="{x:Static c:PaintModeNames.Names}" SelectedIndex="{Binding BucketModeIndex}" Width="120" MaxDropDownHeight="500" />
+      </StackPanel>
+      <StackPanel Orientation="Horizontal" Spacing="8">
+        <TextBlock Classes="label" Text="Opacity" VerticalAlignment="Center" />
+        <Slider Width="80" Minimum="1" Maximum="100" Value="{Binding BucketOpacity}" VerticalAlignment="Center" />
+        <TextBlock Text="{Binding BucketOpacity, StringFormat='{}{0:0}%'}" VerticalAlignment="Center" MinWidth="34" />
+      </StackPanel>
+      <StackPanel Orientation="Horizontal" Spacing="6">
         <TextBlock Classes="label" Text="Tolerance" VerticalAlignment="Center" />
         <c:NumberField Value="{Binding BucketTolerance}" Width="44" ToolTip.Tip="How different a color may be from the clicked one, 0–255 per channel" />
       </StackPanel>
       <CheckBox Content="Anti-alias" IsChecked="{Binding BucketAntiAlias}" FontSize="11" />
       <CheckBox Content="Contiguous" IsChecked="{Binding BucketContiguous}" FontSize="11" ToolTip.Tip="Only areas connected to the clicked pixel" />
       <CheckBox Content="All Layers" IsChecked="{Binding BucketSampleAllLayers}" FontSize="11" ToolTip.Tip="Compare colors in the whole image instead of the selected layer" />
-      <TextBlock Classes="label" VerticalAlignment="Center" Text="Click to fill similar colors with the foreground color, inside the selection" />
+      <TextBlock Classes="label" VerticalAlignment="Center" Text="Click to fill similar colors, inside the selection" />
     </StackPanel>
 
     <StackPanel Orientation="Horizontal" Spacing="14" IsVisible="{Binding IsGradientTool}">
-      <StackPanel Orientation="Horizontal" Spacing="6">
-        <Border Width="44" Height="18" CornerRadius="3" BorderThickness="1" BorderBrush="{DynamicResource St.Border}"
-                Background="{DynamicResource St.Window}" ClipToBounds="True">
-          <Border Background="{Binding GradientPreviewBrush}" />
-        </Border>
-        <ComboBox ItemsSource="{Binding GradientPresetNames}" SelectedIndex="{Binding GradientPresetIndex}" Width="170" />
-      </StackPanel>
+      <!-- Gradient picker (GradientPicker.cs): the swatch opens the Gradient Editor, the arrow the presets -->
+      <c:GradientPicker Gradient="{Binding ToolGradient}" ForegroundColor="{Binding ForegroundRgb}" BackgroundColor="{Binding BackgroundRgb}"
+                        Reverse="{Binding GradientReverse}" />
       <StackPanel Orientation="Horizontal" Spacing="2">
         <ToggleButton Classes="icon gradientType" IsChecked="{Binding IsLinearGradient}" ToolTip.Tip="Linear Gradient">
           <Border Classes="swatch">
@@ -106,6 +117,10 @@
           </Border>
         </ToggleButton>
       </StackPanel>
+      <StackPanel Orientation="Horizontal" Spacing="6">
+        <TextBlock Classes="label" Text="Mode" VerticalAlignment="Center" />
+        <ComboBox ItemsSource="{x:Static c:PaintModeNames.Names}" SelectedIndex="{Binding GradientModeIndex}" Width="120" MaxDropDownHeight="500" />
+      </StackPanel>
       <StackPanel Orientation="Horizontal" Spacing="8">
         <TextBlock Classes="label" Text="Opacity" VerticalAlignment="Center" />
         <Slider Width="90" Minimum="1" Maximum="100" Value="{Binding GradientOpacity}" VerticalAlignment="Center" />
@@ -113,7 +128,13 @@
       </StackPanel>
       <CheckBox Content="Reverse" IsChecked="{Binding GradientReverse}" FontSize="11" ToolTip.Tip="Swap the gradient's colors" />
       <CheckBox Content="Dither" IsChecked="{Binding GradientDither}" FontSize="11" ToolTip.Tip="Add a little noise so long gradients show no bands" />
-      <TextBlock Classes="label" VerticalAlignment="Center" Text="Drag to draw · Shift snaps to 45° · fills the selection" />
+      <CheckBox Content="Transparency" IsChecked="{Binding GradientTransparency}" FontSize="11" ToolTip.Tip="Use the gradient's opacity stops; off draws it opaque" />
+      <StackPanel Orientation="Horizontal" Spacing="6">
+        <TextBlock Classes="label" Text="Method" VerticalAlignment="Center" />
+        <ComboBox ItemsSource="{Binding GradientMethodNames}" SelectedIndex="{Binding GradientMethodIndex}" Width="100"
+                  ToolTip.Tip="Perceptual blends as the eye sees (Oklab) · Linear blends light · Classic blends the file's values" />
+      </StackPanel>
+      <TextBlock Classes="label" VerticalAlignment="Center" Text="Drag to draw · Shift snaps to 45°" />
     </StackPanel>
 
     <StackPanel Orientation="Horizontal" Spacing="10" IsVisible="{Binding IsZoomTool}">

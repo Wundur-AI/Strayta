@@ -167,6 +167,7 @@ public partial class MainWindow : Window, IEditorDialogs
         AddImageMenu(menu, Item); // MainWindow.Crop.cs
         AddLayerStyleMenus(menu, Item); // MainWindow.LayerStyle.cs
         AddSelectionMenus(menu, Item);
+        AddFillMenus(menu, Item); // MainWindow.Fills.cs
         AddObjectSelectionMenus(menu, Item); // MainWindow.ObjectSelection.cs
         AddRefineSelectionMenus(menu, Item); // MainWindow.RefineSelection.cs
         AddFilterMenu(menu, Item); // MainWindow.Filters.cs
