@@ -15,7 +15,7 @@ internal static partial class SelfTest
     /// <summary>Section names for STRAYTA_SELFTEST_ONLY.</summary>
     private static readonly string[] Sections =
         ["core", "masks", "images", "wand", "quickselect", "everyday", "gradients", "refine", "crop", "transform", "retouch", "brush",
-         "filters", "styles", "selection", "text", "type", "objects", "guides", "adjustments", "shapes", "smart", "channels", "layers", "export", "toning", "closing"];
+         "filters", "styles", "selection", "text", "type", "objects", "guides", "adjustments", "shapes", "smart", "channels", "layers", "export", "toning", "warp", "closing"];
 
     public static async Task RunAsync(EditorViewModel editor, Func<Task<(int, int, bool)?>> _)
     {
@@ -197,6 +197,7 @@ internal static partial class SelfTest
         await Section("layers", () => RunLayerStepsAsync(editor, Check)); // SelfTest.Layers.cs
         await Section("export", () => RunExportStepsAsync(editor, Check)); // SelfTest.Export.cs
         await Section("toning", () => RunToningStepsAsync(editor, Check)); // SelfTest.Toning.cs
+        await Section("warp", () => RunTransformToolStepsAsync(editor, Check)); // Edit › Transform, Puppet Warp, Liquify (SelfTest.TransformTools.cs)
         await Section("closing", () => RunClosingStepsAsync(editor, Check)); // SelfTest.Closing.cs
 
         Console.WriteLine(failures.Count == 0 ? "SELFTEST PASSED" : $"SELFTEST FAILED ({failures.Count})");

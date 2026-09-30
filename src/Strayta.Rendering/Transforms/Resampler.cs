@@ -482,6 +482,9 @@ public static class Resampler
 
     private static PixelRect Shift(PixelRect r, int dx, int dy) => new(r.Left + dx, r.Top + dy, r.Right + dx, r.Bottom + dy);
 
+    /// <summary>Crops pixels placed at <paramref name="bounds"/> to <paramref name="area"/> (null pixels when nothing is left).</summary>
+    public static (Raster? Pixels, PixelRect Bounds) Crop(Raster raster, PixelRect bounds, PixelRect area) => Clip(raster, bounds, area);
+
     /// <summary>Crops already-positioned pixels to <paramref name="clip"/> (the whole-pixel move shortcut).</summary>
     internal static (Raster?, PixelRect) Clip(Raster raster, PixelRect bounds, PixelRect? clip)
     {

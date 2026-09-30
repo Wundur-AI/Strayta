@@ -191,6 +191,7 @@ public partial class MainWindow : Window, IEditorDialogs
         AddLayersMenus(menu, Item); // several layers, locks, links, align, merge (MainWindow.Layers.cs)
         AddExportMenus(menu, Item); // File › Export, Generate, Layer › Export As (MainWindow.Export.cs)
         AddArtboardMenus(menu, Item); // Layer › New Artboard… and Artboards from Layers / Group (MainWindow.Artboards.cs)
+        AddTransformMenus(menu, Item); // Edit › Transform, Puppet Warp, Filter › Liquify (MainWindow.Transform.cs)
         NativeMenu.SetMenu(this, menu);
         if (Environment.GetEnvironmentVariable("STRAYTA_ADJUSTBENCH") == "new")
             Opened += async (_, _) => await SelfTest.RunAdjustmentBenchmarkAsync(Editor); // SelfTest.Adjustments.cs
