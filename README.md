@@ -75,6 +75,21 @@ dotnet test
   Content-Aware (patch synthesis with PatchMatch, coarse to fine, then healed in), Create Texture or Proximity Match.
   Window › Clone Source holds five sources per document with offset, W/H scale (negative flips), angle and overlay
   options (opacity, clipped, auto hide); the Clone Stamp and Healing Brush share each source point, as in Photoshop.
+- Toning and focus tools, in Photoshop's places after Gradient: Blur, Sharpen, Smudge (a slot without a key) and Dodge,
+  Burn, Sponge (O). Dodge / Burn have Range (Shadows, Midtones, Highlights), Exposure (one stroke builds up to it) and
+  Protect Tones; Sponge has Desaturate / Saturate, Flow and Vibrance; all three have Airbrush. Blur / Sharpen / Smudge
+  have Mode, Strength and Sample All Layers, plus Protect Detail (Sharpen) and Finger Painting (Smudge); each dab works on
+  what the stroke has made so far, so blur deepens as you go over it and smudged paint travels. The tone curves and
+  kernels are Strayta's own models, documented in `Strayta.Core.Painting.Toning` and `LocalStroke`. All six respect the
+  selection, work on a targeted layer mask, keep 8/16-bit precision, preview live exactly as committed and are one undo
+  step per stroke.
+- Brushes panel (Window › Brushes) and the options bar's brush picker: presets by folder with tip thumbnails and stroke
+  previews (size, hardness, spacing, angle, roundness, pressure, dynamics); New Brush Preset, New Folder, rename, delete,
+  Edit › Define Brush Preset… (the selected image becomes a tip) and Import Brushes… for .abr files (versions 1, 2 and
+  6+: sampled tips and computed round brushes; dynamics are ignored, tips kept; `Strayta.Psd.AbrReader`). Your presets
+  are kept in `brushes.json` next to the gradient presets. Sampled tips scale, turn and squash with the brush (mip-mapped,
+  so large tips stay smooth when small). The Brush Settings popover adds Shape Dynamics (size / angle / roundness jitter,
+  pen pressure and direction control) and Scattering (scatter, both axes, count, count jitter).
 - Edit › Content-Aware Fill fills the selection from everything outside it (current layer or all layers, into the
   layer or a new one, with or without color adaptation).
 - Horizontal Type (T, in Photoshop's place before the Hand tool): click for point text, drag for a text box, click type
@@ -272,6 +287,8 @@ also writes shape files for checking in Photoshop.
 Healing / Spot Healing (each Type) release-to-edit times and Content-Aware Fill times on a generated 4000×3000 document.
 `STRAYTA_PAINTBENCH=new` runs the brush benchmarks (with Flow, a blend mode, Smoothing and Airbrush, pressure and an
 elliptical tip) on a generated 4000×3000 document.
+`STRAYTA_TONEBENCH=new` times Dodge, Burn, Sponge, Blur (also Sample All Layers), Sharpen and Smudge strokes and the brush
+with a sampled tip and with dynamics on a generated 4000×3000 document (`STRAYTA_TONEBENCH_CASES=blur,smudge` picks cases).
 `STRAYTA_FILTERBENCH=new` times every filter at full resolution and the slider-to-preview latency on a generated
 4000×3000 document.
 `STRAYTA_CROPBENCH=1` times Image Size, a crop box drag and turned and straight crops (`=new` on a generated

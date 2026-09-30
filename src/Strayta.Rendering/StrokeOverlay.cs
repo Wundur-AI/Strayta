@@ -51,6 +51,39 @@ public sealed class StrokeOverlay
         : _factor == 1 ? source.Read(x, y, color, channels)
         : source.ReadArea(x * _factor, y * _factor, _factor, color, channels);
 
+    /// <summary>Dodge / Burn / Sponge settings of a toning stroke (each pixel is changed by coverage × <see cref="Opacity"/>), or null.</summary>
+    public ToneSettings? Tone => _stroke.Tone;
+
+    /// <summary>True for Blur / Sharpen / Smudge strokes, whose pixels come from <see cref="ReadLocal"/> wherever the stroke has been.</summary>
+    public bool IsLocal => _stroke.Local is not null;
+
+    /// <summary>
+    /// A Blur / Sharpen / Smudge stroke's working pixel (straight color into <paramref name="color"/>, gray replicated to
+    /// <paramref name="channels"/>) at a (preview) pixel; returns its alpha. A downscaled preview averages the
+    /// full-resolution pixels the preview pixel stands for.
+    /// </summary>
+    public float ReadLocal(int x, int y, Span<float> color, int channels)
+    {
+        var local = _stroke.Local!;
+        float a = _factor == 1 ? local.Read(x, y, color) : local.ReadArea(x * _factor, y * _factor, _factor, color);
+        for (int k = local.Channels; k < channels; k++) color[k] = color[0];
+        return a;
+    }
+
+    /// <summary>
+    /// A toning or focus stroke's new value for a mask's gray <paramref name="value"/> at a (preview) pixel with coverage
+    /// × opacity <paramref name="cov"/>.
+    /// </summary>
+    public float ToolGray(int x, int y, float value, float cov)
+    {
+        if (_stroke.Local is not null)
+        {
+            Span<float> g = stackalloc float[3];
+            return ReadLocal(x, y, g, 1) >= 0f ? g[0] : value;
+        }
+        return StrokeBaker.ToolGray(_stroke, x, y, value, cov);
+    }
+
     /// <summary>
     /// The mask stroke painting <paramref name="node"/>'s mask, if any. Pixel strokes return null, so callers can
     /// pass the render's active stroke through unconditionally.

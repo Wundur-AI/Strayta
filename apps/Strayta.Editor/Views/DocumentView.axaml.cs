@@ -22,6 +22,7 @@ public partial class DocumentView : UserControl
         WireEverydayTools(); // DocumentView.Everyday.cs
         WireCrop(); // DocumentView.Crop.cs
         WireRetouch(); // DocumentView.Retouch.cs
+        WireToning(); // Dodge, Burn, Sponge, Blur, Sharpen, Smudge (DocumentView.Toning.cs)
         WireSelectionTools(); // History Brush, Object Finder (DocumentView.SelectionTools.cs)
         WireType(); // DocumentView.Type.cs
         WirePaths(); // DocumentView.Paths.cs

@@ -93,7 +93,9 @@ internal abstract class Source
         {
             float m = SampleMask(mask, x0 + i, y);
             float cov = stroke.CoverageAt(x0 + i, y) * opacity;
-            if (cov > 0f)
+            if (cov > 0f && (stroke.Tone is not null || stroke.IsLocal))
+                m = stroke.ToolGray(x0 + i, y, m, cov); // Dodge / Burn, Blur / Sharpen / Smudge on the mask, as MaskBaker
+            else if (cov > 0f)
             {
                 float target = gray;
                 if (stroke.HasSource)
@@ -202,6 +204,11 @@ internal sealed class LayerSource : Source
         Span<float> cloned = stackalloc float[3];
         Span<float> pixel = stackalloc float[3];
         var mode = s.Mode;
+        if (s.Tone is not null || s.IsLocal)
+        {
+            ApplyToolStroke(s, y, x0, from, to, rgb, coverage);
+            return;
+        }
         for (int x = from; x < to; x++)
         {
             float cov = s.CoverageAt(x, y) * s.Opacity;
@@ -229,6 +236,30 @@ internal sealed class LayerSource : Source
                 continue;
             }
             coverage[i] = PaintBlender.Paint(mode, rgb.Slice(i * 3, 3), a, cloned, cov, 3, x, y);
+        }
+    }
+
+    /// <summary>
+    /// Dodge / Burn / Sponge change the layer's colors by coverage × exposure (alpha stays); Blur / Sharpen / Smudge
+    /// show their working pixels wherever the stroke has been. Both exactly as <c>StrokeBaker</c> commits them.
+    /// </summary>
+    private static void ApplyToolStroke(StrokeOverlay s, int y, int x0, int from, int to, Span<float> rgb, Span<float> coverage)
+    {
+        var tone = s.Tone;
+        float opacity = s.Opacity;
+        Span<float> c = stackalloc float[3];
+        for (int x = from; x < to; x++)
+        {
+            float cov = s.CoverageAt(x, y);
+            if (cov <= 0f) continue;
+            int i = x - x0;
+            if (tone is not null)
+            {
+                if (!rgb.IsEmpty) Toning.Apply(tone, rgb.Slice(i * 3, 3), 3, cov * opacity);
+                continue;
+            }
+            coverage[i] = s.ReadLocal(x, y, c, 3);
+            if (!rgb.IsEmpty) c.CopyTo(rgb.Slice(i * 3, 3));
         }
     }
 

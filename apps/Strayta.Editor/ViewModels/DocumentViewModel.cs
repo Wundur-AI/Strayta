@@ -280,6 +280,11 @@ public sealed partial class DocumentViewModel : Dock.Model.Mvvm.Controls.Documen
             await EndHistoryBrushStrokeAsync(); // DocumentViewModel.HistoryBrush.cs
             return;
         }
+        if (_toolStroke is not null)
+        {
+            await EndToolStrokeAsync(); // Dodge, Burn, Sponge, Blur, Sharpen, Smudge (DocumentViewModel.Toning.cs)
+            return;
+        }
         if (_stroke is not { } stroke) return;
         if (stroke.Bounds.IsEmpty)
         {

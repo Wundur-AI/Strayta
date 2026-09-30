@@ -70,7 +70,31 @@
                            ToolTip.Tip="Distance between dabs, in percent of the diameter" />
             <c:SliderField Label="Angle" Format="0" Minimum="-180" Maximum="180" Value="{Binding BrushAngle}" />
             <c:SliderField Label="Roundness" Format="0" Minimum="1" Maximum="100" Value="{Binding BrushRoundness}" />
-            <c:SliderField Label="Hardness" Format="0" Minimum="0" Maximum="100" Value="{Binding BrushHardness}" />
+            <c:SliderField Label="Hardness" Format="0" Minimum="0" Maximum="100" Value="{Binding BrushHardness}" IsEnabled="{Binding !HasSampledTip}" />
+            <!-- Shape Dynamics and Scattering (EditorViewModel.BrushPresets.cs) -->
+            <CheckBox Content="Shape Dynamics" IsChecked="{Binding ShapeDynamics}" FontWeight="SemiBold" Margin="0,6,0,0" />
+            <StackPanel Spacing="6" IsVisible="{Binding ShapeDynamics}">
+              <c:SliderField Label="Size Jitter" Format="0" Minimum="0" Maximum="100" Value="{Binding SizeJitter}" />
+              <DockPanel>
+                <TextBlock Classes="label" Text="Control" Width="80" VerticalAlignment="Center" />
+                <ComboBox ItemsSource="{Binding SizeControlNames}" SelectedIndex="{Binding SizeControlIndex}" HorizontalAlignment="Stretch" />
+              </DockPanel>
+              <c:SliderField Label="Min Diameter" Format="0" Minimum="0" Maximum="100" Value="{Binding MinimumDiameter}" />
+              <c:SliderField Label="Angle Jitter" Format="0" Minimum="0" Maximum="100" Value="{Binding AngleJitter}" />
+              <DockPanel>
+                <TextBlock Classes="label" Text="Control" Width="80" VerticalAlignment="Center" />
+                <ComboBox ItemsSource="{Binding AngleControlNames}" SelectedIndex="{Binding AngleControlIndex}" HorizontalAlignment="Stretch" />
+              </DockPanel>
+              <c:SliderField Label="Round Jitter" Format="0" Minimum="0" Maximum="100" Value="{Binding RoundnessJitter}" />
+            </StackPanel>
+            <CheckBox Content="Scattering" IsChecked="{Binding Scattering}" FontWeight="SemiBold" />
+            <StackPanel Spacing="6" IsVisible="{Binding Scattering}">
+              <c:SliderField Label="Scatter" Format="0" Minimum="0" Maximum="1000" Value="{Binding Scatter}"
+                             ToolTip.Tip="How far dabs spread from the stroke, in percent of the diameter" />
+              <CheckBox Content="Both Axes" IsChecked="{Binding ScatterBothAxes}" />
+              <c:SliderField Label="Count" Format="0" Minimum="1" Maximum="16" Value="{Binding ScatterCount}" />
+              <c:SliderField Label="Count Jitter" Format="0" Minimum="0" Maximum="100" Value="{Binding ScatterCountJitter}" />
+            </StackPanel>
           </StackPanel>
         </Flyout>
       </Button.Flyout>

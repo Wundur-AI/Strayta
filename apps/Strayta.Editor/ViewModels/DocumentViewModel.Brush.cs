@@ -54,7 +54,7 @@ public sealed partial class DocumentViewModel
         };
         _input = input;
         stroke.StrokeTo(x, y, input.Pressure);
-        bool airbrush = Editor.BrushAirbrush && Editor.Tool is not (Controls.CanvasTool.Healing or Controls.CanvasTool.SpotHealing);
+        bool airbrush = Editor.StrokeAirbrush; // per tool (EditorViewModel.Toning.cs)
         if (airbrush || input.Radius > 0)
         {
             input.Timer = new DispatcherTimer(TimeSpan.FromMilliseconds(33), DispatcherPriority.Input, (_, _) => Tick(input, airbrush));

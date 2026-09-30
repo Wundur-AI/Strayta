@@ -29,6 +29,7 @@ public sealed partial class EditorViewModel
             new(CanvasTool.SpotHealing, "Spot Healing Brush", "IconSpotHealing"),
             new(CanvasTool.Healing, "Healing Brush", "IconHealing"));
         var (pen, pathSelect, shape) = CreatePathToolGroups(); // EditorViewModel.Shapes.cs
+        var (focus, toning) = CreateToningToolGroups(); // EditorViewModel.Toning.cs
         // Photoshop's tool-strip order.
         ToolGroups =
         [
@@ -45,6 +46,8 @@ public sealed partial class EditorViewModel
             new ToolGroup(this, "Y", new ToolInfo(CanvasTool.HistoryBrush, "History Brush", "IconHistoryBrush")), // EditorViewModel.History.cs
             new ToolGroup(this, "E", new ToolInfo(CanvasTool.Eraser, "Eraser", "IconEraser")),
             _fillGroup,
+            focus,
+            toning,
             // Photoshop has Pen and Type here, then Path Selection and Shape (EditorViewModel.Type.cs, EditorViewModel.Shapes.cs).
             pen,
             new ToolGroup(this, "T", new ToolInfo(CanvasTool.Type, "Horizontal Type", "IconType")),
@@ -63,6 +66,7 @@ public sealed partial class EditorViewModel
         SyncCropTool(); // EditorViewModel.Crop.cs
         SyncTypeTool(); // EditorViewModel.Type.cs
         SyncPathTools(); // EditorViewModel.Shapes.cs
+        NotifyToningTools(); // EditorViewModel.Toning.cs
     }
 
     /// <summary>A tool-group shortcut: the key alone picks the group's current tool, with Shift it steps through the group.</summary>

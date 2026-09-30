@@ -123,10 +123,12 @@
         <v:EverydayToolOptions /> <!-- Eyedropper, Paint Bucket, Gradient, Zoom -->
         <v:CropOptionsBar IsVisible="{Binding IsCropTool}" />
         <v:RetouchToolOptions /> <!-- Clone Stamp, Healing Brush, Spot Healing Brush -->
+        <v:ToningToolOptions /> <!-- Dodge, Burn, Sponge, Blur, Sharpen, Smudge -->
         <v:TypeToolOptions /> <!-- Horizontal Type -->
         <v:ShapeToolOptions /> <!-- shapes, the Pen group, path selection -->
 
         <StackPanel Orientation="Horizontal" Spacing="18" IsVisible="{Binding IsPaintTool}">
+          <v:BrushPresetPicker />
           <StackPanel Orientation="Horizontal" Spacing="8">
             <TextBlock Classes="label" Text="Size" />
             <Slider Width="130" Minimum="1" Maximum="500" Value="{Binding BrushSize}" VerticalAlignment="Center" />

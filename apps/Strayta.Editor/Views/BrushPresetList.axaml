@@ -1,0 +1,71 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Strayta.Editor.ViewModels"
+             xmlns:c="using:Strayta.Editor.Controls"
+             x:Class="Strayta.Editor.Views.BrushPresetList"
+             x:DataType="vm:BrushPresetsViewModel"
+             FontSize="11">
+  <UserControl.Styles>
+    <Style Selector="Button.preset">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="Padding" Value="4,2" />
+      <Setter Property="HorizontalAlignment" Value="Stretch" />
+      <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+      <Setter Property="CornerRadius" Value="4" />
+    </Style>
+    <Style Selector="Button.preset.selected">
+      <Setter Property="Background" Value="{DynamicResource St.RowSelected}" />
+    </Style>
+    <Style Selector="Expander">
+      <Setter Property="Padding" Value="0" />
+      <Setter Property="MinHeight" Value="0" />
+      <Setter Property="HorizontalAlignment" Value="Stretch" />
+    </Style>
+  </UserControl.Styles>
+
+  <!-- Brush presets by folder: tip, name and size, and a stroke painted with the preset (BrushPresetsPanel.cs). -->
+  <ItemsControl ItemsSource="{Binding Folders}">
+    <ItemsControl.ItemTemplate>
+      <DataTemplate x:DataType="vm:BrushFolderViewModel">
+        <Expander IsExpanded="{Binding IsExpanded}" Margin="0,0,0,2">
+          <Expander.Header>
+            <TextBlock Text="{Binding Name}" FontWeight="SemiBold">
+              <TextBlock.ContextMenu>
+                <ContextMenu>
+                  <MenuItem Header="Delete Folder" Command="{Binding $parent[ItemsControl].((vm:BrushPresetsViewModel)DataContext).DeleteFolderCommand}"
+                            CommandParameter="{Binding}" />
+                </ContextMenu>
+              </TextBlock.ContextMenu>
+            </TextBlock>
+          </Expander.Header>
+          <ItemsControl ItemsSource="{Binding Items}">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="vm:BrushPresetItem">
+                <Button Classes="preset" Classes.selected="{Binding IsSelected}" ToolTip.Tip="{Binding Tip}"
+                        Command="{Binding $parent[UserControl].((vm:BrushPresetsViewModel)DataContext).SelectCommand}" CommandParameter="{Binding}">
+                  <Button.ContextMenu>
+                    <ContextMenu>
+                      <MenuItem Header="Rename Brush…" Command="{Binding $parent[UserControl].((vm:BrushPresetsViewModel)DataContext).RenameCommand}"
+                                CommandParameter="{Binding}" IsEnabled="{Binding !Preset.BuiltIn}" />
+                      <MenuItem Header="Delete Brush" Command="{Binding $parent[UserControl].((vm:BrushPresetsViewModel)DataContext).DeleteCommand}"
+                                CommandParameter="{Binding}" IsEnabled="{Binding !Preset.BuiltIn}" />
+                    </ContextMenu>
+                  </Button.ContextMenu>
+                  <Grid ColumnDefinitions="36,*,Auto" ColumnSpacing="6">
+                    <c:MaskImage Mask="{Binding TipImage}" Fill="{DynamicResource St.Text}" Width="32" Height="32" />
+                    <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="1">
+                      <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
+                      <TextBlock Text="{Binding SizeText}" Classes="muted" FontSize="10" />
+                    </StackPanel>
+                    <c:MaskImage Grid.Column="2" Mask="{Binding StrokeImage}" Fill="{DynamicResource St.Text}" Width="120" Height="34" />
+                  </Grid>
+                </Button>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </Expander>
+      </DataTemplate>
+    </ItemsControl.ItemTemplate>
+  </ItemsControl>
+</UserControl>

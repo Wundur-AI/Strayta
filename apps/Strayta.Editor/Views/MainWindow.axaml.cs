@@ -182,6 +182,7 @@ public partial class MainWindow : Window, IEditorDialogs
         AddRefineSelectionMenus(menu, Item); // MainWindow.RefineSelection.cs
         AddFilterMenu(menu, Item); // MainWindow.Filters.cs
         AddRetouchMenus(menu, Item); // MainWindow.Retouch.cs
+        AddBrushMenus(menu, Item); // Window › Brushes (MainWindow.Brushes.cs)
         AddTypeMenus(menu, Item); // MainWindow.Type.cs
         AddGuideMenus(menu, Item); // rulers, guides, grid, snapping, Info (MainWindow.Guides.cs)
         AddPathMenus(menu, Item); // Window › Paths, ⌘Return, path keys (MainWindow.Paths.cs)

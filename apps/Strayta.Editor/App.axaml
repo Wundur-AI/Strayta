@@ -44,6 +44,7 @@
     <DataTemplate DataType="vm:PropertiesToolViewModel"><v:PropertiesView /></DataTemplate>
     <DataTemplate DataType="vm:HistoryToolViewModel"><v:HistoryView /></DataTemplate>
     <DataTemplate DataType="vm:CloneSourceToolViewModel"><v:CloneSourceView /></DataTemplate>
+    <DataTemplate DataType="vm:BrushesToolViewModel"><v:BrushesView /></DataTemplate>
     <DataTemplate DataType="vm:CharacterToolViewModel"><v:CharacterView /></DataTemplate>
     <DataTemplate DataType="vm:ParagraphToolViewModel"><v:ParagraphView /></DataTemplate>
     <DataTemplate DataType="vm:InfoToolViewModel"><v:InfoView /></DataTemplate>

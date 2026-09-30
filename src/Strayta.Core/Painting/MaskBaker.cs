@@ -46,6 +46,13 @@ public static class MaskBaker
             {
                 float cov = stroke.CoverageAt(x, y) * opacity;
                 if (cov <= 0f) continue;
+                if (stroke.Tone is not null || stroke.Local is not null)
+                {
+                    // Dodge / Burn on the mask's gray; Blur / Sharpen / Smudge take the working mask (StrokeBaker.Tools.cs).
+                    int at = dst + x - bounds.Left;
+                    Set(plane, at, StrokeBaker.ToolGray(stroke, x, y, plane.GetNormalized(at), cov));
+                    continue;
+                }
                 float target = gray;
                 if (stroke.Source is { } source)
                 {
