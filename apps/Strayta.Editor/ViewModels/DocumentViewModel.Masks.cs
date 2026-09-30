@@ -21,6 +21,7 @@ public sealed partial class DocumentViewModel
 
     partial void OnSelectedLayerChanged(LayerItemViewModel? oldValue, LayerItemViewModel? newValue)
     {
+        OnPrimaryLayerChanged(oldValue, newValue); // the set of selected layers (DocumentViewModel.LayerSelection.cs)
         // Rebuilding the rows re-selects the same layer through a new item; keep its target then.
         if (!ReferenceEquals(oldValue?.Node, newValue?.Node))
             EditMask = newValue?.Node is AdjustmentLayer { Mask: not null };

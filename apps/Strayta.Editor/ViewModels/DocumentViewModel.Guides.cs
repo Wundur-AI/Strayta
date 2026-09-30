@@ -149,6 +149,7 @@ public sealed partial class DocumentViewModel
     /// <summary>The box the Move tool moves (the selected layer's pixels, or everything in the selected group), or null.</summary>
     public PixelRect? MovingBounds()
     {
+        if (HasMultipleSelected || SelectedLayer?.Node.LinkGroup is not (null or 0)) return SelectionMovingBounds(); // DocumentViewModel.LayerSelection.cs
         if (SelectedLayer?.Node is not { } node) return null;
         PixelRect? box = null;
         foreach (var layer in (node is LayerGroup g ? g.Descendants() : [node]).OfType<PixelLayer>())

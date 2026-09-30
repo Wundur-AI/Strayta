@@ -90,9 +90,12 @@ internal static class PsdDocumentConverter
         // Records run bottom to top. A bounding divider opens a group; the folder record above it closes it.
         var stack = new Stack<LayerGroup>();
         stack.Push(root);
+        var links = PsdLayerSettings.ReadLinkGroups(file); // linked layers (PsdLayerSettings.cs)
+        int index = -1;
 
         foreach (var record in file.Layers)
         {
+            index++;
             switch (record.SectionType)
             {
                 case PsdSectionType.BoundingDivider:
@@ -107,6 +110,7 @@ internal static class PsdDocumentConverter
                     group.SourceData = new PsdGroupRecords(record, divider);
                     group.Expanded = record.SectionType == PsdSectionType.OpenFolder;
                     group.Mask = BuildMask(record);
+                    group.LinkGroup = links?[index] ?? 0;
                     var (_, sectionBlend) = PsdBlocks.ReadSection(record.FindBlock("lsct") ?? record.FindBlock("lsdk"));
                     if (sectionBlend is not null && PsdBlocks.TryMapBlendMode(sectionBlend, out var mode))
                         group.BlendMode = mode;
@@ -118,11 +122,14 @@ internal static class PsdDocumentConverter
                     {
                         var adj = new AdjustmentLayer { Kind = kind, Adjustment = adjustment, Mask = BuildMask(record) };
                         ApplyCommon(adj, record, effectContext);
+                        adj.LinkGroup = links?[index] ?? 0;
                         stack.Peek().Add(adj);
                     }
                     else
                     {
-                        stack.Peek().Add(BuildPixelLayer(record, file.Header, effectContext));
+                        var layer = BuildPixelLayer(record, file.Header, effectContext);
+                        layer.LinkGroup = links?[index] ?? 0;
+                        stack.Peek().Add(layer);
                     }
                     break;
             }
@@ -145,6 +152,8 @@ internal static class PsdDocumentConverter
         node.FillOpacity = (PsdBlocks.ReadFillOpacity(record.FindBlock("iOpa")) ?? 255) / 255f;
         node.Clipped = record.Clipped;
         node.BlendMode = PsdBlocks.TryMapBlendMode(record.BlendModeKey, out var mode) ? mode : BlendMode.Normal;
+        node.Locks = PsdLayerSettings.ReadLocks(record);
+        node.Color = PsdLayerSettings.ReadColor(record);
 
         var tag = PsdLayerKinds.Classify(record) switch
         {

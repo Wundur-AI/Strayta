@@ -17,11 +17,13 @@ public partial class LayersView : UserControl
     private Point _dragStart;
     private bool _dragging;
     private (LayerItemViewModel Item, DropPosition Position)? _dropTarget;
+    private LayerItemViewModel? _pendingSingle; // a plain click on one of several selected rows selects it alone on release
 
     public LayersView()
     {
         InitializeComponent();
         WireMaskButton(); // Option-click hides (LayersView.MaskButton.cs)
+        WireLayerMenus(); // New Layer dialog on Option-click (LayersView.Menus.cs)
         // Tunnel so the list's own selection handling still runs.
         Rows.AddHandler(PointerPressedEvent, OnRowsPointerPressed, RoutingStrategies.Tunnel, handledEventsToo: true);
         Rows.AddHandler(PointerMovedEvent, OnRowsPointerMoved, RoutingStrategies.Tunnel, handledEventsToo: true);
@@ -34,15 +36,42 @@ public partial class LayersView : UserControl
     {
         _dragItem = null;
         _dragging = false;
-        if (!e.GetCurrentPoint(Rows).Properties.IsLeftButtonPressed) return;
+        _pendingSingle = null;
+        var props = e.GetCurrentPoint(Rows).Properties;
+        var row = (e.Source as Visual)?.FindAncestorOfType<ListBoxItem>(true)?.DataContext as LayerItemViewModel;
+        if (props.IsRightButtonPressed && row is not null)
+        {
+            ShowRowMenu(row); // LayersView.Menus.cs
+            e.Handled = true;
+            return;
+        }
+        if (!props.IsLeftButtonPressed) return;
         if (e.Source is Visual v && (v.FindAncestorOfType<ToggleButton>(true) is not null || v.FindAncestorOfType<TextBox>(true) is not null
             || v.FindAncestorOfType<Border>(true) is { } b && b.Classes.Contains("hit"))) return;
-        if ((e.Source as Visual)?.FindAncestorOfType<ListBoxItem>(true)?.DataContext is LayerItemViewModel item)
+        if (row is not { } item || Document is not { } doc) return;
+
+        // ⌘-click toggles and ⇧-click selects a range of rows; the list's own single selection must not also react.
+        bool command = IsCommand(e.KeyModifiers), shift = e.KeyModifiers.HasFlag(KeyModifiers.Shift);
+        if (command || shift)
         {
-            _dragItem = item;
-            _dragStart = e.GetPosition(Rows);
+            doc.ClickLayer(item, command, shift);
+            e.Handled = true;
+            return;
         }
+        // Pressing one of several selected layers keeps them all, so they can be dragged together.
+        if (item.IsSelected && doc.HasMultipleSelected)
+        {
+            _pendingSingle = item;
+            e.Handled = true;
+        }
+        _dragItem = item;
+        _dragStart = e.GetPosition(Rows);
     }
+
+    private DocumentViewModel? Document => (DataContext as LayersToolViewModel)?.Editor.ActiveDocument;
+
+    private static bool IsCommand(KeyModifiers m) =>
+        OperatingSystem.IsMacOS() ? m.HasFlag(KeyModifiers.Meta) : m.HasFlag(KeyModifiers.Control);
 
     private void OnRowsPointerMoved(object? sender, PointerEventArgs e)
     {
@@ -61,7 +90,10 @@ public partial class LayersView : UserControl
     private void OnRowsPointerReleased(object? sender, PointerReleasedEventArgs e)
     {
         if (_dragging && _dragItem is { } item && _dropTarget is { } target && DataContext is LayersToolViewModel { Editor.ActiveDocument: { } doc })
-            Drop(doc, item.Node, target.Item.Node, target.Position);
+            Drop(doc, item, target.Item.Node, target.Position);
+        else if (!_dragging && _pendingSingle is { } single && Document is { } d)
+            d.ClickLayer(single, command: false, shift: false);
+        _pendingSingle = null;
         _dragItem = null;
         _dragging = false;
         _dropTarget = null;
@@ -76,7 +108,7 @@ public partial class LayersView : UserControl
         {
             if (row.DataContext is not LayerItemViewModel item || !row.IsVisible) continue;
             if (RowBounds(row) is not { } r || pos.Y < r.Top || pos.Y >= r.Bottom) continue;
-            if (ReferenceEquals(item, _dragItem)) return null;
+            if (ReferenceEquals(item, _dragItem) || item.IsSelected && _dragItem?.IsSelected == true) return null;
             double t = (pos.Y - r.Top) / r.Height;
             if (item.IsGroup && t is > 0.3 and < 0.7) return (item, DropPosition.Into);
             return (item, t < 0.5 ? DropPosition.Above : DropPosition.Below);
@@ -112,17 +144,21 @@ public partial class LayersView : UserControl
         }
     }
 
-    /// <summary>The panel lists the top layer first, while groups store children bottom first.</summary>
-    private static void Drop(DocumentViewModel doc, LayerNode dragged, LayerNode target, DropPosition position)
+    /// <summary>
+    /// The panel lists the top layer first, while groups store children bottom first. Dragging one of several selected
+    /// layers moves them all.
+    /// </summary>
+    private static void Drop(DocumentViewModel doc, LayerItemViewModel dragged, LayerNode target, DropPosition position)
     {
+        IReadOnlyList<LayerNode> nodes = dragged.IsSelected && doc.HasMultipleSelected ? doc.SelectedTopLevel() : [dragged.Node];
         if (position == DropPosition.Into && target is LayerGroup group)
         {
-            doc.MoveLayer(dragged, group, group.Children.Count);
+            doc.MoveLayers(nodes, group, group.Children.Count);
             return;
         }
         if (target.Parent is not { } parent) return;
         int index = parent.IndexOf(target) + (position == DropPosition.Above ? 1 : 0);
-        doc.MoveLayer(dragged, parent, index);
+        doc.MoveLayers(nodes, parent, index);
     }
 
     // ---- Blend mode ------------------------------------------------------------------------------------

@@ -34,6 +34,9 @@ internal sealed class PsdTestBuilder(int width, int height, bool psb = false)
     public byte[][]? Composite { get; set; }
     public ushort CompositeCompression { get; set; }
 
+    /// <summary>Image resources ('8BIM', id, empty name, data).</summary>
+    public List<(int Id, byte[] Data)> Resources { get; } = [];
+
     public byte[] Build()
     {
         var o = new MemoryStream();
@@ -47,7 +50,18 @@ internal sealed class PsdTestBuilder(int width, int height, bool psb = false)
         U16(o, 3); // RGB
 
         U32(o, 0); // color mode data
-        U32(o, 0); // image resources
+        var res = new MemoryStream();
+        foreach (var (id, data) in Resources)
+        {
+            Ascii(res, "8BIM");
+            U16(res, (ushort)id);
+            U16(res, 0); // empty name, padded
+            U32(res, (uint)data.Length);
+            res.Write(data);
+            if (data.Length % 2 != 0) res.WriteByte(0);
+        }
+        U32(o, (uint)res.Length); // image resources
+        o.Write(res.ToArray());
 
         var layerInfo = BuildLayerInfo();
         var lmi = new MemoryStream();

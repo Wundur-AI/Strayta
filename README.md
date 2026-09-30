@@ -160,6 +160,28 @@ tag new ones with `[Trait("Category", "Performance")]`.
   Layers); no Object Selection tool inside it.
 - Layers panel: blend mode, opacity and fill for the selected layer; visibility, thumbnails, rename
   (double-click), drag-and-drop reordering into and out of groups, new layer/group, duplicate, delete.
+- Several layers at once: ⌘-click adds or removes a row, ⇧-click selects a range, Select › All Layers (⌥⌘A), Deselect
+  Layers, Similar Layers. The selected layers move together with the Move tool and arrow keys (Shift: 10 px), Free
+  Transform as one box, delete, duplicate, Group Layers (⌘G), Ungroup (⇧⌘G), Hide Layers (⌘,), drag in the panel, and
+  take one opacity, fill or blend mode from the header. Link Layers (the footer's chain) makes layers move and transform
+  together; links are stored as Photoshop's layer groups resource (1026). Move tool options: Auto-Select (Layer or Group;
+  ⌘-click flips it for one click, ⇧ adds, ⌘⌥-click always selects the layer under the pointer), Show Transform Controls
+  (drag a handle to start Free Transform), and Align (edges and centres) and Distribute (edges, centres, spacing), also
+  in Layer › Align / Distribute and the Properties panel for several layers: several layers align to their combined box,
+  one to the canvas, and with a selection active to the selection.
+- Locks: Lock Transparent Pixels, Lock Image Pixels, Lock Position and Lock All (⌘/) for the selected layers, read and
+  written as the PSD `lspf` block (unknown bits kept; a group's locks apply to its layers). Painting, fills, filters and
+  cuts, moving, aligning and Free Transform refuse locked layers with Photoshop's messages; Lock All also freezes blending.
+  The row shows a hollow lock, or a solid one for Lock All. Prevent Auto-Nesting is kept but has no button (no artboards).
+- Merge Down (⌘E; on a clipping base Merge Clipping Mask, on a group Merge Group, with several selected Merge Layers),
+  Merge Visible (⇧⌘E), Stamp Visible (⌥⇧⌘E) and Flatten Image, each one undo step: the layers are drawn together by the
+  compositor at full resolution (blend modes, masks, clipping, effects, adjustments), so the image stays the same
+  (`Strayta.Rendering.LayerMerger`; tests compare the composites pixel for pixel). Merge Down keeps the lower layer's name,
+  blend mode and opacity, as Photoshop does; hidden layers are dropped by Merge Layers and Flatten Image.
+- Panel conveniences: color labels (right-click a row; stored as `lclr`, shown behind the eye, a group's color on its
+  layers), a filter bar (kind, name, effect, mode, color, selected; with an on/off switch), and the panel menu (≡):
+  thumbnail size None / Small / Medium / Large, Collapse All Groups, Delete Hidden Layers, the merge commands. Layer ›
+  New › Layer… (⇧⌘N, or Option-click the new-layer button) asks for name, color, mode, opacity and clipping.
 - Layer masks on layers, groups and adjustment layers (Layer > Layer Mask, or the panel's mask button): click the
   mask thumbnail to paint in it (black hides, white reveals), Shift-click to disable it; Apply, Delete. Reveal
   Selection / Hide Selection (and the panel's button while something is selected) make the mask from the selection;
@@ -282,6 +304,8 @@ document).
 `STRAYTA_TOOLBENCH=new` times Gradient drags (two-color Classic and a seven-stop Perceptual one, plain and in Multiply;
 preview frame rate, release to edit), Paint Bucket clicks and Eyedropper samples on a generated 4000×3000 document.
 `STRAYTA_SETTINGS_DIR` keeps user presets (gradients, patterns) in another folder.
+`STRAYTA_SELFTEST_ONLY=layers` runs the layer workflow steps; `STRAYTA_LAYER_SAMPLES=dir` also writes a file with links,
+locks and color labels for checking in Photoshop.
 `STRAYTA_SELFTEST_ONLY=shapes` runs the shape and path steps (with SHAPEBENCH timings on 4000×3000); `STRAYTA_SHAPE_SAMPLES=dir`
 also writes shape files for checking in Photoshop.
 `STRAYTA_RETOUCHBENCH=new` measures Clone Stamp stroke frame rates and commit times (plain and transformed) and

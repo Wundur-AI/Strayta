@@ -86,15 +86,13 @@ public sealed partial class LayerItemViewModel : ObservableObject
 
     public bool IsSmartObject => Node.Tags.Contains("smart-object");
     public bool IsText => Node.Tags.Contains("text");
-    public bool IsLocked => Node is PixelLayer { TransparencyLocked: true };
+    /// <summary>The row's lock icon: any lock of the layer's own (LayerItemViewModel.Layers.cs has the individual locks).</summary>
+    public bool IsLocked => Node.HasAnyLock();
 
     public bool TransparencyLocked
     {
-        get => Node is PixelLayer { TransparencyLocked: true };
-        set
-        {
-            if (Node is PixelLayer p) Change("Lock", p.TransparencyLocked, value, (n, v) => ((PixelLayer)n).TransparencyLocked = v);
-        }
+        get => (Node.Locks & (LayerLocks.Transparency | LayerLocks.All)) != 0;
+        set => _document.SetLock(LayerLocks.Transparency, value);
     }
 
     public LayerNode Node { get; }
@@ -185,27 +183,38 @@ public sealed partial class LayerItemViewModel : ObservableObject
     public string Name
     {
         get => Node.Name;
-        set => Change(nameof(Name), Node.Name, value ?? "", (n, v) => n.Name = v);
+        set => Change(nameof(Name), Node.Name, value ?? "", (n, v) => n.Name = v, "Rename Layer");
     }
 
+    /// <summary>The eye: shows or hides just this layer, as clicking it does in Photoshop.</summary>
     public bool IsVisible
     {
         get => Node.Visible;
-        set => Change("Visibility", Node.Visible, value, (n, v) => n.Visible = v);
+        set => Change(value ? "Show" : "Hide", Node.Visible, value, (n, v) => n.Visible = v, value ? "Show Layer" : "Hide Layer");
     }
 
-    /// <summary>Opacity in percent, 0..100.</summary>
+    /// <summary>Opacity in percent, 0..100. With several layers selected, the primary's header sets all of them.</summary>
     public double Opacity
     {
         get => Math.Round(Node.Opacity * 100);
-        set => Change(nameof(Opacity), Node.Opacity, (float)Math.Clamp(value / 100, 0, 1), (n, v) => n.Opacity = v);
+        set
+        {
+            float v = (float)Math.Clamp(value / 100, 0, 1);
+            if (_document.ChangeSelectedLayers(Node, nameof(Opacity), "Master Opacity Change", n => n.Opacity, (n, o) => n.Opacity = o, v)) return;
+            Change(nameof(Opacity), Node.Opacity, v, (n, o) => n.Opacity = o, "Master Opacity Change");
+        }
     }
 
     /// <summary>Fill opacity in percent, 0..100.</summary>
     public double Fill
     {
         get => Math.Round(Node.FillOpacity * 100);
-        set => Change(nameof(Fill), Node.FillOpacity, (float)Math.Clamp(value / 100, 0, 1), (n, v) => n.FillOpacity = v);
+        set
+        {
+            float v = (float)Math.Clamp(value / 100, 0, 1);
+            if (_document.ChangeSelectedLayers(Node, nameof(Fill), "Fill Opacity Change", n => n.FillOpacity, (n, o) => n.FillOpacity = o, v, n => n is not LayerGroup)) return;
+            Change(nameof(Fill), Node.FillOpacity, v, (n, o) => n.FillOpacity = o, "Fill Opacity Change");
+        }
     }
 
     public BlendMode BlendMode
@@ -215,14 +224,16 @@ public sealed partial class LayerItemViewModel : ObservableObject
         {
             // Only modes this layer offers; anything else is a menu resetting while its list changes.
             if (!BlendModeChoices.Contains(value)) return;
-            Change("Blend Mode", Node.BlendMode, value, (n, v) => n.BlendMode = v);
+            if (_document.ChangeSelectedLayers(Node, "Blend Mode", "Blending Change", n => n.BlendMode, (n, m) => n.BlendMode = m, value,
+                    n => value != BlendMode.PassThrough || n is LayerGroup)) return;
+            Change("Blend Mode", Node.BlendMode, value, (n, v) => n.BlendMode = v, "Blending Change");
         }
     }
 
-    private void Change<T>(string property, T before, T after, Action<LayerNode, T> set)
+    private void Change<T>(string property, T before, T after, Action<LayerNode, T> set, string? description = null)
     {
         if (EqualityComparer<T>.Default.Equals(before, after)) return;
-        _document.Apply(new PropertyEdit<T>(Node, property, before, after, set));
+        _document.Apply(new PropertyEdit<T>(Node, property, before, after, set, description));
     }
 
     /// <summary>Re-reads every property from the model (after edits, undo or redo).</summary>

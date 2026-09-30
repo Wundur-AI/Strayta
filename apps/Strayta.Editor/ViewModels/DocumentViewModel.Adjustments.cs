@@ -52,6 +52,7 @@ public sealed partial class DocumentViewModel
     /// <summary>Replaces the Properties panel when the selection or target changes to something it cannot show.</summary>
     internal void UpdateProperties()
     {
+        if (UpdateMultiLayerProperties()) return; // several layers selected: Align and Distribute (LayersAlignPanel.cs)
         var node = SelectedLayer?.Node;
         if (Properties is { } current && current.Fits(node))
         {

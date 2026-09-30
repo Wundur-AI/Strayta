@@ -61,8 +61,7 @@
       <StackPanel Orientation="Horizontal" Spacing="16" VerticalAlignment="Center" IsVisible="{Binding !IsTransforming}">
         <TextBlock Text="{Binding ToolName}" FontWeight="SemiBold" VerticalAlignment="Center" MinWidth="52" />
 
-        <TextBlock Classes="label" Text="Drag to move the selected layer · Space or middle button pans · wheel zooms"
-                   IsVisible="{Binding IsMoveTool}" />
+        <v:MoveToolOptions /> <!-- Auto-Select, Show Transform Controls, Align and Distribute (EditorViewModel.Layers.cs) -->
         <TextBlock Classes="label" Text="Drag to pan · wheel zooms" IsVisible="{Binding IsHandTool}" />
         <TextBlock Classes="label" IsVisible="{Binding IsMarqueeTool}"
                    Text="Drag to select · Shift adds (or makes it square) · Option subtracts, or draws from the center · Shift+Option intersects · click to deselect" />

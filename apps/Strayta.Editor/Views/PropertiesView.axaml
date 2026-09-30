@@ -45,6 +45,20 @@
             </StackPanel>
           </DataTemplate>
 
+          <!-- Several selected layers: Align and Distribute (DocumentViewModel.LayerTransform.cs) -->
+          <DataTemplate DataType="vm:LayersAlignPanel">
+            <StackPanel Spacing="10">
+              <StackPanel Orientation="Horizontal" Spacing="7">
+                <Path Classes="icon small" Data="{StaticResource IconMove}" />
+                <TextBlock Classes="heading" Text="{Binding Title}" />
+              </StackPanel>
+              <TextBlock Classes="label" Text="Align and Distribute" />
+              <v:AlignButtons DataContext="{Binding Editor}" HorizontalAlignment="Left" />
+              <TextBlock Classes="muted" TextWrapping="Wrap" IsVisible="{Binding !CanDistribute}"
+                         Text="Align lines the layers up with their combined box. Distribute needs three or more layers." />
+            </StackPanel>
+          </DataTemplate>
+
           <!-- Pixel, type, shape and smart-object layers and groups: size and position, then the mask if any -->
           <DataTemplate DataType="vm:LayerPanel">
             <StackPanel Spacing="10">

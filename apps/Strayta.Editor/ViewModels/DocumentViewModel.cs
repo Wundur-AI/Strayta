@@ -87,6 +87,7 @@ public sealed partial class DocumentViewModel : Dock.Model.Mvvm.Controls.Documen
             }
         }
         Add(Layers);
+        if (FilteredRows() is { } filtered) rows = filtered; // the panel's filter bar (DocumentViewModel.LayerSelection.cs)
 
         // Update in place so the list keeps its scroll position and selection.
         for (int i = 0; i < rows.Count; i++)
@@ -235,6 +236,7 @@ public sealed partial class DocumentViewModel : Dock.Model.Mvvm.Controls.Documen
             LayerGroup => "Groups cannot be painted on. Select a layer inside the group.",
             AdjustmentLayer => "Adjustment layers have no pixels to paint on.",
             { Visible: false } => $"\"{SelectedLayer!.Node.Name}\" is hidden.",
+            var n when PixelLockProblem(n) is { } locked => locked, // DocumentViewModel.LayerCommands.cs
             var n when n.Tags.Contains("text") || n.Tags.Contains("smart-object") || n.Tags.Contains("fill") || n.Tags.Contains("shape")
                 => $"\"{n.Name}\" is a {Kind(n)} layer. These are drawn from their own data (text, shape or placed content), so painting on it would be lost. Rasterize it to paint on it, or paint on a new layer.",
             _ when Model.ColorMode is not (ColorMode.Rgb or ColorMode.Grayscale) => $"Painting in {Model.ColorMode} documents is not supported yet.",
@@ -333,13 +335,7 @@ public sealed partial class DocumentViewModel : Dock.Model.Mvvm.Controls.Documen
         Select(group);
     }
 
-    public void DuplicateSelected()
-    {
-        if (SelectedLayer?.Node is not { Parent: { } parent } node) return;
-        var copy = LayerFactory.Duplicate(node);
-        Apply(new InsertEdit(copy, parent, parent.IndexOf(node) + 1, "Duplicate Layer"));
-        Select(copy);
-    }
+    public void DuplicateSelected() => DuplicateSelectedLayers(); // every selected layer (DocumentViewModel.LayerCommands.cs)
 
     /// <summary>Moves <paramref name="node"/> to <paramref name="index"/> in <paramref name="parent"/> (drag and drop in the Layers panel).</summary>
     public void MoveLayer(LayerNode node, LayerGroup parent, int index)
@@ -356,10 +352,8 @@ public sealed partial class DocumentViewModel : Dock.Model.Mvvm.Controls.Documen
     private void Select(LayerNode node) =>
         SelectedLayer = Layers.SelectMany(l => l.SelfAndDescendants()).FirstOrDefault(i => i.Node == node);
 
-    public void MoveSelected(int dx, int dy)
-    {
-        if (SelectedLayer?.Node is { } node && node.Visible) Apply(new MoveEdit(node, dx, dy, Model.Width, Model.Height));
-    }
+    /// <summary>Moves the selected layers, and those linked to them (DocumentViewModel.LayerCommands.cs).</summary>
+    public void MoveSelected(int dx, int dy) => MoveSelectedLayers(dx, dy);
 
     /// <summary>Moves the selected layer one step up (+1) or down (-1) within its group.</summary>
     public void Restack(int direction)
@@ -370,10 +364,7 @@ public sealed partial class DocumentViewModel : Dock.Model.Mvvm.Controls.Documen
         Apply(new ReparentEdit(node, parent, index));
     }
 
-    public void DeleteSelected()
-    {
-        if (SelectedLayer?.Node is { Parent: not null } node) Apply(new DeleteEdit(node));
-    }
+    public void DeleteSelected() => DeleteSelectedLayers(); // every selected layer (DocumentViewModel.LayerCommands.cs)
 
     /// <summary>The canvas badge's "Show Strayta" button.</summary>
     public void ShowStraytaView() => Mode = ViewMode.Strayta;
@@ -397,7 +388,7 @@ public sealed partial class DocumentViewModel : Dock.Model.Mvvm.Controls.Documen
             case { ChangesStructure: true }:
                 RebuildLayers();
                 break;
-            case MoveEdit:
+            case MoveEdit or MultiMoveEdit:
                 break; // nothing the panels show changes while dragging
             case SelectionEdit or GuideEdit:
                 break; // only the canvas overlay changes

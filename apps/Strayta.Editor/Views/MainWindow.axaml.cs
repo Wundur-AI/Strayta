@@ -187,6 +187,7 @@ public partial class MainWindow : Window, IEditorDialogs
         AddPathMenus(menu, Item); // Window › Paths, ⌘Return, path keys (MainWindow.Paths.cs)
         AddChannelMenus(menu, Item); // Window › Channels, Save / Load Selection, Quick Mask, Image › Adjustments (MainWindow.Channels.cs)
         AddSmartObjectMenus(menu, Item); // MainWindow.SmartObjects.cs
+        AddLayersMenus(menu, Item); // several layers, locks, links, align, merge (MainWindow.Layers.cs)
         NativeMenu.SetMenu(this, menu);
         if (Environment.GetEnvironmentVariable("STRAYTA_ADJUSTBENCH") == "new")
             Opened += async (_, _) => await SelfTest.RunAdjustmentBenchmarkAsync(Editor); // SelfTest.Adjustments.cs

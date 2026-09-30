@@ -1,0 +1,25 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Strayta.Editor.ViewModels"
+             xmlns:c="using:Strayta.Editor.Controls"
+             x:Class="Strayta.Editor.Views.AlignButtons"
+             x:DataType="vm:EditorViewModel">
+  <!-- Align and Distribute (Layer › Align / Distribute): the Move tool's options bar and the Properties panel. -->
+  <WrapPanel Orientation="Horizontal" VerticalAlignment="Center">
+    <Button Classes="icon" Command="{Binding AlignLayersCommand}" CommandParameter="Left" ToolTip.Tip="Align left edges"><Path Classes="icon small" Data="{x:Static c:LayerIcons.AlignLeft}" /></Button>
+    <Button Classes="icon" Command="{Binding AlignLayersCommand}" CommandParameter="HorizontalCenter" ToolTip.Tip="Align horizontal centers"><Path Classes="icon small" Data="{x:Static c:LayerIcons.AlignHorizontalCenter}" /></Button>
+    <Button Classes="icon" Command="{Binding AlignLayersCommand}" CommandParameter="Right" ToolTip.Tip="Align right edges"><Path Classes="icon small" Data="{x:Static c:LayerIcons.AlignRight}" /></Button>
+    <Button Classes="icon" Command="{Binding AlignLayersCommand}" CommandParameter="Top" ToolTip.Tip="Align top edges"><Path Classes="icon small" Data="{x:Static c:LayerIcons.AlignTop}" /></Button>
+    <Button Classes="icon" Command="{Binding AlignLayersCommand}" CommandParameter="VerticalCenter" ToolTip.Tip="Align vertical centers"><Path Classes="icon small" Data="{x:Static c:LayerIcons.AlignVerticalCenter}" /></Button>
+    <Button Classes="icon" Command="{Binding AlignLayersCommand}" CommandParameter="Bottom" ToolTip.Tip="Align bottom edges"><Path Classes="icon small" Data="{x:Static c:LayerIcons.AlignBottom}" /></Button>
+    <Border Width="1" Height="16" Margin="6,0" Background="{DynamicResource St.Border}" />
+    <Button Classes="icon" Command="{Binding DistributeLayersCommand}" CommandParameter="Top" ToolTip.Tip="Distribute top edges (three or more layers)"><Path Classes="icon small" Data="{x:Static c:LayerIcons.DistributeTop}" /></Button>
+    <Button Classes="icon" Command="{Binding DistributeLayersCommand}" CommandParameter="VerticalCenter" ToolTip.Tip="Distribute vertical centers"><Path Classes="icon small" Data="{x:Static c:LayerIcons.DistributeVerticalCenter}" /></Button>
+    <Button Classes="icon" Command="{Binding DistributeLayersCommand}" CommandParameter="Bottom" ToolTip.Tip="Distribute bottom edges"><Path Classes="icon small" Data="{x:Static c:LayerIcons.DistributeBottom}" /></Button>
+    <Button Classes="icon" Command="{Binding DistributeLayersCommand}" CommandParameter="Left" ToolTip.Tip="Distribute left edges"><Path Classes="icon small" Data="{x:Static c:LayerIcons.DistributeLeft}" /></Button>
+    <Button Classes="icon" Command="{Binding DistributeLayersCommand}" CommandParameter="HorizontalCenter" ToolTip.Tip="Distribute horizontal centers"><Path Classes="icon small" Data="{x:Static c:LayerIcons.DistributeHorizontalCenter}" /></Button>
+    <Button Classes="icon" Command="{Binding DistributeLayersCommand}" CommandParameter="Right" ToolTip.Tip="Distribute right edges"><Path Classes="icon small" Data="{x:Static c:LayerIcons.DistributeRight}" /></Button>
+    <Button Classes="icon" Command="{Binding DistributeLayersCommand}" CommandParameter="VerticalSpacing" ToolTip.Tip="Distribute vertical spacing"><Path Classes="icon small" Data="{x:Static c:LayerIcons.DistributeVerticalSpacing}" /></Button>
+    <Button Classes="icon" Command="{Binding DistributeLayersCommand}" CommandParameter="HorizontalSpacing" ToolTip.Tip="Distribute horizontal spacing"><Path Classes="icon small" Data="{x:Static c:LayerIcons.DistributeHorizontalSpacing}" /></Button>
+  </WrapPanel>
+</UserControl>
