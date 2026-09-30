@@ -15,6 +15,7 @@ public sealed partial class DocumentViewModel
     public bool BeginHistoryBrushStroke(float x, float y)
     {
         if (_baking || IsTransforming || _stroke is not null) return false;
+        if (BlockedByChannelTarget("History Brush")) return false; // DocumentViewModel.Channels.cs
         if (EditMask && SelectedLayer?.Node?.GetMask() is not null)
         {
             Notice = "The History Brush paints a layer's pixels. Click the layer thumbnail to paint on the layer instead of its mask.";

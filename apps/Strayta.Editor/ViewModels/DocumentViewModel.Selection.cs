@@ -101,7 +101,7 @@ public sealed partial class DocumentViewModel
     {
         if (Selection is null)
         {
-            DeleteSelected();
+            if (ChannelPixelLayer() is null) DeleteSelected(); // with a channel targeted there is no layer to delete
             return;
         }
         if (EditableLayer("clear") is not { } layer) return;
@@ -194,7 +194,7 @@ public sealed partial class DocumentViewModel
         _baking = true;
         try
         {
-            var doc = Model;
+            var doc = EditDocumentFor(layer); // gray for a targeted channel (DocumentViewModel.Channels.cs)
             var (pixels, bounds) = await Task.Run(() => compute(doc));
             Apply(new PixelsEdit(layer, pixels, bounds, description));
         }
@@ -207,6 +207,12 @@ public sealed partial class DocumentViewModel
     /// <summary>The selected layer if its pixels can be edited; otherwise sets <see cref="Notice"/> and returns null.</summary>
     private PixelLayer? EditableLayer(string action, bool allowHidden = false)
     {
+        // A targeted channel is filled, cleared and stroked in gray (DocumentViewModel.Channels.cs).
+        if (action is "fill" or "clear" or "stroke" && ChannelPixelLayer() is { } channel)
+        {
+            Notice = "";
+            return channel;
+        }
         var node = SelectedLayer?.Node;
         string? problem = node switch
         {

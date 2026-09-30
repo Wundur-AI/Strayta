@@ -217,6 +217,18 @@ tag new ones with `[Trait("Category", "Performance")]`.
   the layer with eyes; Gaussian, Motion and Box Blur, Unsharp Mask, Add Noise and High Pass are drawn in order with
   their blend mode and opacity, double-click edits one, and the Filter menu on a smart object adds one. Other filters
   are kept and the layer keeps Photoshop's pixels (warning icon). Unedited smart objects save byte for byte.
+- Window › Channels: the composite and the color channels (Red / Green / Blue, or Gray) with eyes and thumbnails; ⌘2 composite,
+  ⌘3–⌘5 one channel alone in gray, Shift-click adds a channel (shown in color), and with only some channels targeted the brush,
+  fills, filters and Image › Adjustments (Brightness/Contrast, Levels, Exposure, Hue/Saturation, Invert, Posterize, Threshold,
+  Desaturate; applied as `AdjustmentFilter`) change only those channels of the selected layer. Saved selections (alpha channels)
+  and spot channels are read and written (PSD resources 1006/1045 names, 1053 IDs, 1077/1007 color, opacity, masked / selected
+  areas / spot; `PsdChannels`, unchanged files byte for byte, remapped by crops and Image Size) and listed below: Select › Save
+  Selection… (new, add, subtract, intersect) and Load Selection… (invert, operation), ⌘-click a row to load it, click to paint it in
+  gray with the brush, eraser, gradient, fills and filters, show it over the image as a colored overlay, duplicate, delete, Channel
+  Options (name, color, opacity, masked / selected areas), New Spot Channel (ink printed over the image as an approximation of
+  overprint). Q toggles Quick Mask mode (a red overlay edited with the same tools; Quick Mask Options). A targeted layer mask shows
+  as "&lt;Layer&gt; Mask"; its eye or \ shows it as a red overlay, Option-click on its thumbnail shows it alone. Everything is
+  undoable. `strayta-inspect channels` lists a file's channels.
 - Crop tool (C): a box around the whole canvas; drag its edges (Shift keeps the shape, Option from the center),
   drag inside to move the image under it, outside to turn it (the box shrinks so no empty corners appear), or use
   Straighten to draw a line to level. Ratio presets and W x H x Resolution (crops to exact pixels and sets the

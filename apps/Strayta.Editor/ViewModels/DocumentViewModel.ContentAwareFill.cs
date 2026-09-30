@@ -31,6 +31,7 @@ public sealed partial class DocumentViewModel
             return false;
         }
         if (_baking || _stroke is not null) return false;
+        if (BlockedByChannelTarget("Content-Aware Fill")) return false; // DocumentViewModel.Channels.cs
         PixelLayer? layer = settings.OutputToNewLayer ? null : EditableLayer("fill");
         if (!settings.OutputToNewLayer && layer is null) return false;
         if (settings.OutputToNewLayer && !settings.SampleAllLayers && SelectedLayer?.Node is not PixelLayer)

@@ -1,0 +1,97 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Strayta.Editor.ViewModels"
+             x:Class="Strayta.Editor.Views.ChannelsView"
+             x:DataType="vm:ChannelsToolViewModel"
+             Background="{DynamicResource St.Panel}"
+             FontSize="11">
+  <UserControl.Styles>
+    <Style Selector="ItemsControl#List Border.row">
+      <Setter Property="BorderBrush" Value="{DynamicResource St.RowLine}" />
+      <Setter Property="BorderThickness" Value="0,0,0,1" />
+      <Setter Property="Background" Value="Transparent" />
+    </Style>
+    <Style Selector="ItemsControl#List Border.row:pointerover">
+      <Setter Property="Background" Value="{DynamicResource St.Hover}" />
+    </Style>
+    <Style Selector="ItemsControl#List Border.row.target">
+      <Setter Property="Background" Value="{DynamicResource St.RowSelected}" />
+    </Style>
+    <Style Selector="Border.eye">
+      <Setter Property="Background" Value="{DynamicResource St.EyeCell}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource St.Border}" />
+      <Setter Property="BorderThickness" Value="0,0,1,0" />
+    </Style>
+    <Style Selector="Border.eye:pointerover">
+      <Setter Property="Background" Value="{DynamicResource St.EyeCellHover}" />
+    </Style>
+    <Style Selector="Border.thumb">
+      <Setter Property="BorderBrush" Value="{DynamicResource St.Border}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="Background" Value="{DynamicResource St.ThumbBackground}" />
+      <Setter Property="Width" Value="42" />
+      <Setter Property="Height" Value="32" />
+    </Style>
+  </UserControl.Styles>
+  <Panel>
+    <TextBlock Classes="muted" Text="Open a document to see its channels" IsVisible="{Binding !HasDocument}"
+               HorizontalAlignment="Center" VerticalAlignment="Center" />
+    <DockPanel IsVisible="{Binding HasDocument}">
+      <!-- Footer: load, save, new and delete, as in Photoshop's Channels panel -->
+      <Border DockPanel.Dock="Bottom" Padding="6,3" BorderBrush="{DynamicResource St.Border}" BorderThickness="0,1,0,0">
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="2">
+          <Button Classes="icon" Command="{Binding Editor.LoadChannelAsSelectionCommand}" ToolTip.Tip="Load channel as selection (⌘-click a channel)">
+            <Path Classes="icon small" Data="{StaticResource IconPathToSelection}" />
+          </Button>
+          <Button Classes="icon" Command="{Binding Editor.SaveSelectionAsChannelCommand}" ToolTip.Tip="Save selection as channel">
+            <Path Classes="icon small" Data="{StaticResource IconMask}" />
+          </Button>
+          <Button Classes="icon" Command="{Binding Editor.NewChannelCommand}" ToolTip.Tip="Create new channel">
+            <Path Classes="icon small" Data="{StaticResource IconNewLayer}" />
+          </Button>
+          <Button Classes="icon" Command="{Binding Editor.DeleteChannelCommand}" ToolTip.Tip="Delete current channel">
+            <Path Classes="icon small" Data="{StaticResource IconTrash}" />
+          </Button>
+          <Button Classes="icon" ToolTip.Tip="Channels panel menu">
+            <TextBlock Text="≡" FontSize="13" />
+            <Button.Flyout>
+              <MenuFlyout Placement="TopEdgeAlignedRight">
+                <MenuItem Header="New Channel…" Command="{Binding Editor.NewChannelWithOptionsCommand}" />
+                <MenuItem Header="Duplicate Channel…" Command="{Binding Editor.DuplicateChannelCommand}" />
+                <MenuItem Header="Delete Channel" Command="{Binding Editor.DeleteChannelCommand}" />
+                <Separator />
+                <MenuItem Header="New Spot Channel…" Command="{Binding Editor.NewSpotChannelCommand}" />
+                <Separator />
+                <MenuItem Header="Channel Options…" Command="{Binding Editor.EditChannelOptionsCommand}" />
+                <MenuItem Header="Quick Mask Options…" Command="{Binding Editor.EditQuickMaskOptionsCommand}" />
+              </MenuFlyout>
+            </Button.Flyout>
+          </Button>
+        </StackPanel>
+      </Border>
+      <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+        <ItemsControl x:Name="List" ItemsSource="{Binding Rows}">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="vm:ChannelRow">
+              <Border Classes="row" Classes.target="{Binding IsTargeted}" PointerPressed="OnRowPressed" DoubleTapped="OnRowDoubleTapped">
+                <Grid ColumnDefinitions="30,Auto,*,Auto" Height="38">
+                  <Border Classes="eye" PointerPressed="OnEyePressed" ToolTip.Tip="Show or hide">
+                    <Path Classes="icon small" Data="{StaticResource IconEye}" Opacity="{Binding EyeOpacity}"
+                          HorizontalAlignment="Center" VerticalAlignment="Center" />
+                  </Border>
+                  <Border Grid.Column="1" Classes="thumb" Margin="6,0,0,0" VerticalAlignment="Center"
+                          ToolTip.Tip="⌘-click to load as a selection">
+                    <Image Source="{Binding Thumbnail}" Stretch="Uniform" />
+                  </Border>
+                  <TextBlock Grid.Column="2" Margin="8,0,0,0" Text="{Binding Name}" FontStyle="{Binding Style}" VerticalAlignment="Center"
+                             TextTrimming="CharacterEllipsis" />
+                  <TextBlock Grid.Column="3" Classes="muted" Margin="4,0,8,0" Text="{Binding Shortcut}" VerticalAlignment="Center" />
+                </Grid>
+              </Border>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </ScrollViewer>
+    </DockPanel>
+  </Panel>
+</UserControl>

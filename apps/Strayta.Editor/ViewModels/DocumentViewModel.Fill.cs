@@ -25,6 +25,7 @@ public sealed partial class DocumentViewModel
     public async Task PaintBucketAsync(int x, int y)
     {
         if (_baking || IsTransforming || x < 0 || y < 0 || x >= Model.Width || y >= Model.Height) return;
+        if (BlockedByChannelTarget("Paint Bucket")) return; // DocumentViewModel.Channels.cs
         if (EditMask && SelectedLayer?.Node.GetMask() is not null)
         {
             Notice = "The Paint Bucket fills layer pixels. Click the layer thumbnail to target them, or use the Gradient or Brush on the mask.";
@@ -79,10 +80,11 @@ public sealed partial class DocumentViewModel
     {
         if (_baking || IsTransforming || _gradient is not null) return false;
         LayerNode owner;
-        bool mask = EditMask && SelectedLayer?.Node is { } n && n.GetMask() is not null;
+        var channel = ChannelMaskOwner(); // a targeted channel is painted as a mask (DocumentViewModel.Channels.cs)
+        bool mask = channel is not null || EditMask && SelectedLayer?.Node is { } n && n.GetMask() is not null;
         if (mask)
         {
-            owner = SelectedLayer!.Node;
+            owner = channel ?? SelectedLayer!.Node;
             string? problem = owner.Visible ? null : $"\"{owner.Name}\" is hidden.";
             if (Model.ColorMode is not (ColorMode.Rgb or ColorMode.Grayscale)) problem = $"Painting in {Model.ColorMode} documents is not supported yet.";
             if (problem is not null)

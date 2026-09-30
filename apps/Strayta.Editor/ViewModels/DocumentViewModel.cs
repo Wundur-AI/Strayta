@@ -56,6 +56,7 @@ public sealed partial class DocumentViewModel : Dock.Model.Mvvm.Controls.Documen
         RebuildLayers();
         WarmPreviews();
         InitHistoryStates(); // snapshots, history-state limit, History Brush (DocumentViewModel.HistoryStates.cs)
+        InitChannels(); // the Channels panel's eyes and target (DocumentViewModel.Channels.cs)
         _ = CheckFontsAsync(); // missing fonts of type layers (DocumentViewModel.Text.cs)
     }
 
@@ -168,6 +169,7 @@ public sealed partial class DocumentViewModel : Dock.Model.Mvvm.Controls.Documen
     public void Apply(IEdit edit)
     {
         if (TypeSession is not null && !_typeCommitting) CommitType(); // any other edit commits the typing first
+        edit = RouteChannelEdit(edit); // a targeted channel takes the edit (DocumentViewModel.Channels.cs)
         _undo.Push(edit);
         AfterChange(edit);
     }
@@ -211,6 +213,7 @@ public sealed partial class DocumentViewModel : Dock.Model.Mvvm.Controls.Documen
     public bool BeginStroke(float x, float y, BrushSettings brush, RgbColor color, bool erase)
     {
         if (_baking) return false;
+        if (ChannelMaskOwner() is { } channel) return BeginMaskStroke(channel, x, y, brush, color, erase); // a targeted channel (DocumentViewModel.Channels.cs)
         if (EditMask && SelectedLayer?.Node is { } maskOwner && maskOwner.GetMask() is not null)
             return BeginMaskStroke(maskOwner, x, y, brush, color, erase); // see DocumentViewModel.Masks.cs
         if (PaintableLayer() is not { } target) return false;
@@ -500,6 +503,7 @@ public sealed partial class DocumentViewModel : Dock.Model.Mvvm.Controls.Documen
                 var proxy = _preview.Sync();
                 var overlay = _preview.MapStroke(_stroke);
                 var transform = PrepareOverlays(_preview, full: false); // Free Transform, Gradient
+                var channelView = PrepareChannelView(factor); // the Channels panel's view (DocumentViewModel.Channels.cs)
                 double syncMs = sw.Elapsed.TotalMilliseconds;
                 var (rgba, warnings, renderMs, convertMs) = await Task.Run(() =>
                 {
@@ -508,6 +512,7 @@ public sealed partial class DocumentViewModel : Dock.Model.Mvvm.Controls.Documen
                     var r = _previewRenderer.Render(proxy, new RenderOptions { ActiveStroke = overlay });
                     double render = t.Elapsed.TotalMilliseconds;
                     var px = r.ToRgba8();
+                    channelView?.Invoke(px, proxy.Width, proxy.Height, CancellationToken.None);
                     return (px, r.Warnings, render, t.Elapsed.TotalMilliseconds - render);
                 });
                 double beforeShow = sw.Elapsed.TotalMilliseconds;
@@ -550,6 +555,7 @@ public sealed partial class DocumentViewModel : Dock.Model.Mvvm.Controls.Documen
             var snapshot = _snapshot.Sync();
             var strokeOverlay = _snapshot.MapStroke(_stroke);
             var transform = PrepareOverlays(_snapshot, full: true);
+            var channelView = PrepareChannelView(1);
             var reference = _reference;
             bool untouched = !_undo.CanUndo && !_undo.CanRedo;
             var sw = Stopwatch.StartNew();
@@ -562,7 +568,7 @@ public sealed partial class DocumentViewModel : Dock.Model.Mvvm.Controls.Documen
             busyTimer.Start();
             busyStop = busyTimer.Stop;
 
-            var (rgba, warnings, report) = await Task.Run(() =>
+            var (rgba, shown, warnings, report) = await Task.Run(() =>
             {
                 transform?.Invoke(cancel);
                 var result = _renderer.Render(snapshot, new RenderOptions { Cancellation = cancel, ActiveStroke = strokeOverlay });
@@ -570,13 +576,19 @@ public sealed partial class DocumentViewModel : Dock.Model.Mvvm.Controls.Documen
                 var fid = reference is null || !untouched
                     ? null
                     : FidelityReport.Compare(pixels, reference, doc.Width, doc.Height, flattenOverWhite: doc.Composite!.Alpha is null, includeDiff: false);
-                return (pixels, result.Warnings, fid);
+                byte[]? view = null;
+                if (channelView is not null)
+                {
+                    view = (byte[])pixels.Clone();
+                    channelView(view, doc.Width, doc.Height, cancel);
+                }
+                return (pixels, view ?? pixels, result.Warnings, fid);
             }, cancel);
 
             if (cancel.IsCancellationRequested || version != _modelVersion) return;
             _lastRender = rgba;
             _lastRenderVersion = version; // lets the selection tools reuse this render
-            Show(rgba, doc.Width, doc.Height, warnings, version, full: true);
+            Show(shown, doc.Width, doc.Height, warnings, version, full: true);
             string against = Model.SourceData is PsdFile { CompositeIsFromPhotoshop: true } ? "the stored image" : "the stored image (written by Strayta)";
             RenderInfo = report is not null
                 ? $"{report.MatchPercent:F2}% match with {against} · {sw.ElapsedMilliseconds} ms"

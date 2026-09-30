@@ -185,6 +185,7 @@ public partial class MainWindow : Window, IEditorDialogs
         AddTypeMenus(menu, Item); // MainWindow.Type.cs
         AddGuideMenus(menu, Item); // rulers, guides, grid, snapping, Info (MainWindow.Guides.cs)
         AddPathMenus(menu, Item); // Window › Paths, ⌘Return, path keys (MainWindow.Paths.cs)
+        AddChannelMenus(menu, Item); // Window › Channels, Save / Load Selection, Quick Mask, Image › Adjustments (MainWindow.Channels.cs)
         AddSmartObjectMenus(menu, Item); // MainWindow.SmartObjects.cs
         NativeMenu.SetMenu(this, menu);
         if (Environment.GetEnvironmentVariable("STRAYTA_ADJUSTBENCH") == "new")

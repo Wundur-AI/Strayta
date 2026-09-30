@@ -15,6 +15,7 @@ return args switch
     ["roundtrip", var target, "--keep", var dir] => RoundTrip(target, dir),
     ["text", var path] => TextCommands.Dump(path),
     ["smart", var target] => SmartCommands.Dump(target),
+    ["channels", var target] => ChannelCommands.Dump(target),
     ["smartx", var path, var dir] => SmartCommands.Extract(path, dir),
     ["smartfid", var target] => SmartCommands.Fidelity(target, null),
     ["smartfid", var target, "--export", var dir] => SmartCommands.Fidelity(target, dir),
@@ -38,6 +39,7 @@ static int Usage()
           strayta-inspect bench <file>                        time full renders and cached layer toggles
           strayta-inspect roundtrip <file|dir> [--keep dir]   read, save, re-read and compare everything
           strayta-inspect adjustsamples <dir>                 write one PSD per adjustment kind for checking in Photoshop
+          strayta-inspect channels <file|dir>                 saved selections and spot channels (names, kinds, colors)
           strayta-inspect smart <file|dir>                    dump smart objects' placed-layer data and embedded files
           strayta-inspect smartfid <file|dir> [--export d]    redraw smart objects from their content, compare with Photoshop's pixels
           strayta-inspect text <file.psd>                     print the type layers' text model

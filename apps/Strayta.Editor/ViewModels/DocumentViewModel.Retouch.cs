@@ -111,6 +111,7 @@ public sealed partial class DocumentViewModel
     {
         if (_baking || IsTransforming || _stroke is not null) return false;
         var tool = Editor.Tool;
+        if (BlockedByChannelTarget(tool == CanvasTool.CloneStamp ? "Clone Stamp" : "healing brush")) return false; // DocumentViewModel.Channels.cs
         LayerNode owner;
         bool mask = EditMask && SelectedLayer?.Node is { } n && n.GetMask() is not null;
         if (mask)
