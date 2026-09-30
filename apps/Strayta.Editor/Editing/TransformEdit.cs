@@ -15,10 +15,14 @@ public sealed class TransformEdit : IEdit
 
     private readonly List<(LayerNode Node, State Before, State After)> _changes;
 
-    public TransformEdit(IEnumerable<(LayerNode Node, State After)> changes) =>
+    public TransformEdit(IEnumerable<(LayerNode Node, State After)> changes, string description = "Free Transform")
+    {
         _changes = changes.Select(c => (c.Node, Read(c.Node), c.After)).ToList();
+        Description = description;
+    }
 
-    public string Description => "Free Transform";
+    /// <summary>"Free Transform", "Warp", "Distort", "Rotate 180°", "Puppet Warp", "Liquify", ...</summary>
+    public string Description { get; }
     public bool ChangesStructure => false;
 
     public void Do()

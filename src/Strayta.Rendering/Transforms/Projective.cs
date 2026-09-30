@@ -45,6 +45,13 @@ public readonly record struct Projective(double M11, double M12, double M13, dou
         next.M21 * M11 + next.M22 * M21 + next.M23 * M31, next.M21 * M12 + next.M22 * M22 + next.M23 * M32, next.M21 * M13 + next.M22 * M23 + next.M23 * M33,
         next.M31 * M11 + next.M32 * M21 + next.M33 * M31, next.M31 * M12 + next.M32 * M22 + next.M33 * M32, next.M31 * M13 + next.M32 * M23 + next.M33 * M33);
 
+    /// <summary>The same map in a space scaled down by <paramref name="factor"/> (a preview's pixels).</summary>
+    public Projective Rescaled(int factor) => factor == 1 ? this
+        : new Projective(factor, 0, 0, 0, factor, 0, 0, 0, 1).Then(this).Then(new Projective(1.0 / factor, 0, 0, 0, 1.0 / factor, 0, 0, 0, 1));
+
+    /// <summary>A translation by (<paramref name="dx"/>, <paramref name="dy"/>).</summary>
+    public static Projective Translation(double dx, double dy) => new(1, 0, dx, 0, 1, dy, 0, 0, 1);
+
     public Projective Invert()
     {
         double c11 = M22 * M33 - M23 * M32, c12 = M13 * M32 - M12 * M33, c13 = M12 * M23 - M13 * M22;
@@ -121,7 +128,14 @@ public static class ProjectiveResampler
         PixelRect? clip = null, CancellationToken cancel = default)
     {
         if (map.IsAffine) return Resampler.TransformRaster(raster, bounds, map.ToAffine(), filter, clip, cancel);
-        var source = ResampleSource.FromRaster(raster);
+        return TransformRaster(ResampleSource.FromRaster(raster), bounds, map, filter, clip, cancel);
+    }
+
+    /// <inheritdoc cref="TransformRaster(Raster, PixelRect, Projective, ResampleFilter, PixelRect?, CancellationToken)"/>
+    public static (Raster? Pixels, PixelRect Bounds) TransformRaster(ResampleSource source, PixelRect bounds, Projective map, ResampleFilter filter,
+        PixelRect? clip = null, CancellationToken cancel = default)
+    {
+        if (map.IsAffine) return Resampler.TransformRaster(source, bounds, map.ToAffine(), filter, clip, cancel);
         var target = TransformBounds(bounds, map);
         if (clip is { } c) target = target.Intersect(c);
         if (target.IsEmpty) return (null, PixelRect.Empty);
@@ -207,6 +221,11 @@ public static class ProjectiveResampler
                 if (cov <= 0 || hw <= 0) continue;
 
                 double fx = Math.Max(1, stepX), fy = Math.Max(1, stepY);
+                if (fx == 1 && fy == 1)
+                {
+                    buf.Weights[x] = PointSampler.Unscaled(src, sx, sy, cubic, buf.Sums.AsSpan(x * ch, ch));
+                    continue;
+                }
                 double rx = support * fx, ry = support * fy;
                 int x0 = (int)Math.Ceiling(sx - rx - 0.5), x1 = (int)Math.Floor(sx + rx - 0.5);
                 int y0 = (int)Math.Ceiling(sy - ry - 0.5), y1 = (int)Math.Floor(sy + ry - 0.5);

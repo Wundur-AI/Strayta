@@ -21,7 +21,7 @@ namespace Strayta.Editor.Editing;
 /// <item>Solid color fill layers ('SoCo') without a vector mask are filled again, covering the canvas they
 /// covered before.</item>
 /// <item>Type is drawn again by the text engine through its new transform (sharp at any scale, as Photoshop redraws
-/// it) when every font it uses is installed and it is neither warped nor vertical; otherwise the resampled pixels
+/// it) when every font it uses is installed and it is not vertical (warped type is bent again, TextWarp.cs); otherwise the resampled pixels
 /// stand in.</item>
 /// <item>Shapes (fills with a vector mask) are drawn again from their moved outline, fill and stroke
 /// (<see cref="ShapeRenderer"/>). Gradient and pattern fills without an outline keep the resampled pixels; Photoshop
@@ -67,8 +67,12 @@ internal static class LiveContent
 
     private static (Raster?, PixelRect)? RedrawType(PsdLayerRecord record, Document doc)
     {
-        if (Psd.Text.PsdTypeLayer.Read(record) is not { Warp: null, Orientation: Core.Text.TextOrientation.Horizontal } data) return null;
+        if (Psd.Text.PsdTypeLayer.Read(record) is not { Orientation: Core.Text.TextOrientation.Horizontal } data) return null;
         if (data.FontsUsed.Any(f => !Text.FontCatalog.System.Contains(f))) return null;
+        // Warped type is bent again by Strayta once it has changed it (Warp Text, TextWarp.cs); a warp from Photoshop keeps
+        // Photoshop's resampled pixels, which match its own drawing better than Strayta's approximation of the styles.
+        if (data.Warp is not null)
+            return record.FindBlock("TySh")?.Data is { } tySh && Psd.Text.PsdTypeLayer.IsRegenerated(tySh) ? TextWarp.Render(record, data, doc) : null;
         var render = Text.TextRenderer.Render(data, new Text.TextRenderOptions { ColorMode = doc.ColorMode, BitDepth = doc.BitDepth });
         return (render.Pixels, render.Pixels is null ? PixelRect.Empty : render.Bounds);
     }

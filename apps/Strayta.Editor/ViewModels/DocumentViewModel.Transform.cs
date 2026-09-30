@@ -8,14 +8,18 @@ using Strayta.Rendering.Transforms;
 
 namespace Strayta.Editor.ViewModels;
 
-// Free Transform (⌘T): while a transform is open the render lanes draw the target layers through a
-// TransformPreview (bilinear at preview resolution while dragging, bicubic at full resolution once idle);
-// nothing in the document changes until the transform is committed as one undoable edit.
+// Free Transform (⌘T) and Edit › Transform: while a transform is open the render lanes draw the target layers through a
+// TransformPreview (affine: scale, rotate, skew) or a DeformPreview (distort, perspective, warp), bilinear at preview
+// resolution while dragging and bicubic at full resolution once idle; nothing in the document changes until the
+// transform is committed as one undoable edit.
 public sealed partial class DocumentViewModel
 {
     private TransformPreview? _transformPreview;
+    private DeformPreview? _deformPreview;
+    private int _deformVersion;
     private IReadOnlyList<LayerNode> _transformTargets = [];
     private LayerNode? _transformNode;
+    private string? _transformDescription;
 
     /// <summary>The open Free Transform, or null.</summary>
     [ObservableProperty]
@@ -23,6 +27,9 @@ public sealed partial class DocumentViewModel
     public partial FreeTransform? FreeTransform { get; private set; }
 
     public bool IsTransforming => FreeTransform is not null;
+
+    /// <summary>Layers whose live data cannot follow a perspective or warp (type, shapes, fills, vector masks).</summary>
+    private static bool NeedsRasterizing(LayerNode n) => RasterizeEdit.CanRasterize(n) && !n.Tags.Contains("smart-object");
 
     /// <summary>Starts Free Transform on the selected layer or group; returns false (with a notice) if it cannot be transformed.</summary>
     public bool BeginFreeTransform()
@@ -51,8 +58,10 @@ public sealed partial class DocumentViewModel
         PaintBlock = null;
         _transformTargets = targets;
         _transformNode = node;
+        _transformDescription = null;
         _transformPreview = new TransformPreview(targets);
-        var transform = new FreeTransform(box);
+        _deformPreview = new DeformPreview(targets);
+        var transform = new FreeTransform(box) { AllowsPerspective = !targets.Any(NeedsRasterizing) };
         transform.Changed += OnTransformChanged;
         FreeTransform = transform;
         PropertyChanged += CommitOnSelectionChange;
@@ -61,9 +70,42 @@ public sealed partial class DocumentViewModel
 
     private void OnTransformChanged()
     {
-        if (_transformPreview is null || FreeTransform is null) return;
-        _transformPreview.Matrix = FreeTransform.Matrix;
+        if (_transformPreview is null || _deformPreview is null || FreeTransform is not { } ft) return;
+        if (ft.ContentAware)
+        {
+            UpdateContentAwareTarget(ft); // DocumentViewModel.ContentAwareScale.cs
+            RequestRender();
+            return;
+        }
+        if (ft.HasWarp || !ft.IsAffine)
+        {
+            try
+            {
+                _deformPreview.Current = CurrentDeform(ft);
+            }
+            catch (Exception e) when (e is ArgumentException or InvalidOperationException)
+            {
+                return; // a degenerate box in the middle of a drag: keep the last preview
+            }
+        }
+        else
+        {
+            _deformPreview.Current = null;
+            _transformPreview.Matrix = ft.AffineMap;
+        }
         RequestRender();
+    }
+
+    /// <summary>The transform as a document-space deform for previews and commits (distort, perspective, warp).</summary>
+    private Deform CurrentDeform(FreeTransform ft)
+    {
+        int version = Interlocked.Increment(ref _deformVersion);
+        if (!ft.HasWarp) return new Deform(version, ft.Map, null);
+        var warp = ft.Warp!;
+        if (LiveWarpDeform(version, ft, warp) is { } live) return live; // smart objects and type (DocumentViewModel.Warp.cs)
+        var box = ft.Original;
+        var docMesh = warp.DocumentMesh(Projective.Translation(box.Left, box.Top).Then(ft.Map));
+        return new Deform(version, null, (x, y) => docMesh.Map(x - box.Left, y - box.Top));
     }
 
     /// <summary>Choosing another layer applies the open transform first, as Photoshop does.</summary>
@@ -72,6 +114,17 @@ public sealed partial class DocumentViewModel
         // Rebuilding the Layers panel re-selects the same layer through a new row; that is not a new choice.
         if (e.PropertyName == nameof(SelectedLayer) && IsTransforming && SelectedLayer?.Node != _transformNode) _ = CommitTransformAsync();
     }
+
+    /// <summary>What the history calls the committed transform.</summary>
+    private string TransformDescription(FreeTransform t) => _transformDescription ?? (t.HasWarp ? "Warp" : t.Mode switch
+    {
+        TransformMode.Scale => "Scale",
+        TransformMode.Rotate => "Rotate",
+        TransformMode.Skew => "Skew",
+        TransformMode.Distort => "Distort",
+        TransformMode.Perspective => "Perspective",
+        _ => "Free Transform",
+    });
 
     /// <summary>
     /// Applies the transform at full quality (bicubic, with area filtering for reductions) and records it as
@@ -85,8 +138,13 @@ public sealed partial class DocumentViewModel
             EndTransform();
             return;
         }
+        if (transform.ContentAware)
+        {
+            await CommitContentAwareScaleAsync(transform);
+            return;
+        }
         transform.Locked = true;
-        var matrix = transform.Matrix;
+        string description = TransformDescription(transform);
         var inputs = _transformTargets.Select(n => (Node: n, State: TransformEdit.Read(n))).ToList();
         // Photoshop keeps pixels pushed off the canvas; keep a canvas-sized margin all round so a huge enlargement
         // cannot exhaust memory.
@@ -94,28 +152,98 @@ public sealed partial class DocumentViewModel
         var doc = Model;
         try
         {
-            var results = await Task.Run(() => inputs.Select(i =>
+            List<(LayerNode, TransformEdit.State)> results;
+            if (!transform.HasWarp && transform.IsAffine)
             {
-                var s = i.State;
-                var (pixels, bounds) = i.Node is PixelLayer && s.Pixels is not null
-                    ? Resampler.TransformRaster(s.Pixels, s.Bounds, matrix, ResampleFilter.Bicubic, clip)
-                    : (s.Pixels, s.Bounds);
-                var mask = Resampler.TransformMask(s.Mask, matrix, ResampleFilter.Bicubic);
-                // Type, smart objects, shapes and fills stay live: their data follows (LiveContent.cs).
-                var source = TransformedSource(s.Source, matrix, doc);
-                if (i.Node is PixelLayer layer && s.Pixels is not null && LiveContent.IsLive(layer) && source is Psd.PsdLayerRecord record
-                    && LiveContent.Redraw(layer, record, doc.SourceData as Psd.PsdFile, doc, s.Bounds, doc.Bounds, doc.Bounds, matrix) is { } redrawn)
-                    (pixels, bounds) = redrawn;
-                return (i.Node, new TransformEdit.State(pixels, pixels is null ? PixelRect.Empty : bounds, mask, source));
-            }).ToList());
+                var matrix = transform.AffineMap;
+                results = await Task.Run(() => inputs.Select(i => (i.Node, AffineResult(i.Node, i.State, matrix, clip, doc))).ToList());
+            }
+            else
+            {
+                // The preview's deform is the current state; its full-resolution results are taken as they are when ready.
+                var deform = _deformPreview?.Current ?? CurrentDeform(transform);
+                var map = transform.Map;
+                var warped = transform.HasWarp ? WarpCommit(transform) : null;
+                var ready = inputs.Where(i => i.State.Pixels is not null && !i.Node.Tags.Contains("smart-object"))
+                    .Select(i => (i.Node, Result: _deformPreview?.FullResult(i.Node, i.State.Pixels!, i.State.Bounds, deform.Version)))
+                    .Where(r => r.Result is not null).ToDictionary(r => r.Node, r => r.Result!.Value);
+                results = await Task.Run(() => inputs.Select(i => (i.Node, DeformResult(i.Node, i.State, deform, map, warped, clip, doc,
+                    ready.TryGetValue(i.Node, out var r) ? r : null))).ToList());
+            }
             EndTransform();
-            Apply(new TransformEdit(results));
+            Apply(new TransformEdit(results, description));
         }
         catch (Exception ex)
         {
             transform.Locked = false;
             Notice = $"Could not apply the transform: {ex.Message}";
         }
+    }
+
+    /// <summary>One layer through an affine transform: resampled, its live content moved and redrawn.</summary>
+    private static TransformEdit.State AffineResult(LayerNode node, TransformEdit.State s, Affine matrix, PixelRect clip, Document doc)
+    {
+        var (pixels, bounds) = node is PixelLayer && s.Pixels is not null
+            ? Resampler.TransformRaster(s.Pixels, s.Bounds, matrix, ResampleFilter.Bicubic, clip)
+            : (s.Pixels, s.Bounds);
+        var mask = Resampler.TransformMask(s.Mask, matrix, ResampleFilter.Bicubic);
+        // Type, smart objects, shapes and fills stay live: their data follows (LiveContent.cs).
+        var source = TransformedSource(s.Source, matrix, doc);
+        if (node is PixelLayer layer && s.Pixels is not null && LiveContent.IsLive(layer) && source is Psd.PsdLayerRecord record
+            && LiveContent.Redraw(layer, record, doc.SourceData as Psd.PsdFile, doc, s.Bounds, doc.Bounds, doc.Bounds, matrix) is { } redrawn)
+            (pixels, bounds) = redrawn;
+        return new TransformEdit.State(pixels, pixels is null ? PixelRect.Empty : bounds, mask, source);
+    }
+
+    /// <summary>
+    /// One layer through a distort, perspective or warp. Smart objects keep their content: their corners (and warp) are
+    /// rewritten and they are drawn again from it; other layers are resampled. Data that cannot take a perspective
+    /// (paths, guides) follows the map's best affine fit at the box's center.
+    /// </summary>
+    private static TransformEdit.State DeformResult(LayerNode node, TransformEdit.State s, Deform deform, Projective map, WarpCommitInfo? warp,
+        PixelRect clip, Document doc, (Raster? Pixels, PixelRect Bounds)? ready = null)
+    {
+        var (cx, cy) = (s.Bounds.Left + s.Bounds.Width / 2.0, s.Bounds.Top + s.Bounds.Height / 2.0);
+        var near = map.Linearize(cx, cy);
+        if (warp is { TypeSpec: { } typeSpec, Layer: var typeLayer } && typeLayer == node && WarpedTypeResult(s, near, typeSpec, doc) is { } typed)
+            return typed;
+        object? source = TransformedSource(s.Source, near, doc);
+        (Raster? Pixels, PixelRect Bounds) result = (s.Pixels, s.Bounds);
+        bool done = false;
+        if (node is PixelLayer layer && s.Pixels is not null && layer.Tags.Contains("smart-object") && s.Source is Psd.PsdLayerRecord original
+            && Psd.PsdLiveContent.ReadSmartObject(original) is { } so)
+        {
+            var corners = warp is { Layer: var l } w && l == node ? w.Corners : so.Corners.Select(c => map.Apply(c.X, c.Y)).ToArray();
+            var spec = warp is { Layer: var l2 } w2 && l2 == node ? w2.Spec : null;
+            if (SmartObjectTransform.WithPlacement(original, corners, spec) is { } moved)
+            {
+                source = moved;
+                if (doc.SourceData is Psd.PsdFile file && LiveContent.Redraw(layer, moved, file, doc, s.Bounds, doc.Bounds, doc.Bounds, near) is { } redrawn)
+                {
+                    result = redrawn;
+                    done = true;
+                }
+            }
+        }
+        if (!done && ready is { } taken)
+        {
+            result = taken;
+            done = true;
+        }
+        if (!done && node is PixelLayer && s.Pixels is not null)
+        {
+            var src = ResampleSource.FromRaster(s.Pixels);
+            var b = s.Bounds;
+            result = deform.Map is { } m
+                ? MeshResampler.TransformRaster(src, (u, v) => m(b.Left + u, b.Top + v), ResampleFilter.Bicubic, clip)
+                : deform.Perspective is { } p ? ProjectiveResampler.TransformRaster(src, b, p, ResampleFilter.Bicubic, clip)
+                : deform.Contents?.GetValueOrDefault(node) is { } c ? MeshResampler.TransformRaster(c.Content, c.Map, ResampleFilter.Bicubic, clip)
+                : result;
+        }
+        var mask = deform.Map is { } dm ? MeshResampler.TransformMask(s.Mask, dm, ResampleFilter.Bicubic)
+            : deform.Perspective is { } dp ? ProjectiveResampler.TransformMask(s.Mask, dp, ResampleFilter.Bicubic)
+            : s.Mask;
+        return new TransformEdit.State(result.Pixels, result.Pixels is null ? PixelRect.Empty : result.Bounds, mask, source);
     }
 
     /// <summary>A layer's file data with its live content (vector outlines, type, smart object corners) moved by <paramref name="m"/>.</summary>
@@ -140,20 +268,35 @@ public sealed partial class DocumentViewModel
 
     private void EndTransform()
     {
-        if (FreeTransform is { } t) t.Changed -= OnTransformChanged;
+        if (FreeTransform is { } t)
+        {
+            t.Changed -= OnTransformChanged;
+            if (t.Warp is { } w) w.Changed -= t.RaiseChanged;
+        }
         PropertyChanged -= CommitOnSelectionChange;
         FreeTransform = null;
         _transformPreview = null;
+        _deformPreview = null;
         _transformTargets = [];
         _transformNode = null;
+        _warpSmartObject = null;
+        _warpType = null;
+        _casPreview = null;
+        OnPropertyChanged(nameof(IsContentAwareScaling));
     }
 
     /// <summary>
     /// Called by a render lane on the UI thread right after syncing its proxy document: the work that shows
     /// the open transform in it, to run on the render thread before rendering (null when not transforming).
     /// </summary>
-    private Action<CancellationToken>? PrepareTransform(PreviewDocument proxy, bool full) =>
-        _transformPreview?.Prepare(proxy, full ? ResampleFilter.Bicubic : ResampleFilter.Bilinear);
+    private Action<CancellationToken>? PrepareTransform(PreviewDocument proxy, bool full)
+    {
+        var filter = full ? ResampleFilter.Bicubic : ResampleFilter.Bilinear;
+        if (_puppet is not null) return PreparePuppet(proxy, filter); // DocumentViewModel.PuppetWarp.cs
+        if (_casPreview is { } cas) return cas.Prepare(proxy, full); // DocumentViewModel.ContentAwareScale.cs
+        if (_deformPreview is { Current: not null } deform) return deform.Prepare(proxy, filter);
+        return _transformPreview?.Prepare(proxy, filter);
+    }
 
     /// <summary>
     /// Simulates a two-second Free Transform drag (scaling and rotating the largest layer) with 120 Hz input and

@@ -1,0 +1,107 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Strayta.Editor.ViewModels"
+             xmlns:c="using:Strayta.Editor.Controls"
+             x:Class="Strayta.Editor.Views.TransformOptions"
+             x:DataType="vm:EditorViewModel">
+  <Panel>
+    <!-- Free Transform: the box's reference point, size, angle; the Warp toggle; Enter/✓ applies, Esc/✕ cancels -->
+    <DockPanel Background="{DynamicResource St.Panel}" IsVisible="{Binding ActiveDocument.FreeTransform.ShowsBox, FallbackValue=False}">
+      <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+        <Button Classes="icon" ToolTip.Tip="Switch between free transform and warp modes" Command="{Binding ToggleWarpCommand}"
+                IsVisible="{Binding !ActiveDocument.IsContentAwareScaling, FallbackValue=True}">
+          <Path Classes="icon" Data="{StaticResource IconWarp}" />
+        </Button>
+        <Button Classes="icon" ToolTip.Tip="Cancel transform (Esc)" Command="{Binding CancelTransformCommand}">
+          <Path Classes="icon" Data="{StaticResource IconCancel}" />
+        </Button>
+        <Button Classes="icon" ToolTip.Tip="Commit transform (Enter)" Command="{Binding CommitTransformCommand}">
+          <Path Classes="icon" Data="{StaticResource IconCommit}" Stroke="{DynamicResource St.Accent}" />
+        </Button>
+      </StackPanel>
+      <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+        <TextBlock Text="{Binding ActiveDocument.FreeTransform.ModeName, FallbackValue=''}" FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,0,8,0" MinWidth="96" />
+        <TextBlock Classes="label" Text="X" />
+        <c:NumberField Unit=" px" Value="{Binding ActiveDocument.FreeTransform.X, FallbackValue=0}" ToolTip.Tip="Horizontal position of the center" />
+        <TextBlock Classes="label" Text="Y" />
+        <c:NumberField Unit=" px" Value="{Binding ActiveDocument.FreeTransform.Y, FallbackValue=0}" ToolTip.Tip="Vertical position of the center" />
+        <TextBlock Classes="label" Text="W" Margin="8,0,0,0" />
+        <c:NumberField Unit="%" Value="{Binding ActiveDocument.FreeTransform.WidthPercent, FallbackValue=100}" ToolTip.Tip="Width" />
+        <TextBlock Classes="label" Text="H" />
+        <c:NumberField Unit="%" Value="{Binding ActiveDocument.FreeTransform.HeightPercent, FallbackValue=100}" ToolTip.Tip="Height" />
+        <TextBlock Classes="label" Text="Angle" Margin="8,0,0,0" />
+        <c:NumberField Unit="°" Value="{Binding ActiveDocument.FreeTransform.Angle, FallbackValue=0}" ToolTip.Tip="Rotation, clockwise"
+                       IsEnabled="{Binding !ActiveDocument.IsContentAwareScaling, FallbackValue=True}" />
+        <StackPanel Orientation="Horizontal" Spacing="6" Margin="8,0,0,0" IsVisible="{Binding ActiveDocument.IsContentAwareScaling, FallbackValue=False}">
+          <TextBlock Classes="label" Text="Protect" VerticalAlignment="Center" />
+          <ComboBox ItemsSource="{Binding ActiveDocument.ProtectNames, FallbackValue={x:Null}}" SelectedIndex="{Binding ActiveDocument.ProtectIndex, FallbackValue=0}"
+                    MinWidth="110" FontSize="11" VerticalAlignment="Center" ToolTip.Tip="Keep a saved selection (or the selection) from being carved" />
+        </StackPanel>
+        <TextBlock Classes="label" Margin="12,0,0,0" Text="{Binding ActiveDocument.FreeTransform.Hint, FallbackValue=''}" />
+      </StackPanel>
+    </DockPanel>
+
+    <!-- Warp: grid, style, orientation, bend and distortions; the toggle back to Free Transform -->
+    <DockPanel Background="{DynamicResource St.Panel}" IsVisible="{Binding ActiveDocument.FreeTransform.IsWarping, FallbackValue=False}">
+      <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+        <Button Classes="icon" ToolTip.Tip="Switch between free transform and warp modes" Command="{Binding ToggleWarpCommand}">
+          <Path Classes="icon" Data="{StaticResource IconWarp}" Stroke="{DynamicResource St.Accent}" />
+        </Button>
+        <Button Classes="icon" ToolTip.Tip="Cancel transform (Esc)" Command="{Binding CancelTransformCommand}">
+          <Path Classes="icon" Data="{StaticResource IconCancel}" />
+        </Button>
+        <Button Classes="icon" ToolTip.Tip="Commit transform (Enter)" Command="{Binding CommitTransformCommand}">
+          <Path Classes="icon" Data="{StaticResource IconCommit}" Stroke="{DynamicResource St.Accent}" />
+        </Button>
+      </StackPanel>
+      <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+        <TextBlock Text="Warp" FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,0,8,0" />
+        <StackPanel Orientation="Horizontal" Spacing="6" IsVisible="{Binding !ActiveDocument.FreeTransform.Warp.StylesOnly, FallbackValue=False}">
+          <TextBlock Classes="label" Text="Grid" VerticalAlignment="Center" />
+          <ComboBox ItemsSource="{Binding WarpGridNames}" SelectedIndex="{Binding ActiveDocument.FreeTransform.Warp.GridIndex, FallbackValue=0}"
+                    MinWidth="90" FontSize="11" VerticalAlignment="Center" ToolTip.Tip="Patches of the custom mesh (the grid is split into more control points)" />
+        </StackPanel>
+        <TextBlock Classes="label" Text="Warp" Margin="8,0,0,0" VerticalAlignment="Center" />
+        <ComboBox ItemsSource="{Binding WarpStyleNames}" SelectedIndex="{Binding ActiveDocument.FreeTransform.Warp.StyleIndex, FallbackValue=0}"
+                  MinWidth="110" FontSize="11" VerticalAlignment="Center" ToolTip.Tip="Warp style" />
+        <ToggleButton Content="⇅" IsChecked="{Binding ActiveDocument.FreeTransform.Warp.VerticalOrientation, FallbackValue=False}" Padding="6,2"
+                      VerticalAlignment="Center" ToolTip.Tip="Change the warp orientation (bend across or down)"
+                      IsEnabled="{Binding ActiveDocument.FreeTransform.Warp.IsStyle, FallbackValue=False}" />
+        <TextBlock Classes="label" Text="Bend" Margin="8,0,0,0" />
+        <c:NumberField Unit="%" Value="{Binding ActiveDocument.FreeTransform.Warp.Bend, FallbackValue=0}" ToolTip.Tip="Bend"
+                       IsEnabled="{Binding ActiveDocument.FreeTransform.Warp.IsStyle, FallbackValue=False}" />
+        <TextBlock Classes="label" Text="H" />
+        <c:NumberField Unit="%" Value="{Binding ActiveDocument.FreeTransform.Warp.HorizontalDistortion, FallbackValue=0}" ToolTip.Tip="Horizontal distortion"
+                       IsEnabled="{Binding ActiveDocument.FreeTransform.Warp.IsStyle, FallbackValue=False}" />
+        <TextBlock Classes="label" Text="V" />
+        <c:NumberField Unit="%" Value="{Binding ActiveDocument.FreeTransform.Warp.VerticalDistortion, FallbackValue=0}" ToolTip.Tip="Vertical distortion"
+                       IsEnabled="{Binding ActiveDocument.FreeTransform.Warp.IsStyle, FallbackValue=False}" />
+        <Button Content="Reset" Command="{Binding ResetWarpCommand}" Padding="8,2" FontSize="11" VerticalAlignment="Center" ToolTip.Tip="Remove the warp" />
+        <TextBlock Classes="label" Margin="12,0,0,0" Text="Drag a point, a handle or the mesh itself · Enter applies · Esc cancels" />
+      </StackPanel>
+    </DockPanel>
+
+    <!-- Puppet Warp: density, expansion, mesh, pins -->
+    <DockPanel Background="{DynamicResource St.Panel}" IsVisible="{Binding ActiveDocument.IsPuppetWarping, FallbackValue=False}">
+      <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+        <Button Classes="icon" ToolTip.Tip="Cancel Puppet Warp (Esc)" Command="{Binding CancelPuppetWarpCommand}">
+          <Path Classes="icon" Data="{StaticResource IconCancel}" />
+        </Button>
+        <Button Classes="icon" ToolTip.Tip="Commit Puppet Warp (Enter)" Command="{Binding CommitPuppetWarpCommand}">
+          <Path Classes="icon" Data="{StaticResource IconCommit}" Stroke="{DynamicResource St.Accent}" />
+        </Button>
+      </StackPanel>
+      <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+        <TextBlock Text="Puppet Warp" FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,0,8,0" />
+        <TextBlock Classes="label" Text="Density" VerticalAlignment="Center" />
+        <ComboBox ItemsSource="{Binding PuppetDensityNames}" SelectedIndex="{Binding ActiveDocument.PuppetWarp.DensityIndex, FallbackValue=1}"
+                  MinWidth="110" FontSize="11" VerticalAlignment="Center" ToolTip.Tip="How many points the mesh has" />
+        <TextBlock Classes="label" Text="Expansion" Margin="8,0,0,0" />
+        <c:NumberField Unit=" px" Value="{Binding ActiveDocument.PuppetWarp.Expansion, FallbackValue=2}" ToolTip.Tip="How far the mesh reaches beyond the layer's edge" />
+        <CheckBox Content="Show Mesh" IsChecked="{Binding ActiveDocument.PuppetWarp.ShowMesh, FallbackValue=True}" FontSize="11" VerticalAlignment="Center" Margin="8,0,0,0" />
+        <Button Content="Remove All Pins" Command="{Binding RemoveAllPinsCommand}" Padding="8,2" FontSize="11" VerticalAlignment="Center" />
+        <TextBlock Classes="label" Margin="12,0,0,0" Text="Click to add a pin · drag a pin to warp · Option-click removes one · Enter applies" />
+      </StackPanel>
+    </DockPanel>
+  </Panel>
+</UserControl>

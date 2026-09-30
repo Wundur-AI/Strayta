@@ -191,6 +191,30 @@ dotnet test
   scales from the center), sides to stretch, outside to rotate (Shift snaps to 15°), inside to move; or type
   X/Y/W/H/angle in the options bar. Enter or double-click applies (bicubic, area-filtered when shrinking,
   masks follow), Esc cancels.
+- Edit > Transform > Scale, Rotate, Skew, Distort, Perspective, Warp, Rotate 180° / 90° CW / 90° CCW, Flip
+  Horizontal / Vertical (also the right-click menu in Free Transform). In Free Transform ⌘-drag a corner distorts,
+  ⌘⇧-drag a side skews and ⌘⌥⇧-drag a corner puts the box in perspective, as in Photoshop; a drag that would fold the
+  box is refused. Distort and perspective resample projectively (bicubic, the kernel widened per pixel where the
+  perspective shrinks); smart objects keep their content (their corners are rewritten and they are redrawn), type
+  and shapes are rasterized after a prompt (a skew stays live). Rotate and Flip without an open transform apply at
+  once, one undo step each.
+- Warp (Edit > Transform > Warp, or the options bar's warp toggle in Free Transform): Photoshop's styles (Arc, Arc
+  Lower/Upper, Arch, Bulge, Shell Lower/Upper, Flag, Wave, Fish, Rise, Fisheye, Inflate, Squeeze, Twist) with Bend and
+  horizontal/vertical distortion and orientation, or Custom: drag the Bézier mesh's points and handles, or the surface
+  itself; Grid 3 × 3 / 4 × 4 / 5 × 5 splits the mesh into patches. On a smart object the warp is written into its
+  placed-layer data (`warp`, or `quiltWarp` for a split mesh) and it stays a smart object, previewed from its content;
+  on type it is Warp Text (the style goes into the type data, `TySh`, and the text is drawn bent); pixels are baked.
+- Edit > Puppet Warp: a triangle mesh over the layer's opaque pixels (Density, Expansion, Show Mesh); click to add
+  pins, drag them to deform the mesh as rigidly as possible (after Sorkine and Alexa's ARAP), Option-click or Delete
+  removes one, Remove All Pins. Enter bakes it as one step (a smart object becomes pixels, with a notice).
+- Filter > Liquify… (⇧⌘X): Forward Warp, Reconstruct, Smooth, Twirl Clockwise (Option: counterclockwise), Pucker,
+  Bloat, Push Left (Option: right), Freeze and Thaw Mask; brush Size, Density, Pressure, Rate; Show Mask, Thaw All,
+  Restore All, ⌘Z per stroke. The distortion is a displacement field previewed at screen resolution; OK applies it
+  at full resolution (bicubic, area-filtered) as one undo step. Face-Aware Liquify is not there.
+- Edit > Content-Aware Scale (⌥⇧⌘C): the box scales the layer by seam carving (after Avidan and Shamir), keeping
+  busy detail and carving flat areas; Protect keeps the selection or a saved selection (alpha channel) whole.
+- The math is in `Strayta.Rendering.Transforms`: `ProjectiveResampler`, `MeshResampler` (any map or triangle mesh),
+  `WarpStyles`/`WarpEditing`, `PuppetMesh`/`ArapSolver`, `LiquifyField`, `SeamCarver`.
 - Type layers are read as text (content, character and paragraph styles, point or box text) and can be edited
   through the text engine's API (no Type tool UI yet): edited layers are redrawn with the installed fonts and saved
   as Photoshop text; unedited ones keep Photoshop's pixels. Fonts a document uses that are not installed are named
@@ -266,6 +290,9 @@ document).
 `STRAYTA_TOOLBENCH=new` times Gradient drags (two-color Classic and a seven-stop Perceptual one, plain and in Multiply;
 preview frame rate, release to edit), Paint Bucket clicks and Eyedropper samples on a generated 4000×3000 document.
 `STRAYTA_SETTINGS_DIR` keeps user presets (gradients, patterns) in another folder.
+`STRAYTA_SELFTEST_ONLY=warp` runs the Edit › Transform, Warp, Warp Text, Puppet Warp, Liquify and Content-Aware Scale steps
+(with WARPBENCH timings on 4000×3000); `STRAYTA_WARP_SAMPLES=dir` also writes a distorted layer, warped smart objects and
+warped type for checking in Photoshop.
 `STRAYTA_SELFTEST_ONLY=shapes` runs the shape and path steps (with SHAPEBENCH timings on 4000×3000); `STRAYTA_SHAPE_SAMPLES=dir`
 also writes shape files for checking in Photoshop.
 `STRAYTA_RETOUCHBENCH=new` measures Clone Stamp stroke frame rates and commit times (plain and transformed) and
