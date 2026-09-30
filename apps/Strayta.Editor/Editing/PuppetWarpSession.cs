@@ -150,6 +150,7 @@ public sealed class PuppetWarpSession : ObservableObject
                 RemovePin(hit);
                 return true;
             }
+            Remember();
             _selected = _dragging = hit;
             _grab = (_pins[hit].X - x, _pins[hit].Y - y);
             Changed?.Invoke();
@@ -159,6 +160,7 @@ public sealed class PuppetWarpSession : ObservableObject
         // The vertex drawn nearest the press (on the deformed mesh), if the press is on it.
         int v = NearestDeformedVertex(x, y, _mesh.Spacing * 1.5);
         if (v < 0 || _pins.Any(p => p.Vertex == v)) return false;
+        Remember();
         _pins.Add((v, X[v], Y[v]));
         _selected = _dragging = _pins.Count - 1;
         _grab = (X[v] - x, Y[v] - y);
@@ -232,6 +234,7 @@ public sealed class PuppetWarpSession : ObservableObject
     public void RemovePin(int index)
     {
         if (index < 0 || index >= _pins.Count) return;
+        Remember();
         _pins.RemoveAt(index);
         _selected = _pins.Count == 0 ? -1 : Math.Min(_selected, _pins.Count - 1);
         _dragging = -1;
@@ -245,10 +248,35 @@ public sealed class PuppetWarpSession : ObservableObject
     /// <summary>The options bar's Remove All Pins: back to the rest shape.</summary>
     public void RemoveAllPins()
     {
+        if (_pins.Count > 0) Remember();
         _pins.Clear();
         _selected = _dragging = -1;
         _solver.Reset();
         Solve();
+    }
+
+    private readonly List<List<(int Vertex, double X, double Y)>> _history = [];
+
+    /// <summary>Keeps the pins as they are, for <see cref="Undo"/>.</summary>
+    private void Remember()
+    {
+        _history.Add([.. _pins]);
+        if (_history.Count > 100) _history.RemoveAt(0);
+    }
+
+    /// <summary>⌘Z inside Puppet Warp: the pins as they were before the last change; false when there is nothing to undo.</summary>
+    public bool Undo()
+    {
+        if (_history.Count == 0) return false;
+        var pins = _history[^1];
+        _history.RemoveAt(_history.Count - 1);
+        _pins.Clear();
+        _pins.AddRange(pins);
+        _selected = _pins.Count - 1;
+        _dragging = -1;
+        if (_pins.Count == 0) _solver.Reset();
+        Settle();
+        return true;
     }
 
     private void Solve()

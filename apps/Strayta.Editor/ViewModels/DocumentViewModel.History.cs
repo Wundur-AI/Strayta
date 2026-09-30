@@ -25,6 +25,7 @@ public sealed partial class DocumentViewModel
     public void GoToHistory(int position)
     {
         if (IsTransforming) CancelTransform(); // like Undo, stepping back leaves an open transform first
+        if (IsPuppetWarping) CancelPuppetWarp(); // and an open Puppet Warp (DocumentViewModel.PuppetWarp.cs)
         position = Math.Clamp(position, 0, _undo.Done.Count + _undo.Undone.Count);
         while (_undo.Done.Count > position && _undo.CanUndo) Undo();
         while (_undo.Done.Count < position && _undo.CanRedo) Redo();

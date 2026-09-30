@@ -143,6 +143,17 @@ public sealed partial class DocumentViewModel
         }
     }
 
+    /// <summary>
+    /// ⌘Z while Puppet Warp is open: steps back through the pins, then out of Puppet Warp (as undo leaves Free Transform).
+    /// True when it handled the undo.
+    /// </summary>
+    private bool UndoInsidePuppetWarp()
+    {
+        if (PuppetWarp is not { } s) return false;
+        if (!s.Undo()) CancelPuppetWarp();
+        return true;
+    }
+
     /// <summary>Esc: closes Puppet Warp without changing anything.</summary>
     public void CancelPuppetWarp()
     {

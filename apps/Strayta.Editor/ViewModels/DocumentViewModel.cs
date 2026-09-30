@@ -184,6 +184,7 @@ public sealed partial class DocumentViewModel : Dock.Model.Mvvm.Controls.Documen
             CancelTransform(); // like Photoshop, undo inside Free Transform steps back out of it
             return;
         }
+        if (UndoInsidePuppetWarp()) return; // DocumentViewModel.PuppetWarp.cs
         if (CropBox is { IsModified: true, Locked: false } crop)
         {
             crop.Reset(); // undo inside a crop resets the box first (DocumentViewModel.Crop.cs)
@@ -745,6 +746,7 @@ public sealed partial class DocumentViewModel : Dock.Model.Mvvm.Controls.Documen
     {
         if (!CanSave) throw new NotSupportedException($"Saving {Model.ColorMode} documents is not supported yet.");
         if (IsTransforming) await CommitTransformAsync();
+        if (IsPuppetWarping) await CommitPuppetWarpAsync(); // DocumentViewModel.PuppetWarp.cs
         CommitType(); // DocumentViewModel.TypeTool.cs
         IsBusy = true;
         try
