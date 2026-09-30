@@ -26,6 +26,7 @@ public partial class DocumentView : UserControl
         WireType(); // DocumentView.Type.cs
         WirePaths(); // DocumentView.Paths.cs
         WireGuides(); // rulers, guides, grid, snapping, Info (DocumentView.Guides.cs)
+        WireLayers(); // Move tool Auto-Select and transform controls (DocumentView.Layers.cs)
         DataContextChanged += (_, _) =>
         {
             if (_vm is not null) _vm.ZoomRequested -= OnZoom;

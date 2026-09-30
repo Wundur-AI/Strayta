@@ -204,6 +204,7 @@ public sealed partial class ImageCanvas : Control
             RenderObjectHover(context); // ImageCanvas.ObjectFinder.cs
         }
         DrawTransformBox(context);
+        RenderTransformControls(context); // the Move tool's Show Transform Controls (ImageCanvas.MoveTool.cs)
         RenderType(context); // caret, selection and text box (ImageCanvas.Type.cs)
         RenderPaths(context); // paths, anchors and shapes being drawn (ImageCanvas.Paths.cs)
         RenderEverydayTools(context); // ImageCanvas.Everyday.cs
@@ -291,6 +292,12 @@ public sealed partial class ImageCanvas : Control
             else _dragStart = null; // other buttons must not fall through to moving the layer
         }
         if (!_panning && IsWandTool) WandPressed(e, props.IsLeftButtonPressed);
+        if (!_panning && MoveToolPressed(e, props)) // Auto-Select, transform controls (ImageCanvas.MoveTool.cs)
+        {
+            _dragStart = null;
+            e.Pointer.Capture(this);
+            return;
+        }
         _panOrigin = _offset;
         _moveRemainder = default;
         e.Pointer.Capture(this);

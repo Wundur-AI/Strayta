@@ -1,0 +1,22 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Strayta.Editor.ViewModels"
+             xmlns:v="using:Strayta.Editor.Views"
+             x:Class="Strayta.Editor.Views.MoveToolOptions"
+             x:DataType="vm:EditorViewModel"
+             VerticalAlignment="Center">
+  <!-- The Move tool's options bar (EditorViewModel.Layers.cs): Auto-Select, Show Transform Controls, Align and Distribute. -->
+  <StackPanel Orientation="Horizontal" Spacing="14" IsVisible="{Binding IsMoveTool}">
+    <StackPanel Orientation="Horizontal" Spacing="6">
+      <CheckBox Content="Auto-Select:" IsChecked="{Binding MoveAutoSelect}" FontSize="11" VerticalAlignment="Center"
+                ToolTip.Tip="A click selects the layer under the pointer (⌘-click does when this is off)" />
+      <ComboBox ItemsSource="{x:Static vm:EditorViewModel.MoveAutoSelectTargets}" SelectedIndex="{Binding MoveAutoSelectTargetIndex}" Width="80"
+                FontSize="11" Padding="8,2" MinHeight="0" IsEnabled="{Binding MoveAutoSelect}" />
+    </StackPanel>
+    <CheckBox Content="Show Transform Controls" IsChecked="{Binding MoveShowTransformControls}" FontSize="11" VerticalAlignment="Center"
+              ToolTip.Tip="Show the selected layers' box; drag a handle to transform them" />
+    <v:AlignButtons />
+    <TextBlock Classes="label" VerticalAlignment="Center"
+               Text="Drag to move the selected layers · arrows nudge (Shift: 10 px) · ⌘⌥-click selects the layer under the pointer" />
+  </StackPanel>
+</UserControl>

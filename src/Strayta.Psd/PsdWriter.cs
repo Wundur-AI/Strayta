@@ -33,7 +33,7 @@ public static class PsdWriter
 {
     // Image resources that describe the layer structure or a thumbnail; Photoshop rebuilds them, and stale
     // copies could disagree with edited layers.
-    private static readonly HashSet<int> DroppedResources = [1024, 1026, 1033, 1036, 1069, 1072, 1073];
+    private static readonly HashSet<int> DroppedResources = [1024, 1033, 1036, 1069, 1072, 1073];
 
     // Layer blocks the writer regenerates from the model.
     private static readonly HashSet<string> ManagedBlocks = ["luni", "lsct", "lsdk", "iOpa"];
@@ -126,8 +126,17 @@ public static class PsdWriter
         // Guides are modeled too: the stored block is kept byte for byte while it still says the same, rewritten
         // (keeping its grid cycle) when they changed, and added when a document without one gets guides.
         bool guidesWritten = false;
+        // Linked layers (resource 1026): rewritten from the model where the file had it, added when layers are linked.
+        var links = PsdLayerSettings.LinkGroupsInRecordOrder(doc);
+        bool linksWritten = false;
         foreach (var r in source?.Resources ?? [])
         {
+            if (r.Id == PsdLayerSettings.LinkResourceId)
+            {
+                if (!linksWritten && links.Count > 0) Write(r with { Data = PsdLayerSettings.EncodeLinkGroups(links) });
+                linksWritten = true;
+                continue;
+            }
             if (DroppedResources.Contains(r.Id) || r.Id == PsdVersionInfo.ResourceId) continue;
             if (r.Id == PsdGuides.ResourceId)
             {
@@ -145,6 +154,8 @@ public static class PsdWriter
         }
         if (writeResolution && resolution is null)
             Write(new ImageResource("8BIM", PsdResolution.ResourceId, "", PsdResolution.Write(doc.Resolution, null)));
+        if (!linksWritten && links.Any(l => l != 0))
+            Write(new ImageResource("8BIM", PsdLayerSettings.LinkResourceId, "", PsdLayerSettings.EncodeLinkGroups(links)));
         if (!guidesWritten && doc.Guides.Count > 0)
             Write(new ImageResource("8BIM", PsdGuides.ResourceId, "", PsdGuides.Write(doc.Guides)));
         if (doc.Root.Descendants().Any(n => n.Effects is not null))
@@ -328,7 +339,7 @@ public static class PsdWriter
                 var (maskData, maskChannels) = Mask(layer.Mask, src, psb);
                 channels.AddRange(maskChannels);
                 records.Add(new Record(rect, channels, PsdBlocks.BlendKeyOf(layer.BlendMode), Opacity(layer.Opacity), layer.Clipped,
-                    Flags(layer, src, layer.TransparencyLocked), maskData, src?.BlendingRanges is { Length: > 0 } ranges ? ranges : DefaultRanges(doc), layer.Name, Blocks(layer, src, doc)));
+                    Flags(layer, src), maskData, src?.BlendingRanges is { Length: > 0 } ranges ? ranges : DefaultRanges(doc), layer.Name, Blocks(layer, src, doc)));
                 break;
             }
 
@@ -381,6 +392,7 @@ public static class PsdWriter
             ? new PsdEffectContext(PsdEffects.GlobalAngleOf(file), PsdEffects.GlobalAltitudeOf(file), [])
             : PsdEffectContext.Default;
         PsdEffectsWriter.Refresh(node, src, context, blocks);
+        PsdLayerSettings.Refresh(node, src, blocks); // locks and color label
         return blocks;
     }
 
@@ -427,12 +439,12 @@ public static class PsdWriter
         return r;
     }
 
-    private static byte Flags(LayerNode node, PsdLayerRecord? src, bool locked = false) =>
-        (byte)((src?.Flags ?? 0) & ~0x03 | (locked ? 0x01 : 0) | (node.Visible ? 0 : 0x02));
+    private static byte Flags(LayerNode node, PsdLayerRecord? src) =>
+        (byte)((src?.Flags ?? 0) & ~0x03 | (PsdLayerSettings.TransparencyFlag(node, src) ? 0x01 : 0) | (node.Visible ? 0 : 0x02));
 
     /// <summary>Photoshop marks folder records with bits 3 and 4 ("pixel data irrelevant").</summary>
     private static byte GroupFlags(LayerGroup g, PsdLayerRecord? src) =>
-        (byte)((src?.Flags ?? 0x18) & ~0x03 | (g.Visible ? 0 : 0x02));
+        (byte)((src?.Flags ?? 0x18) & ~0x03 | (PsdLayerSettings.TransparencyFlag(g, src) ? 0x01 : 0) | (g.Visible ? 0 : 0x02));
 
     private static byte Opacity(float v) => (byte)Math.Clamp(MathF.Round(v * 255f), 0f, 255f);
 

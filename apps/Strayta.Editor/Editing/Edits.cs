@@ -8,14 +8,17 @@ public interface ILayerPropertyEdit : IEdit
     LayerNode Node { get; }
 }
 
-/// <summary>Changes one property of one layer; consecutive changes to the same property merge.</summary>
-public sealed class PropertyEdit<T>(LayerNode node, string property, T before, T after, Action<LayerNode, T> set) : ILayerPropertyEdit
+/// <summary>
+/// Changes one property of one layer; consecutive changes to the same property merge. <paramref name="description"/>
+/// is the history name (Photoshop's, e.g. "Master Opacity Change"); by default "Change {property}".
+/// </summary>
+public sealed class PropertyEdit<T>(LayerNode node, string property, T before, T after, Action<LayerNode, T> set, string? description = null) : ILayerPropertyEdit
 {
     private T _after = after;
 
     public LayerNode Node { get; } = node;
     public string Property { get; } = property;
-    public string Description => $"Change {Property}";
+    public string Description => description ?? $"Change {Property}";
     public bool ChangesStructure => false;
 
     public void Do() => set(Node, _after);
@@ -114,7 +117,7 @@ public sealed class ReparentEdit(LayerNode node, LayerGroup toParent, int toInde
     private readonly LayerGroup _fromParent = node.Parent ?? throw new ArgumentException("Layer has no parent.");
     private readonly int _fromIndex = node.Parent!.IndexOf(node);
 
-    public string Description => "Reorder Layer";
+    public string Description => "Layer Order";
     public bool ChangesStructure => true;
 
     public void Do()

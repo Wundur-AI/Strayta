@@ -55,6 +55,8 @@ public static class LayerFactory
         copy.BlendMode = node.BlendMode;
         copy.Clipped = node.Clipped;
         copy.Effects = node.Effects;
+        copy.Locks = node.Locks;
+        copy.Color = node.Color;
         foreach (var tag in node.Tags) copy.Tags.Add(tag);
         copy.SourceData = node.SourceData switch
         {

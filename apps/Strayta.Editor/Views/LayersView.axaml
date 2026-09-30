@@ -23,7 +23,29 @@
       <Setter Property="Background" Value="{DynamicResource St.Hover}" />
     </Style>
     <Style Selector="ListBox#Rows ListBoxItem:selected /template/ ContentPresenter">
+      <Setter Property="Background" Value="Transparent" />
+    </Style>
+    <Style Selector="ListBox#Rows ListBoxItem:selected:pointerover /template/ ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource St.Hover}" />
+    </Style>
+    <!-- Every selected layer is highlighted, not just the list's own selection (LayersView.Selection.cs) -->
+    <Style Selector="StackPanel.row.selected">
       <Setter Property="Background" Value="{DynamicResource St.RowSelected}" />
+    </Style>
+    <Style Selector="Path.icon.link">
+      <Setter Property="Stroke" Value="{DynamicResource St.TextMuted}" />
+    </Style>
+    <Style Selector="Path.icon.link.linkedToSelection">
+      <Setter Property="Stroke" Value="{DynamicResource St.Accent}" />
+    </Style>
+    <Style Selector="ToggleButton.lock:disabled Path.icon">
+      <Setter Property="Opacity" Value="0.8" />
+    </Style>
+    <Style Selector="ComboBox.filter">
+      <Setter Property="FontSize" Value="11" />
+      <Setter Property="MinHeight" Value="0" />
+      <Setter Property="Height" Value="22" />
+      <Setter Property="Padding" Value="6,0" />
     </Style>
     <Style Selector="ToggleButton.flat">
       <Setter Property="Background" Value="Transparent" />
@@ -53,8 +75,6 @@
       <Setter Property="Background" Value="{DynamicResource St.EyeCellHover}" />
     </Style>
     <Style Selector="Border.thumb">
-      <Setter Property="Width" Value="34" />
-      <Setter Property="Height" Value="27" />
       <Setter Property="BorderBrush" Value="{DynamicResource St.Border}" />
       <Setter Property="BorderThickness" Value="1" />
       <Setter Property="Background" Value="{DynamicResource St.ThumbBackground}" />
@@ -68,12 +88,42 @@
   </UserControl.Styles>
 
   <DockPanel>
-    <!-- Blending and locks for the selected layer -->
+    <!-- Filter bar: by kind, name, effect, mode, color or selection, with an on/off switch (EditorViewModel.Layers.cs) -->
+    <Border DockPanel.Dock="Top" Padding="8,4" Background="{DynamicResource St.PanelRaised}" BorderBrush="{DynamicResource St.Border}" BorderThickness="0,0,0,1">
+      <DockPanel DataContext="{Binding Editor.LayerFilter}" x:DataType="vm:LayerFilter">
+        <ToggleButton DockPanel.Dock="Right" Classes="icon" Padding="3" IsChecked="{Binding Enabled}" ToolTip.Tip="Turn layer filtering on or off">
+          <Path Classes="icon small" Data="{x:Static c:LayerIcons.Filter}" />
+        </ToggleButton>
+        <ComboBox DockPanel.Dock="Left" Classes="filter" Width="72" ItemsSource="{x:Static vm:LayerFilter.FilterTypes}" SelectedIndex="{Binding FilterTypeIndex}"
+                  ToolTip.Tip="Filter the layers by" />
+        <Panel Margin="6,0">
+          <StackPanel Orientation="Horizontal" Spacing="0" IsVisible="{Binding ByKind}">
+            <ToggleButton Classes="icon" Padding="3" IsChecked="{Binding Pixel}" ToolTip.Tip="Pixel layers"><Path Classes="icon small" Data="{StaticResource IconChecker}" /></ToggleButton>
+            <ToggleButton Classes="icon" Padding="3" IsChecked="{Binding Adjustment}" ToolTip.Tip="Adjustment layers"><Path Classes="icon small" Data="{StaticResource IconAdjust}" /></ToggleButton>
+            <ToggleButton Classes="icon" Padding="3" IsChecked="{Binding Type}" ToolTip.Tip="Type layers"><Path Classes="icon small" Data="{StaticResource IconType}" /></ToggleButton>
+            <ToggleButton Classes="icon" Padding="3" IsChecked="{Binding Shape}" ToolTip.Tip="Shape layers"><Path Classes="icon small" Data="{StaticResource IconShapeRect}" /></ToggleButton>
+            <ToggleButton Classes="icon" Padding="3" IsChecked="{Binding SmartObject}" ToolTip.Tip="Smart objects"><Path Classes="icon small" Data="{StaticResource IconNew}" /></ToggleButton>
+          </StackPanel>
+          <TextBox IsVisible="{Binding ByName}" Text="{Binding Name}" PlaceholderText="Layer name" FontSize="11" MinHeight="0" Height="22" Padding="4,2" />
+          <ComboBox Classes="filter" IsVisible="{Binding ByEffect}" ItemsSource="{x:Static vm:LayerFilter.EffectNames}" SelectedIndex="{Binding EffectIndex}" HorizontalAlignment="Stretch" />
+          <ComboBox Classes="filter" IsVisible="{Binding ByMode}" ItemsSource="{x:Static vm:LayerFilter.Modes}" SelectedItem="{Binding Mode}" HorizontalAlignment="Stretch">
+            <ComboBox.ItemTemplate>
+              <DataTemplate x:DataType="core:BlendMode">
+                <TextBlock Text="{Binding Converter={x:Static c:BlendModeNames.Instance}}" />
+              </DataTemplate>
+            </ComboBox.ItemTemplate>
+          </ComboBox>
+          <ComboBox Classes="filter" IsVisible="{Binding ByColor}" ItemsSource="{x:Static vm:LayerFilter.Colors}" SelectedItem="{Binding Color}" HorizontalAlignment="Stretch" />
+        </Panel>
+      </DockPanel>
+    </Border>
+
+    <!-- Blending and locks for the selected layers -->
     <Border DockPanel.Dock="Top" Padding="8,5,8,4" Background="{DynamicResource St.PanelRaised}"
             BorderBrush="{DynamicResource St.Border}" BorderThickness="0,0,0,1">
       <StackPanel Spacing="3" DataContext="{Binding Editor.ActiveDocument.SelectedLayer}" x:DataType="vm:LayerItemViewModel"
                   IsEnabled="{Binding Converter={x:Static ObjectConverters.IsNotNull}}">
-        <DockPanel>
+        <DockPanel IsEnabled="{Binding CanChangeBlending, FallbackValue=False}">
           <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="6" Margin="8,0,0,0">
             <TextBlock Classes="label" Text="Opacity:" />
             <c:PercentField Value="{Binding Opacity}" />
@@ -89,15 +139,26 @@
           </ComboBox>
         </DockPanel>
         <DockPanel>
-          <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="6" IsVisible="{Binding !IsGroup}">
+          <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="6" IsVisible="{Binding !IsGroup}" IsEnabled="{Binding CanChangeBlending}">
             <TextBlock Classes="label" Text="Fill:" />
             <c:PercentField Value="{Binding Fill}" />
           </StackPanel>
           <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
             <TextBlock Classes="label" Text="Lock:" />
-            <ToggleButton Classes="flat lock" IsChecked="{Binding TransparencyLocked}" IsEnabled="{Binding !IsGroup}"
+            <ToggleButton Classes="flat lock" IsChecked="{Binding TransparencyLocked}" IsEnabled="{Binding CanChangeLocks}"
                           ToolTip.Tip="Lock transparent pixels">
               <Path Classes="icon small" Data="{StaticResource IconChecker}" />
+            </ToggleButton>
+            <ToggleButton Classes="flat lock" IsChecked="{Binding LockPixels}" IsEnabled="{Binding CanChangeLocks}"
+                          ToolTip.Tip="Lock image pixels">
+              <Path Classes="icon small" Data="{StaticResource IconBrush}" />
+            </ToggleButton>
+            <ToggleButton Classes="flat lock" IsChecked="{Binding LockPosition}" IsEnabled="{Binding CanChangeLocks}"
+                          ToolTip.Tip="Lock position">
+              <Path Classes="icon small" Data="{StaticResource IconMove}" />
+            </ToggleButton>
+            <ToggleButton Classes="flat lock" IsChecked="{Binding LockAll}" ToolTip.Tip="Lock all">
+              <Path Classes="icon small" Data="{StaticResource IconLock}" />
             </ToggleButton>
           </StackPanel>
         </DockPanel>
@@ -108,6 +169,7 @@
     <Border DockPanel.Dock="Bottom" Padding="6,3" BorderBrush="{DynamicResource St.Border}" BorderThickness="0,1,0,0">
       <DockPanel>
         <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="0">
+          <Button Classes="icon" ToolTip.Tip="Link layers (or unlink them)" Command="{Binding Editor.LinkLayersCommand}"><Path Classes="icon small" Data="{StaticResource IconLink}" /></Button>
           <Button Classes="icon" ToolTip.Tip="Add a layer style">
             <TextBlock Text="fx" FontStyle="Italic" FontWeight="SemiBold" FontSize="12" Margin="0,-2,0,0" />
             <Button.Flyout>
@@ -157,8 +219,9 @@
             </Button.Flyout>
           </Button>
           <Button Classes="icon" ToolTip.Tip="New group (⌘G)" Command="{Binding Editor.NewGroupCommand}"><Path Classes="icon small" Data="{StaticResource IconFolder}" /></Button>
-          <Button Classes="icon" ToolTip.Tip="New layer (⇧⌘N)" Command="{Binding Editor.NewLayerCommand}"><Path Classes="icon small" Data="{StaticResource IconNewLayer}" /></Button>
+          <Button x:Name="NewLayerButton" Classes="icon" ToolTip.Tip="New layer (Option-click: New Layer dialog, ⇧⌘N)" Command="{Binding Editor.NewLayerCommand}"><Path Classes="icon small" Data="{StaticResource IconNewLayer}" /></Button>
           <Button Classes="icon" ToolTip.Tip="Delete layer" Command="{Binding Editor.DeleteLayerCommand}"><Path Classes="icon small" Data="{StaticResource IconTrash}" /></Button>
+          <Button x:Name="PanelMenuButton" Classes="icon" ToolTip.Tip="Layers panel menu" Click="OnPanelMenu"><Path Classes="icon small" Data="{x:Static c:LayerIcons.PanelMenu}" /></Button>
         </StackPanel>
         <StackPanel Orientation="Horizontal" Spacing="5" VerticalAlignment="Center" Background="Transparent"
                     IsVisible="{Binding Editor.ActiveDocument.HasWarnings, FallbackValue=False}"
@@ -177,12 +240,15 @@
                ScrollViewer.HorizontalScrollBarVisibility="Disabled">
         <ListBox.ItemTemplate>
           <DataTemplate x:DataType="vm:LayerItemViewModel">
-            <StackPanel>
-            <Grid ColumnDefinitions="30,*" Height="34" Background="Transparent" DoubleTapped="OnRowDoubleTapped">
-              <!-- Eye column: its own button-like cell, fixed at the left edge like Photoshop -->
+            <StackPanel Classes="row" Classes.selected="{Binding IsSelected}">
+            <Grid ColumnDefinitions="30,*" Height="{Binding RowHeight}" Background="Transparent" DoubleTapped="OnRowDoubleTapped">
+              <!-- Eye column: its own button-like cell, fixed at the left edge like Photoshop; the color label shows behind it -->
               <Border Classes="hit eye" PointerPressed="OnEyePressed" ToolTip.Tip="Show or hide">
-                <Path Classes="icon small" Data="{StaticResource IconEye}" Opacity="{Binding EyeOpacity}"
-                      HorizontalAlignment="Center" VerticalAlignment="Center" />
+                <Panel>
+                  <Border Background="{Binding ColorBrush}" IsHitTestVisible="False" />
+                  <Path Classes="icon small" Data="{StaticResource IconEye}" Opacity="{Binding EyeOpacity}"
+                        HorizontalAlignment="Center" VerticalAlignment="Center" />
+                </Panel>
               </Border>
 
               <DockPanel Grid.Column="1" Margin="{Binding Indent}">
@@ -194,8 +260,9 @@
                 </Border>
 
                 <!-- Thumbnail, or an icon for groups and adjustments -->
-                <Panel DockPanel.Dock="Left" Margin="6,0,0,0" VerticalAlignment="Center">
+                <Panel DockPanel.Dock="Left" Margin="6,0,0,0" VerticalAlignment="Center" IsVisible="{Binding ShowThumbnails}">
                   <Border Classes="thumb" Classes.target="{Binding IsPixelTarget}" PointerPressed="OnLayerThumbPressed" DoubleTapped="OnLayerThumbDoubleTapped"
+                          Width="{Binding ThumbWidth}" Height="{Binding ThumbHeight}"
                           IsVisible="{Binding PlaceholderIcon, Converter={x:Static ObjectConverters.IsNull}}">
                     <Panel>
                       <Image Source="{Binding Thumbnail}" Stretch="Uniform" RenderOptions.BitmapInterpolationMode="HighQuality" />
@@ -213,6 +280,7 @@
                 <StackPanel DockPanel.Dock="Left" Orientation="Horizontal" IsVisible="{Binding HasMask}" VerticalAlignment="Center">
                   <Path Classes="icon small" Width="10" Height="12" Margin="4,0" Stroke="{DynamicResource St.TextMuted}" Data="{StaticResource IconLink}" />
                   <Border Classes="thumb" Classes.target="{Binding IsMaskTarget}" PointerPressed="OnMaskThumbPressed"
+                          Width="{Binding ThumbWidth}" Height="{Binding ThumbHeight}"
                           ToolTip.Tip="Layer mask: click to paint in it, Shift-click to disable or enable it">
                     <Panel>
                       <Image Source="{Binding MaskThumbnail}" Stretch="Uniform" />
@@ -235,8 +303,13 @@
                   </Border>
                   <Path Classes="icon small" Data="{StaticResource IconWarning}" IsVisible="{Binding HasUnsupported}" Stroke="{DynamicResource St.Warning}"
                         ToolTip.Tip="Uses effects or adjustments that are not rendered yet" />
-                  <Path Classes="icon small" Data="{StaticResource IconLock}" IsVisible="{Binding IsLocked}" Stroke="{DynamicResource St.TextMuted}"
-                        ToolTip.Tip="Transparent pixels locked" />
+                  <Path Classes="icon small link" Data="{StaticResource IconLink}" IsVisible="{Binding IsLinked}"
+                        Classes.linkedToSelection="{Binding IsLinkedToSelection}" ToolTip.Tip="Linked layer" />
+                  <Panel IsVisible="{Binding IsLocked}" ToolTip.Tip="{Binding LockTip}" Background="Transparent">
+                    <Path Classes="icon small" Data="{StaticResource IconLock}" Stroke="{DynamicResource St.TextMuted}" IsVisible="{Binding !IsFullyLocked}" />
+                    <Path Classes="icon small" Data="{StaticResource IconLock}" Stroke="{DynamicResource St.TextMuted}" Fill="{DynamicResource St.TextMuted}"
+                          IsVisible="{Binding IsFullyLocked}" />
+                  </Panel>
                 </StackPanel>
 
                 <!-- Name (double-click to rename) -->

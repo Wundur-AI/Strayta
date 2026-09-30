@@ -30,13 +30,14 @@ public sealed partial class DocumentViewModel
         if (IsTransforming) return true;
         CommitType(); // ⌘T while typing transforms the committed type (DocumentViewModel.TypeTool.cs)
         var node = SelectedLayer?.Node;
-        var targets = node is LayerGroup g ? g.Descendants().Prepend(g).ToList() : node is null ? [] : [node];
+        var targets = TransformTargets(node); // every selected and linked layer (DocumentViewModel.LayerTransform.cs)
         var content = targets.OfType<PixelLayer>().Select(Resampler.ContentBounds).Where(b => !b.IsEmpty).ToList();
         string? problem = node switch
         {
             null => "Select a layer to transform.",
             { Visible: false } => $"\"{node.Name}\" is hidden. Show it to transform it.",
             AdjustmentLayer => "Adjustment layers have no pixels to transform.",
+            _ when TransformLocked(targets) => LockedMessage("Free Transform"),
             _ when content.Count == 0 => $"\"{node.Name}\" has no pixels to transform.",
             _ => null,
         };

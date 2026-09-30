@@ -213,6 +213,7 @@ public sealed partial class DocumentViewModel
             null => $"Select a layer to {action}.",
             not PixelLayer => $"\"{node.Name}\" has no pixels to {action}. Select a pixel layer.",
             { Visible: false } when !allowHidden => $"\"{node.Name}\" is hidden.",
+            _ when action != "copy" && node.IsLocked(LayerLocks.Pixels) => LockedMessage(char.ToUpperInvariant(action[0]) + action[1..]), // DocumentViewModel.LayerCommands.cs
             _ when !allowHidden && (node.Tags.Contains("text") || node.Tags.Contains("smart-object") || node.Tags.Contains("fill") || node.Tags.Contains("shape"))
                 => $"\"{node.Name}\" is drawn from its own data (text, shape, fill or smart object). Rasterize it to {action} its pixels.",
             _ when Model.ColorMode is not (ColorMode.Rgb or ColorMode.Grayscale) => $"Editing pixels in {Model.ColorMode} documents is not supported yet.",

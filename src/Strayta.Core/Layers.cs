@@ -34,6 +34,18 @@ public abstract class LayerNode
     /// Renderers use them to report content they cannot reproduce yet.
     /// </summary>
     public ISet<string> Tags { get; } = new HashSet<string>(StringComparer.Ordinal);
+
+    /// <summary>The layer's locks (see <see cref="LayerLockRules"/> for how they combine with its groups').</summary>
+    public LayerLocks Locks { get; set; }
+
+    /// <summary>The color label shown in the Layers panel.</summary>
+    public LayerColor Color { get; set; }
+
+    /// <summary>
+    /// Layers sharing a non-zero value are linked: they move and transform together (PSD image resource 1026). The number
+    /// itself means nothing beyond grouping.
+    /// </summary>
+    public int LinkGroup { get; set; }
 }
 
 /// <summary>A layer that carries its own pixels.</summary>
@@ -47,8 +59,12 @@ public sealed class PixelLayer : LayerNode
 
     public LayerMask? Mask { get; set; }
 
-    /// <summary>Transparent pixels are locked against painting.</summary>
-    public bool TransparencyLocked { get; set; }
+    /// <summary>Transparent pixels are locked against painting (Lock Transparent Pixels, or Lock All).</summary>
+    public bool TransparencyLocked
+    {
+        get => (Locks & (LayerLocks.Transparency | LayerLocks.All)) != 0;
+        set => Locks = value ? Locks | LayerLocks.Transparency : Locks & ~LayerLocks.Transparency;
+    }
 }
 
 /// <summary>A folder of layers, composited together before blending with what is below.</summary>

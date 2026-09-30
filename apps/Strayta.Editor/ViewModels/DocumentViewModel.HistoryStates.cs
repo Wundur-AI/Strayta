@@ -187,6 +187,7 @@ public sealed partial class DocumentViewModel
         copy.Clipped = node.Clipped;
         copy.Effects = node.Effects;
         copy.SourceData = node.SourceData;
+        (copy.Locks, copy.Color, copy.LinkGroup) = (node.Locks, node.Color, node.LinkGroup);
         foreach (var tag in node.Tags) copy.Tags.Add(tag);
         if (node is LayerGroup group)
             foreach (var child in group.Children) ((LayerGroup)copy).Add(CloneForHistory(child));
