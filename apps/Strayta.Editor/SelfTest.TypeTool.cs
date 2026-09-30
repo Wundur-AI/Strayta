@@ -46,7 +46,7 @@ internal static partial class SelfTest
             // ---- The tool --------------------------------------------------------------------------------------
             editor.Tool = CanvasTool.Move;
             check(editor.HandleToolKey("T", shift: false) && editor.IsTypeTool && editor.ToolName == "Horizontal Type"
-                  && editor.ToolGroups.Select(g => g.Key).SkipWhile(k => k != "G").Take(6).SequenceEqual(["G", "P", "T", "A", "U", "H"]), // Pen, Type, Path Selection, Shape
+                  && editor.ToolGroups.Select(g => g.Key).SkipWhile(k => k != "G").Take(8).SequenceEqual(["G", "", "O", "P", "T", "A", "U", "H"]), // Blur (no key), Dodge, Pen, Type, Path Selection, Shape
                 "T picks the Horizontal Type tool, placed before the Hand tool as in Photoshop's strip");
             editor.Type.FontFamily = FontCatalog.System.Find(font)!.FamilyName;
             editor.Type.FontSize = 40;

@@ -1,7 +1,7 @@
 namespace Strayta.Core.Painting;
 
 /// <summary>Applies a finished stroke to a layer, producing new pixels (the old raster is left untouched).</summary>
-public static class StrokeBaker
+public static partial class StrokeBaker
 {
     /// <summary>
     /// Brush strokes blend the color over the layer in the stroke's <see cref="PaintMode"/> (see <see cref="PaintBlender"/>;
@@ -14,6 +14,7 @@ public static class StrokeBaker
     {
         if (mode is not (ColorMode.Rgb or ColorMode.Grayscale))
             throw new NotSupportedException($"Painting in {mode} documents is not supported yet.");
+        if (stroke.Tone is not null || stroke.Local is not null) return BakeTool(layer, stroke, mode, bitDepth); // StrokeBaker.Tools.cs
 
         var old = layer.Pixels;
         var oldBounds = old is null ? PixelRect.Empty : layer.Bounds;

@@ -1,0 +1,39 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Strayta.Editor.ViewModels"
+             xmlns:c="using:Strayta.Editor.Controls"
+             xmlns:v="using:Strayta.Editor.Views"
+             x:Class="Strayta.Editor.Views.BrushPresetPicker"
+             x:DataType="vm:EditorViewModel"
+             VerticalAlignment="Center">
+  <!-- The options bar's brush preset picker: the current size, and a popover with Size, Hardness and the presets. -->
+  <Button Padding="6,1" MinHeight="0" ToolTip.Tip="{Binding BrushPresetName, StringFormat='Brush preset picker · {0}'}">
+    <StackPanel Orientation="Horizontal" Spacing="6">
+      <Ellipse Width="14" Height="14" Stroke="{DynamicResource St.Text}" StrokeThickness="1.2" IsVisible="{Binding !HasSampledTip}" />
+      <Path Classes="icon small" Data="{StaticResource IconBrushes}" IsVisible="{Binding HasSampledTip}" />
+      <TextBlock Text="{Binding BrushSize, StringFormat='{}{0:0}'}" FontSize="11" VerticalAlignment="Center" MinWidth="18" />
+      <TextBlock Text="▾" FontSize="9" VerticalAlignment="Center" />
+    </StackPanel>
+    <Button.Flyout>
+      <Flyout Placement="BottomEdgeAlignedLeft">
+        <DockPanel Width="330" Height="440">
+          <StackPanel DockPanel.Dock="Top" Spacing="6" Margin="4,4,4,8">
+            <c:SliderField Label="Size" Format="0" Minimum="1" Maximum="1000" Value="{Binding BrushSize}" />
+            <c:SliderField Label="Hardness" Format="0" Minimum="0" Maximum="100" Value="{Binding BrushHardness}" IsEnabled="{Binding !HasSampledTip}" />
+          </StackPanel>
+          <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="2" Margin="0,6,0,0">
+            <Button Classes="icon" Command="{Binding BrushPresets.ImportCommand}" ToolTip.Tip="Import Brushes… (.abr)">
+              <Path Classes="icon small" Data="{StaticResource IconOpen}" />
+            </Button>
+            <Button Classes="icon" Command="{Binding BrushPresets.NewPresetCommand}" ToolTip.Tip="New Brush Preset from the current brush">
+              <Path Classes="icon small" Data="{StaticResource IconNewLayer}" />
+            </Button>
+          </StackPanel>
+          <ScrollViewer>
+            <v:BrushPresetList DataContext="{Binding BrushPresets}" />
+          </ScrollViewer>
+        </DockPanel>
+      </Flyout>
+    </Button.Flyout>
+  </Button>
+</UserControl>

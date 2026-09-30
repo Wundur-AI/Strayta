@@ -1,0 +1,88 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Strayta.Editor.ViewModels"
+             xmlns:v="using:Strayta.Editor.Views"
+             x:Class="Strayta.Editor.Views.ToningToolOptions"
+             x:DataType="vm:EditorViewModel"
+             VerticalAlignment="Center"
+             IsVisible="{Binding IsToneOrFocusTool}">
+  <UserControl.Styles>
+    <Style Selector="ComboBox">
+      <Setter Property="FontSize" Value="11" />
+      <Setter Property="MinHeight" Value="0" />
+      <Setter Property="Padding" Value="8,2" />
+    </Style>
+  </UserControl.Styles>
+  <UserControl.Resources>
+    <StreamGeometry x:Key="GlyphAirbrush">M3,13 L9,7 M8,4 L12,8 L10,10 L6,6 Z M13,3 L14,2 M14,5 L15.5,4.5 M11,1.5 L11.5,0</StreamGeometry>
+  </UserControl.Resources>
+
+  <!-- Options for Dodge, Burn, Sponge, Blur, Sharpen and Smudge (EditorViewModel.Toning.cs). The brush is the Brush's,
+       so `[` and `]` and the presets work the same way. -->
+  <StackPanel Orientation="Horizontal" Spacing="14">
+    <v:BrushPresetPicker />
+    <StackPanel Orientation="Horizontal" Spacing="8">
+      <TextBlock Classes="label" Text="Size" VerticalAlignment="Center" />
+      <Slider Width="100" Minimum="1" Maximum="500" Value="{Binding BrushSize}" VerticalAlignment="Center" />
+      <TextBlock Text="{Binding BrushSize, StringFormat='{}{0:0} px'}" VerticalAlignment="Center" MinWidth="44" />
+    </StackPanel>
+
+    <!-- Dodge and Burn -->
+    <StackPanel Orientation="Horizontal" Spacing="14" IsVisible="{Binding IsDodgeOrBurnTool}">
+      <StackPanel Orientation="Horizontal" Spacing="6">
+        <TextBlock Classes="label" Text="Range" VerticalAlignment="Center" />
+        <ComboBox ItemsSource="{Binding ToneRangeNames}" SelectedIndex="{Binding ToneRangeIndex}" Width="110"
+                  ToolTip.Tip="Which tones change most: the darks, the middle grays or the lights" />
+      </StackPanel>
+      <StackPanel Orientation="Horizontal" Spacing="8">
+        <TextBlock Classes="label" Text="Exposure" VerticalAlignment="Center" />
+        <Slider Width="80" Minimum="1" Maximum="100" Value="{Binding ToneExposure}" VerticalAlignment="Center"
+                ToolTip.Tip="How strong one stroke is at most; paint again to build up more" />
+        <TextBlock Text="{Binding ToneExposure, StringFormat='{}{0:0}%'}" VerticalAlignment="Center" MinWidth="34" />
+      </StackPanel>
+      <CheckBox Content="Protect Tones" IsChecked="{Binding ToneProtectTones}" FontSize="11"
+                ToolTip.Tip="Change brightness only, keeping hue and saturation and avoiding clipped shadows and highlights" />
+    </StackPanel>
+
+    <!-- Sponge -->
+    <StackPanel Orientation="Horizontal" Spacing="14" IsVisible="{Binding IsSpongeTool}">
+      <StackPanel Orientation="Horizontal" Spacing="6">
+        <TextBlock Classes="label" Text="Mode" VerticalAlignment="Center" />
+        <ComboBox ItemsSource="{Binding SpongeModeNames}" SelectedIndex="{Binding SpongeModeIndex}" Width="110" />
+      </StackPanel>
+      <StackPanel Orientation="Horizontal" Spacing="8">
+        <TextBlock Classes="label" Text="Flow" VerticalAlignment="Center" />
+        <Slider Width="80" Minimum="1" Maximum="100" Value="{Binding SpongeFlow}" VerticalAlignment="Center"
+                ToolTip.Tip="How much each dab changes the saturation; overlapping dabs build up" />
+        <TextBlock Text="{Binding SpongeFlow, StringFormat='{}{0:0}%'}" VerticalAlignment="Center" MinWidth="34" />
+      </StackPanel>
+      <CheckBox Content="Vibrance" IsChecked="{Binding SpongeVibrance}" FontSize="11"
+                ToolTip.Tip="Change dull colors most and never clip fully saturated ones" />
+    </StackPanel>
+
+    <ToggleButton Classes="icon" IsChecked="{Binding ToneAirbrush}" IsVisible="{Binding IsToningTool}"
+                  ToolTip.Tip="Airbrush: keep building up while the pointer rests">
+      <Path Classes="icon" Data="{StaticResource GlyphAirbrush}" />
+    </ToggleButton>
+
+    <!-- Blur, Sharpen, Smudge -->
+    <StackPanel Orientation="Horizontal" Spacing="14" IsVisible="{Binding IsFocusTool}">
+      <StackPanel Orientation="Horizontal" Spacing="6">
+        <TextBlock Classes="label" Text="Mode" VerticalAlignment="Center" />
+        <ComboBox ItemsSource="{Binding FocusModeNames}" SelectedIndex="{Binding FocusModeIndex}" Width="110"
+                  ToolTip.Tip="Darken only darkens, Lighten only lightens; Hue, Saturation, Color and Luminosity change only that" />
+      </StackPanel>
+      <StackPanel Orientation="Horizontal" Spacing="8">
+        <TextBlock Classes="label" Text="Strength" VerticalAlignment="Center" />
+        <Slider Width="80" Minimum="1" Maximum="100" Value="{Binding FocusStrength}" VerticalAlignment="Center" />
+        <TextBlock Text="{Binding FocusStrength, StringFormat='{}{0:0}%'}" VerticalAlignment="Center" MinWidth="34" />
+      </StackPanel>
+      <CheckBox Content="Sample All Layers" IsChecked="{Binding FocusSampleAllLayers}" FontSize="11"
+                ToolTip.Tip="Work from the whole image and put the result on the selected layer (paint on an empty layer to keep it separate)" />
+      <CheckBox Content="Protect Detail" IsChecked="{Binding SharpenProtectDetail}" FontSize="11" IsVisible="{Binding IsSharpenTool}"
+                ToolTip.Tip="Sharpen without halos or amplified noise" />
+      <CheckBox Content="Finger Painting" IsChecked="{Binding SmudgeFingerPainting}" FontSize="11" IsVisible="{Binding IsSmudgeTool}"
+                ToolTip.Tip="Start each stroke with the foreground color" />
+    </StackPanel>
+  </StackPanel>
+</UserControl>

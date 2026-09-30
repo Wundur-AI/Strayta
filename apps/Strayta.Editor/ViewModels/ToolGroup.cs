@@ -36,7 +36,9 @@ public sealed partial class ToolGroup : ObservableObject
 
     public bool IsActive => Contains(_editor.Tool);
 
-    public string Tip => HasMore
+    public string Tip => Key.Length == 0
+        ? (HasMore ? $"{Current.Name}\nHold or right-click for {string.Join(", ", Tools.Where(t => t != Current).Select(t => t.Name))}" : Current.Name)
+        : HasMore
         ? $"{Current.Name} ({Key})\nShift+{Key} switches · hold or right-click for {string.Join(", ", Tools.Where(t => t != Current).Select(t => t.Name))}"
         : $"{Current.Name} ({Key})";
 

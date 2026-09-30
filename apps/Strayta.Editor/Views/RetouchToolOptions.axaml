@@ -17,6 +17,7 @@
   <!-- Options-bar settings for the Clone Stamp, Healing Brush and Spot Healing Brush (EditorViewModel.Retouch.cs).
        Size and hardness are the Brush's, so `[` and `]` resize them the same way. -->
   <StackPanel Orientation="Horizontal" Spacing="14">
+    <v:BrushPresetPicker />
     <StackPanel Orientation="Horizontal" Spacing="8">
       <TextBlock Classes="label" Text="Size" VerticalAlignment="Center" />
       <Slider Width="110" Minimum="1" Maximum="500" Value="{Binding BrushSize}" VerticalAlignment="Center" />

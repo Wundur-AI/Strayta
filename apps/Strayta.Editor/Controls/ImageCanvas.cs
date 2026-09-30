@@ -44,6 +44,13 @@ public enum CanvasTool
     Line,
     CustomShape,
     Artboard, // in the Move tool's slot (ImageCanvas.Artboards.cs)
+    // Toning and focus tools (ImageCanvas.Toning.cs).
+    Dodge,
+    Burn,
+    Sponge,
+    Blur,
+    Sharpen,
+    Smudge,
 }
 
 /// <summary>
@@ -125,7 +132,7 @@ public sealed partial class ImageCanvas : Control
     private Point? _hover;
     private bool _stroking;
 
-    private bool IsPaintTool => Tool is CanvasTool.Brush or CanvasTool.Eraser or CanvasTool.HistoryBrush || IsRetouchTool; // ImageCanvas.Retouch.cs
+    private bool IsPaintTool => Tool is CanvasTool.Brush or CanvasTool.Eraser or CanvasTool.HistoryBrush || IsRetouchTool || IsToneTool; // ImageCanvas.Retouch.cs, ImageCanvas.Toning.cs
 
     private Point ToImage(Point screen) => new((screen.X - _offset.X) / Zoom, (screen.Y - _offset.Y) / Zoom);
 

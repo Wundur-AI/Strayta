@@ -56,5 +56,7 @@ public sealed partial class EditorViewModel
         Mode = CurrentPaintMode,
         PressureSize = BrushPressureSize,
         PressureOpacity = BrushPressureOpacity,
+        Tip = BrushTip, // EditorViewModel.BrushPresets.cs
+        Dynamics = CurrentDynamics(),
     };
 }

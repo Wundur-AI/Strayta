@@ -1,0 +1,37 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Strayta.Editor.ViewModels"
+             xmlns:c="using:Strayta.Editor.Controls"
+             xmlns:v="using:Strayta.Editor.Views"
+             x:Class="Strayta.Editor.Views.BrushesView"
+             x:DataType="vm:BrushesToolViewModel"
+             Background="{DynamicResource St.Panel}"
+             FontSize="11">
+  <!-- Window › Brushes: the size of the current brush, the presets by folder, and New Brush Preset / New Folder /
+       Import Brushes / Delete (BrushPresetsPanel.cs). -->
+  <DockPanel>
+    <Border DockPanel.Dock="Top" Padding="10,8,10,4">
+      <c:SliderField Label="Size" Format="0" Minimum="1" Maximum="1000" Value="{Binding Editor.BrushSize}" />
+    </Border>
+    <Border DockPanel.Dock="Bottom" Padding="6,3" BorderBrush="{DynamicResource St.Border}" BorderThickness="0,1,0,0">
+      <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="2">
+        <Button Classes="icon" Command="{Binding Presets.ImportCommand}" ToolTip.Tip="Import Brushes… (.abr)">
+          <Path Classes="icon small" Data="{StaticResource IconOpen}" />
+        </Button>
+        <Button Classes="icon" Command="{Binding Presets.NewFolderCommand}" ToolTip.Tip="New Folder">
+          <Path Classes="icon small" Data="{StaticResource IconNewGroup}" />
+        </Button>
+        <Button Classes="icon" Command="{Binding Presets.NewPresetCommand}" ToolTip.Tip="New Brush Preset from the current brush">
+          <Path Classes="icon small" Data="{StaticResource IconNewLayer}" />
+        </Button>
+        <Button Classes="icon" Command="{Binding Presets.DeleteCommand}" CommandParameter="{x:Null}" IsEnabled="{Binding Presets.CanEditSelected}"
+                ToolTip.Tip="Delete the selected brush preset" ToolTip.ShowOnDisabled="True">
+          <Path Classes="icon small" Data="{StaticResource IconTrash}" />
+        </Button>
+      </StackPanel>
+    </Border>
+    <ScrollViewer Padding="6,0">
+      <v:BrushPresetList DataContext="{Binding Presets}" />
+    </ScrollViewer>
+  </DockPanel>
+</UserControl>
