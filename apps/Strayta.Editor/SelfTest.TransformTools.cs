@@ -106,8 +106,25 @@ internal static partial class SelfTest
         var layer = CheckerLayer("Checker", new PixelRect(100, 100, 200, 180), 10);
         AddLayer(doc, layer);
 
-        // ⌘-drag the bottom-right corner: distort (the other corners stay).
+        // On the canvas: a ⌘-drag on a corner distorts, a plain one scales.
+        var cmd = OperatingSystem.IsMacOS() ? Avalonia.Input.KeyModifiers.Meta : Avalonia.Input.KeyModifiers.Control;
         check(doc.BeginFreeTransform(), "Free Transform opens on the checker layer");
+        if (await CanvasOfAsync(doc) is { } canvas)
+        {
+            await Settle();
+            check(ReferenceEquals(canvas.FreeTransform, doc.FreeTransform), "the canvas shows the open transform");
+            canvas.TransformDragForTest(new Avalonia.Point(200, 180), new Avalonia.Point(230, 200), cmd);
+            check(doc.FreeTransform!.IsDistorted && Math.Abs(doc.FreeTransform.Corners[2].X - 230) < 1e-6 && Math.Abs(doc.FreeTransform.Corners[1].X - 200) < 1e-6,
+                "⌘-dragging a corner on the canvas distorts");
+            canvas.TransformDragForTest(new Avalonia.Point(230, 200), new Avalonia.Point(240, 210));
+            check(doc.FreeTransform.IsDistorted && doc.FreeTransform.WidthPercent > 100, "a plain corner drag then scales the distorted box");
+            doc.CancelTransform();
+            check(!doc.IsTransforming && layer.Bounds == new PixelRect(100, 100, 200, 180), "Esc leaves the layer as it was");
+            doc.BeginFreeTransform();
+        }
+        else check(false, "the document's canvas is on screen");
+
+        // ⌘-drag the bottom-right corner: distort (the other corners stay).
         var ft = doc.FreeTransform!;
         var br = ft.HandlePosition(TransformHandle.BottomRight);
         ft.BeginDrag(TransformHandle.BottomRight, br.X, br.Y);
@@ -435,7 +452,17 @@ internal static partial class SelfTest
         var pinned = puppet.Pins[0];
         check(Math.Abs(puppet.X[pinned.Vertex] - pinned.X) < 1e-6 && Math.Abs(puppet.Y[pinned.Vertex] - pinned.Y) < 1e-6, "the other pins hold");
         check(await NextFullFrameAsync(doc), "Puppet Warp previews on the canvas");
+        check(await CanvasOfAsync(doc) is { } canvas && ReferenceEquals(canvas.PuppetWarp, puppet), "the canvas shows the pins");
         check(puppet.Press(puppet.Pins[1].X, puppet.Pins[1].Y, 3, alt: true) && puppet.Pins.Count == 2, "Option-click removes a pin");
+        doc.Undo();
+        check(doc.IsPuppetWarping && puppet.Pins.Count == 3, "⌘Z inside Puppet Warp brings the pin back");
+        doc.Undo();
+        check(doc.IsPuppetWarping && puppet.Pins.Count == 2 && Math.Abs(puppet.Y[puppet.Mesh.NearestVertex(340, 150, 30)] - puppet.Mesh.Y[puppet.Mesh.NearestVertex(340, 150, 30)]) < 1,
+            "and then the pin placed and dragged before it, with its drag");
+        puppet.Press(200, 150, 3, alt: true); // the middle pin goes
+        puppet.Press(340, 150, 3, alt: false);
+        for (int i = 1; i <= 20; i++) puppet.DragTo(340, 150 + i * 4);
+        puppet.EndDrag();
         var pixels = bar.Pixels;
         await editor.CommitPuppetWarpCommand.ExecuteAsync(null);
         check(!doc.IsPuppetWarping && !ReferenceEquals(pixels, bar.Pixels) && doc.UndoText == "Undo Puppet Warp" && bar.Bounds.Bottom > 215,
@@ -481,6 +508,12 @@ internal static partial class SelfTest
 
         // Inside the workspace: undo a stroke, Restore All, the freeze mask.
         var s2 = doc.BeginLiquify()!;
+        // The workspace itself opens and lays out (then closes again).
+        var window = new Views.LiquifyWindow(s2);
+        window.Show();
+        await Task.Delay(300);
+        check(window.IsVisible && window.Bounds.Width > 400, "the Liquify workspace opens");
+        window.Close();
         s2.BeginStroke(200, 150);
         s2.StrokeTo(230, 150);
         s2.EndStroke();

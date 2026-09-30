@@ -231,6 +231,14 @@ public sealed class ArapSolver
         for (int k = 0; k < _pins.Length; k++) (_x[_pins[k]], _y[_pins[k]]) = (_pinX[k], _pinY[k]);
     }
 
+    /// <summary>Puts the vertices where they were (an earlier state, for undo); the next <see cref="Solve"/> starts from there.</summary>
+    public void Restore(double[] x, double[] y)
+    {
+        if (x.Length != _x.Length || y.Length != _y.Length) throw new ArgumentException("The positions do not fit the mesh.");
+        Array.Copy(x, _x, _x.Length);
+        Array.Copy(y, _y, _y.Length);
+    }
+
     /// <summary>Back to the rest shape (keeping the pins' vertices, not their positions).</summary>
     public void Reset()
     {

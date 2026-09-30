@@ -208,6 +208,24 @@ public sealed partial class ImageCanvas
         return true;
     }
 
+    /// <summary>
+    /// A whole drag on the open transform from one image point to another with <paramref name="modifiers"/> held, through
+    /// the same hit testing and modifier handling as the pointer (for the self-test).
+    /// </summary>
+    internal void TransformDragForTest(Point from, Point to, KeyModifiers modifiers = KeyModifiers.None)
+    {
+        if (FreeTransform is not { } t) return;
+        if (t.Mode == TransformMode.Warp && t.Warp is { } warp && t.WarpFrame is { } frame)
+        {
+            if (warp.BeginDrag(frame(), from.X, from.Y, HandleGrab / Zoom)) warp.DragTo(frame(), to.X, to.Y);
+            warp.EndDrag();
+            return;
+        }
+        t.BeginDrag(t.HitTest(from.X, from.Y, HandleGrab / Zoom), from.X, from.Y);
+        t.DragTo(to.X, to.Y, modifiers.HasFlag(KeyModifiers.Shift), modifiers.HasFlag(KeyModifiers.Alt), IsCommand(modifiers));
+        t.EndDrag();
+    }
+
     private void TransformReleased()
     {
         PuppetReleased();

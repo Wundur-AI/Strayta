@@ -109,6 +109,7 @@ public sealed class PuppetWarpSession : ObservableObject
         var rest = _pins.Select(p => (_mesh.X[p.Vertex], _mesh.Y[p.Vertex], p.X, p.Y)).ToList();
         _mesh = mesh;
         _solver = new ArapSolver(mesh);
+        _history.Clear(); // earlier shapes belong to the old mesh
         _pins.Clear();
         foreach (var (rx, ry, x, y) in rest)
         {
@@ -255,12 +256,12 @@ public sealed class PuppetWarpSession : ObservableObject
         Solve();
     }
 
-    private readonly List<List<(int Vertex, double X, double Y)>> _history = [];
+    private readonly List<(List<(int Vertex, double X, double Y)> Pins, double[] X, double[] Y)> _history = [];
 
-    /// <summary>Keeps the pins as they are, for <see cref="Undo"/>.</summary>
+    /// <summary>Keeps the pins and the shape as they are, for <see cref="Undo"/>.</summary>
     private void Remember()
     {
-        _history.Add([.. _pins]);
+        _history.Add(([.. _pins], [.. X], [.. Y]));
         if (_history.Count > 100) _history.RemoveAt(0);
     }
 
@@ -268,14 +269,15 @@ public sealed class PuppetWarpSession : ObservableObject
     public bool Undo()
     {
         if (_history.Count == 0) return false;
-        var pins = _history[^1];
+        var (pins, x, y) = _history[^1];
         _history.RemoveAt(_history.Count - 1);
         _pins.Clear();
         _pins.AddRange(pins);
         _selected = _pins.Count - 1;
         _dragging = -1;
-        if (_pins.Count == 0) _solver.Reset();
-        Settle();
+        // The mesh goes back to the shape it had (the rigid solution depends on how it got there).
+        _solver.Restore(x, y);
+        Solve();
         return true;
     }
 
