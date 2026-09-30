@@ -21,6 +21,9 @@ public static class LayerIcons
     public static StreamGeometry DistributeHorizontalSpacing { get; } = StreamGeometry.Parse("M3 5v14 M21 5v14 M9 8h6v8H9Z");
     public static StreamGeometry DistributeVerticalSpacing { get; } = StreamGeometry.Parse("M5 3h14 M5 21h14 M8 9v6h8V9Z");
 
+    /// <summary>Themes' IconLock as closed shapes, to draw filled for Lock All.</summary>
+    public static StreamGeometry LockSolid { get; } = StreamGeometry.Parse("M6 11h12v10H6Z M8 11V7a4 4 0 0 1 8 0v4Z");
+
     public static StreamGeometry PanelMenu { get; } = StreamGeometry.Parse("M4 7h16 M4 12h16 M4 17h16");
     public static StreamGeometry Filter { get; } = StreamGeometry.Parse("M4 5h16l-6 7v6l-4 2v-8Z");
 }

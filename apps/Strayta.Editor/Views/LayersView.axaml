@@ -307,7 +307,7 @@
                         Classes.linkedToSelection="{Binding IsLinkedToSelection}" ToolTip.Tip="Linked layer" />
                   <Panel IsVisible="{Binding IsLocked}" ToolTip.Tip="{Binding LockTip}" Background="Transparent">
                     <Path Classes="icon small" Data="{StaticResource IconLock}" Stroke="{DynamicResource St.TextMuted}" IsVisible="{Binding !IsFullyLocked}" />
-                    <Path Classes="icon small" Data="{StaticResource IconLock}" Stroke="{DynamicResource St.TextMuted}" Fill="{DynamicResource St.TextMuted}"
+                    <Path Classes="icon small" Data="{x:Static c:LayerIcons.LockSolid}" Stroke="{DynamicResource St.Text}" Fill="{DynamicResource St.Text}"
                           IsVisible="{Binding IsFullyLocked}" />
                   </Panel>
                 </StackPanel>

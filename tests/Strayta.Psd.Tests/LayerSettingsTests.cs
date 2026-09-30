@@ -122,4 +122,29 @@ public class LayerSettingsTests
         var (file, _) = Reload(doc);
         Assert.Null(file.FindResource(1026));
     }
+
+    public static TheoryData<string> CorpusFiles() => CorpusTests.Files();
+
+    /// <summary>Real files: locks, color labels, record flags and the link resource come back byte for byte.</summary>
+    [Theory]
+    [MemberData(nameof(CorpusFiles))]
+    public void Corpus_settings_round_trip_byte_for_byte(string relativePath)
+    {
+        if (relativePath.Length == 0) Assert.Skip("Set STRAYTA_CORPUS to a folder of PSD files to run corpus tests.");
+        var options = new PsdReadOptions { MaxRawBlockBytes = long.MaxValue };
+        var original = PsdFile.Open(Path.Combine(Environment.GetEnvironmentVariable("STRAYTA_CORPUS")!, relativePath), options);
+        var ms = new MemoryStream();
+        PsdWriter.Write(original.ToDocument(), ms);
+        ms.Position = 0;
+        var again = PsdFile.Read(ms, options);
+        Assert.Equal(original.Layers.Count, again.Layers.Count);
+        for (int i = 0; i < original.Layers.Count; i++)
+        {
+            Assert.Equal(original.Layers[i].Flags & 0x03, again.Layers[i].Flags & 0x03);
+            foreach (var key in new[] { "lspf", "lclr" })
+                Assert.Equal(original.Layers[i].FindBlock(key)?.Data, again.Layers[i].FindBlock(key)?.Data);
+        }
+        if (PsdLayerSettings.ReadLinkGroups(original) is { } links)
+            Assert.Equal(links, PsdLayerSettings.ReadLinkGroups(again));
+    }
 }

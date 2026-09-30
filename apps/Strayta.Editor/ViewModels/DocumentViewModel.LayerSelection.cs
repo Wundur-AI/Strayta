@@ -106,7 +106,9 @@ public sealed partial class DocumentViewModel
             if (_selectedNodes.Contains(node))
             {
                 var rest = _selectedNodes.Where(n => n != node).ToList();
-                SetLayerSelection(rest, ReferenceEquals(SelectedLayer?.Node, node) ? rest.LastOrDefault() : SelectedLayer?.Node);
+                var primary = ReferenceEquals(SelectedLayer?.Node, node) ? rest.LastOrDefault() : SelectedLayer?.Node;
+                _selectionAnchor = primary; // ranges then start from the layer that stays active
+                SetLayerSelection(rest, primary);
             }
             else SetLayerSelection(_selectedNodes.Append(node), node);
             return;
