@@ -188,6 +188,8 @@ public partial class MainWindow : Window, IEditorDialogs
         AddChannelMenus(menu, Item); // Window › Channels, Save / Load Selection, Quick Mask, Image › Adjustments (MainWindow.Channels.cs)
         AddSmartObjectMenus(menu, Item); // MainWindow.SmartObjects.cs
         AddLayersMenus(menu, Item); // several layers, locks, links, align, merge (MainWindow.Layers.cs)
+        AddExportMenus(menu, Item); // File › Export, Generate, Layer › Export As (MainWindow.Export.cs)
+        AddArtboardMenus(menu, Item); // Layer › New Artboard… and Artboards from Layers / Group (MainWindow.Artboards.cs)
         NativeMenu.SetMenu(this, menu);
         if (Environment.GetEnvironmentVariable("STRAYTA_ADJUSTBENCH") == "new")
             Opened += async (_, _) => await SelfTest.RunAdjustmentBenchmarkAsync(Editor); // SelfTest.Adjustments.cs

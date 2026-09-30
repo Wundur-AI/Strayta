@@ -36,11 +36,15 @@ public sealed record LayerGeometry(Raster? Pixels, PixelRect Bounds, LayerMask? 
 {
     public static LayerGeometry Of(LayerNode node) => node is PixelLayer p
         ? new LayerGeometry(p.Pixels, p.Bounds, p.Mask, p.Name)
-        : new LayerGeometry(null, PixelRect.Empty, node.GetMask(), node.Name);
+        : new LayerGeometry(null, PixelRect.Empty, node.GetMask(), node.Name) { Artboard = (node as LayerGroup)?.Artboard };
+
+    /// <summary>An artboard group's bounds and background, which follow the canvas too.</summary>
+    public Artboard? Artboard { get; init; }
 
     public void ApplyTo(LayerNode node)
     {
         node.Name = Name;
+        if (node is LayerGroup g) g.Artboard = Artboard;
         if (node is PixelLayer p)
         {
             p.Pixels = Pixels;
@@ -179,7 +183,7 @@ public static partial class CanvasOperations
             var mask = MapMask(node.GetMask(), map, method, clip ? canvas : null, cancel);
             results[i] = node is PixelLayer p
                 ? MapLayer(p, ReferenceEquals(p, background), mask, map, method, clip ? canvas : null, canvas, backgroundRule, fillColor, cancel)
-                : new LayerGeometry(null, PixelRect.Empty, mask, node.Name);
+                : new LayerGeometry(null, PixelRect.Empty, mask, node.Name) { Artboard = MapArtboard((node as LayerGroup)?.Artboard, map) };
         }
         // Whole-pixel moves are cheap copies and run side by side; resampling is parallel inside, one layer at a time.
         if (wholePixels) Parallel.For(0, nodes.Count, new ParallelOptions { CancellationToken = cancel }, Map);
@@ -206,6 +210,19 @@ public static partial class CanvasOperations
             Layers = nodes.Select((n, i) => (n, results[i])).ToList(),
             Composite = composite,
             ResampledLiveLayers = wholePixels ? [] : nodes.Where(n => n is PixelLayer { Pixels: not null } && IsLive(n)).ToList(),
+        };
+    }
+
+    /// <summary>An artboard's bounds through the canvas map: the box around its mapped corners, in whole pixels.</summary>
+    private static Artboard? MapArtboard(Artboard? artboard, Affine map)
+    {
+        if (artboard is null) return null;
+        var r = artboard.Rect;
+        var corners = new[] { map.Apply(r.Left, r.Top), map.Apply(r.Right, r.Top), map.Apply(r.Left, r.Bottom), map.Apply(r.Right, r.Bottom) };
+        int Round(double v) => (int)Math.Round(v);
+        return artboard with
+        {
+            Rect = new PixelRect(Round(corners.Min(c => c.X)), Round(corners.Min(c => c.Y)), Round(corners.Max(c => c.X)), Round(corners.Max(c => c.Y))),
         };
     }
 

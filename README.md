@@ -11,7 +11,7 @@ layered image documents, starting with Photoshop PSD/PSB files.
 |---|---|
 | `Strayta.Core` | Format-agnostic document model: layers, groups, masks, blend modes, color modes, pixel buffers. |
 | `Strayta.Psd` | PSD/PSB reader and writer, mapping to and from the Core model; unmodeled data round-trips byte for byte. |
-| `Strayta.Imaging` | Opens standard images (PNG, JPEG, WebP, GIF, BMP, ICO; HEIC on macOS) as documents, and writes PNG at the image's own bit depth. Uses SkiaSharp for decoding, keeping it out of the core engine. |
+| `Strayta.Imaging` | Opens standard images (PNG, JPEG, WebP, GIF, BMP, ICO; HEIC on macOS) as documents, writes PNG at the image's own bit depth, and encodes WebP and converts ICC colors to sRGB for export. Uses SkiaSharp, keeping it out of the core engine. |
 | `Strayta.Rendering` | Compositing engine that renders a Core document to pixels (`IRenderer`; CPU today). |
 | `Strayta.Segmentation` | Local AI selection (SAM 2.1, BiRefNet) on ONNX Runtime, producing Core selections. Used by the editor only. |
 | `Strayta.Text` | Text engine for type layers: installed fonts by PostScript name, shaping (HarfBuzz), Photoshop's line layout, hit testing and rendering. The type model is in `Strayta.Core.Text`, its PSD form in `Strayta.Psd.Text`; see [docs/text-engine.md](docs/text-engine.md). |
@@ -273,8 +273,31 @@ tag new ones with `[Trait("Category", "Performance")]`.
   Reset. Filters apply to the selected layer (limited to the selection, soft edges blended) or its targeted mask, as
   one undo step; type and shape layers are rasterized first after a prompt, and smart objects get a smart filter. Last Filter (⌃⌘F) repeats
   the last one. The filters live in `Strayta.Rendering.Filters` (`FilterEngine`) for use without the editor.
-- File > Export As writes PNG (with transparency) or JPEG (quality, flattened on a matte) with Strayta's own
-  encoders.
+- File › Export: Export As (⌥⇧⌘W) lists the document (or its artboards; Layer › Export As: the selected layer) with a
+  live preview of the encoded file and its size: PNG (transparency, Smaller File = 8-bit palette), JPEG (quality, matte),
+  GIF (median-cut palette, one transparent index, edges on the matte) and WebP (lossy or lossless, via SkiaSharp); image
+  size (scale %, width / height, bicubic and area-averaged), canvas size, Scale All sizes with suffixes (1x, @2x, @3x…),
+  Convert to sRGB (else the profile is embedded) and Copyright and Contact Info (PNG text chunks, JPEG / GIF comment).
+  Quick Export as PNG (⇧⌘') uses remembered settings (export.json in the settings folder); Layers to Files… writes the
+  selected layers, all top-level layers or all artboards, one file each (trimmed or canvas-sized, sanitized names, a
+  prefix); Save a Copy… writes a flattened PNG/JPEG/GIF/WebP. The PNG, JPEG and GIF encoders are Strayta's own
+  (`Strayta.Rendering.Export`); WebP and the sRGB conversion come from `Strayta.Imaging.WebPWriter` (SkiaSharp).
+- File › Generate › Image Assets (a check mark per document): layers and groups named with Adobe's published asset
+  naming convention (`icon.png`, `200% button@2x.png`, `logo.jpg80%`, `icon.png8`, `300x200 thumb.jpg`, `?x100 a.png`,
+  `hero.png, hero@2x.png`, folders `assets/x.png`, a `default 200% @2x` layer adding variants to every asset) are written,
+  trimmed to their pixels, into `<document>-assets` next to the file, now and after every save
+  (`ImageAssetNames`, `ImageAssetGenerator`; SVG is recognised but not written).
+- Artboards: read from and written to the PSD (`artb` on the group, the document's `artd`; `PsdArtboards`, unedited
+  blocks kept byte for byte, edited ones keep unknown items) and drawn as Photoshop flattens them: each artboard's
+  background under its layers, the layers clipped to its bounds, transparent pasteboard outside (the canvas shows the
+  checkerboard only inside artboards). Names are shown above each artboard (click one to select it; with the Move tool
+  drag it to move the artboard). Artboard tool (V slot, after Move): drag on the pasteboard to draw an artboard, drag
+  one to move it with its layers, eight handles resize it, the "+" beside each edge adds one of the same size there;
+  options bar: size presets (iPhone, iPad, Android, Web, Watch), W / H, background (white, black, transparent, other).
+  Layer › New Artboard…, Artboard from Group, Artboards from Layers. The canvas grows to hold new artboards (a Canvas Size
+  step). The Layers panel shows artboards with their own icon; export per artboard with Export As or Layers to Files.
+  Crops and Image Size move artboards with the canvas. No artboard files were in the test corpora, so rendering is
+  checked by unit tests and the Photoshop check file, not against Photoshop composites.
 - Rulers, guides and grid (View menu): Rulers (⌘R) follow zoom and pan with a pointer marker; right-click a ruler for
   Pixels, Inches, Centimeters, Millimeters, Points, Picas or Percent (at the document's resolution); drag the corner to
   move the zero point, double-click it to reset. Drag guides out of a ruler (Option swaps the direction, Shift lands on
@@ -306,6 +329,8 @@ preview frame rate, release to edit), Paint Bucket clicks and Eyedropper samples
 `STRAYTA_SETTINGS_DIR` keeps user presets (gradients, patterns) in another folder.
 `STRAYTA_SELFTEST_ONLY=layers` runs the layer workflow steps; `STRAYTA_LAYER_SAMPLES=dir` also writes a file with links,
 locks and color labels for checking in Photoshop.
+`STRAYTA_SELFTEST_ONLY=export` runs the export and artboard steps; `STRAYTA_ARTBOARD_SAMPLE=dir` also writes a two-artboard
+file there for checking in Photoshop.
 `STRAYTA_SELFTEST_ONLY=shapes` runs the shape and path steps (with SHAPEBENCH timings on 4000×3000); `STRAYTA_SHAPE_SAMPLES=dir`
 also writes shape files for checking in Photoshop.
 `STRAYTA_RETOUCHBENCH=new` measures Clone Stamp stroke frame rates and commit times (plain and transformed) and

@@ -12,7 +12,8 @@ public static class JpegEncoder
 {
     /// <param name="rgba">RGBA pixels, row-major; alpha is ignored, so flatten transparent images first.</param>
     /// <param name="iccProfile">Embedded as the image's color profile when given.</param>
-    public static void Encode(Stream output, byte[] rgba, int width, int height, int quality = 90, byte[]? iccProfile = null)
+    /// <param name="comment">Written as a COM segment (e.g. copyright), when given.</param>
+    public static void Encode(Stream output, byte[] rgba, int width, int height, int quality = 90, byte[]? iccProfile = null, string? comment = null)
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(width);
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(height);
@@ -28,6 +29,7 @@ public static class JpegEncoder
         w.Marker(0xD8); // SOI
         WriteJfif(w);
         if (iccProfile is not null) WriteIcc(w, iccProfile);
+        if (!string.IsNullOrEmpty(comment)) w.Segment(0xFE, System.Text.Encoding.UTF8.GetBytes(comment.Length > 60000 ? comment[..60000] : comment));
         WriteQuantTable(w, 0, lumaQ);
         WriteQuantTable(w, 1, chromaQ);
         WriteFrame(w, width, height, subsample);

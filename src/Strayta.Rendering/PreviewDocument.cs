@@ -110,6 +110,9 @@ public sealed class PreviewDocument
                 break;
             case (LayerGroup sg, LayerGroup pg):
                 pg.Mask = ScaledMask(sg.Mask);
+                pg.Artboard = sg.Artboard is { } ab
+                    ? ab with { Rect = new PixelRect(RoundDiv(ab.Rect.Left), RoundDiv(ab.Rect.Top), RoundDiv(ab.Rect.Right), RoundDiv(ab.Rect.Bottom)) }
+                    : null;
                 break;
         }
     }
@@ -256,6 +259,7 @@ public sealed class PreviewDocument
         return o;
     }
 
+    private int RoundDiv(int v) => (int)Math.Round(v / (double)Factor); // artboard edges, placed like layers
     private static int Ceil(int v, int f) => (int)Math.Ceiling(v / (double)f);
     private static int Floor(int v, int f) => (int)Math.Floor(v / (double)f);
 

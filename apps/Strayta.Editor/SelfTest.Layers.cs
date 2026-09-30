@@ -45,6 +45,10 @@ internal static partial class SelfTest
         doc.ClickLayer(Item(c), command: true, shift: false);
         check(doc.SelectedCount == 2 && doc.SelectedLayer?.Node == c && Item(a).IsSelected && !Item(b).IsSelected,
             $"⌘-click adds a layer; the clicked one is primary ({doc.SelectedCount} selected)");
+        var exported = doc.SelectedNodesForExport();
+        check(exported.Count == 2 && exported.Contains(a) && exported.Contains(c)
+              && model.Root.Descendants().ToList().IndexOf(exported[0]) > model.Root.Descendants().ToList().IndexOf(exported[1]),
+            "export of the selection takes every selected layer, top first");
         doc.ClickLayer(Item(c), command: true, shift: false);
         check(doc.SelectedCount == 1 && doc.SelectedLayer?.Node == a, "⌘-click on a selected layer removes it");
         doc.ClickLayer(Item(c), command: false, shift: true);

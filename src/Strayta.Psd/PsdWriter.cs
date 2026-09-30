@@ -229,6 +229,9 @@ public static class PsdWriter
             WriteBlock(s, block.Key, data, psb, block.Signature);
         }
         if (newPatterns.Count > 0) WriteBlock(s, patternKey, PsdPatterns.Encode(newPatterns, doc.BitDepth), psb);
+        // Artboards made in Strayta get the document-wide artboard settings block Photoshop writes (PsdArtboards.cs).
+        if (Artboards.Any(doc) && source?.GlobalBlocks.Any(b => b.Key == "artd") != true)
+            WriteBlock(s, "artd", PsdArtboards.EncodeDocumentBlock(Artboards.Of(doc).Count()), psb);
 
         while (section.Length % 4 != 0) section.WriteByte(0);
         w.Length(section.Length, psb);
@@ -318,6 +321,7 @@ public static class PsdWriter
                 string groupKey = PsdBlocks.BlendKeyOf(group.BlendMode);
                 string recordKey = group.BlendMode == BlendMode.PassThrough ? "norm" : groupKey;
                 var blocks = Blocks(group, src, doc);
+                PsdArtboards.Refresh(group, src, blocks); // PsdArtboards.cs
                 blocks.Insert(0, ("lsct", SectionBlock(group.Expanded ? PsdSectionType.OpenFolder : PsdSectionType.ClosedFolder, groupKey)));
                 records.Add(new Record(PixelRect.Empty, folderChannels, recordKey, Opacity(group.Opacity), group.Clipped,
                     GroupFlags(group, src), maskData, src?.BlendingRanges ?? DefaultRanges(doc), group.Name, blocks));

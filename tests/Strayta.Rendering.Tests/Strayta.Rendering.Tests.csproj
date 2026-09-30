@@ -15,5 +15,7 @@
     <ProjectReference Include="..\..\src\Strayta.Rendering\Strayta.Rendering.csproj" />
     <!-- Canvas operations are checked through a PSD round trip. -->
     <ProjectReference Include="..\..\src\Strayta.Psd\Strayta.Psd.csproj" />
+    <!-- WebP export and sRGB conversion come from Imaging (SkiaSharp). -->
+    <ProjectReference Include="..\..\src\Strayta.Imaging\Strayta.Imaging.csproj" />
   </ItemGroup>
 </Project>

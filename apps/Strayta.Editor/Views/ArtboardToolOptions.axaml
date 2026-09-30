@@ -1,0 +1,31 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Strayta.Editor.ViewModels"
+             xmlns:c="using:Strayta.Editor.Controls"
+             x:Class="Strayta.Editor.Views.ArtboardToolOptions"
+             x:DataType="vm:EditorViewModel">
+  <!-- Artboard tool: the selected artboard's size (presets or W / H) and background, "Add Artboard", and how to use it -->
+  <StackPanel Orientation="Horizontal" Spacing="12" VerticalAlignment="Center" IsVisible="{Binding IsArtboardTool}">
+    <StackPanel Orientation="Horizontal" Spacing="12" IsEnabled="{Binding HasSelectedArtboard}">
+      <StackPanel Orientation="Horizontal" Spacing="6">
+        <TextBlock Classes="label" Text="Size" VerticalAlignment="Center" />
+        <ComboBox ItemsSource="{Binding ArtboardPresetNames}" SelectedIndex="{Binding ArtboardPresetIndex}" Width="230" FontSize="11"
+                  Padding="8,2" MinHeight="0" ToolTip.Tip="Resize the selected artboard to a device or web size" />
+      </StackPanel>
+      <StackPanel Orientation="Horizontal" Spacing="6">
+        <TextBlock Classes="label" Text="W" />
+        <c:NumberField Value="{Binding ArtboardWidth}" Unit=" px" Width="70" ToolTip.Tip="Width of the selected artboard" />
+        <TextBlock Classes="label" Text="H" />
+        <c:NumberField Value="{Binding ArtboardHeight}" Unit=" px" Width="70" ToolTip.Tip="Height of the selected artboard" />
+      </StackPanel>
+      <StackPanel Orientation="Horizontal" Spacing="6">
+        <TextBlock Classes="label" Text="Background" VerticalAlignment="Center" />
+        <ComboBox ItemsSource="{x:Static vm:EditorViewModel.ArtboardBackgroundNames}" SelectedIndex="{Binding ArtboardBackgroundIndex}"
+                  Width="110" FontSize="11" Padding="8,2" MinHeight="0" ToolTip.Tip="Other uses the background color swatch" />
+      </StackPanel>
+    </StackPanel>
+    <Button Content="Add Artboard" Command="{Binding AddArtboardCommand}" Padding="8,2" FontSize="11"
+            ToolTip.Tip="Add an artboard of the same size beside the selected one" />
+    <TextBlock Classes="label" Text="Drag on the pasteboard to draw an artboard · drag one to move it · its handles resize · + adds another beside it" />
+  </StackPanel>
+</UserControl>

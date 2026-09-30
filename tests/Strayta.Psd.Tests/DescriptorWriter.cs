@@ -48,6 +48,15 @@ internal sealed class DescriptorWriter
         return this;
     }
 
+    public DescriptorWriter ListOfLongs(string key, params int[] values)
+    {
+        Key(key);
+        Type("VlLs");
+        U32((uint)values.Length);
+        foreach (var v in values) { Type("long"); U32((uint)v); }
+        return this;
+    }
+
     public DescriptorWriter Rgb(string key, double r, double g, double b) =>
         Object(key, "RGBC", 3, w => w.Double("Rd  ", r).Double("Grn ", g).Double("Bl  ", b));
 
