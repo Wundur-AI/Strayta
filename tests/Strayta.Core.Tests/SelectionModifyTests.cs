@@ -158,6 +158,7 @@ public class SelectionModifyTests(ITestOutputHelper output)
         Assert.Null(SelectionModify.Border(null, 5, Canvas));
     }
 
+    [Trait("Category", "Performance")] // timed: runs in the separate performance pass (Directory.Build.props)
     [Fact]
     public void Large_selections_modify_quickly()
     {

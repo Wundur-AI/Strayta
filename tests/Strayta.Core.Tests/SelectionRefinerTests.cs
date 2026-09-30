@@ -104,6 +104,7 @@ public class SelectionRefinerTests(ITestOutputHelper output)
         Assert.True(At(smoothed, 49) >= 128);
     }
 
+    [Trait("Category", "Performance")] // timed: runs in the separate performance pass (Directory.Build.props)
     [Fact]
     public void Large_images_refine_interactively()
     {

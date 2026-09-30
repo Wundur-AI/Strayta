@@ -25,8 +25,12 @@ Requires the .NET 10 SDK.
 
 ```sh
 dotnet build
-dotnet test
+dotnet test                                   # everything except the timed tests
+dotnet test -c Release -p:Performance=true    # only the timed tests (Trait Category=Performance), one at a time
 ```
+
+Timed tests assert how fast large operations are, so they run in their own pass on an otherwise quiet machine;
+tag new ones with `[Trait("Category", "Performance")]`.
 
 ## Editor
 

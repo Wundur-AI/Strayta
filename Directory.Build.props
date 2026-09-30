@@ -18,8 +18,11 @@
 
   <PropertyGroup Condition="$(MSBuildProjectName.EndsWith('.Tests'))">
     <IsPackable>false</IsPackable>
-    <!-- Exit code 8 means "zero tests ran"; allowed while a project is still empty. -->
-    <TestingPlatformCommandLineArguments>--ignore-exit-code 8</TestingPlatformCommandLineArguments>
+    <!-- Exit code 8 means "zero tests ran"; allowed while a project is still empty (or has no performance tests). -->
+    <!-- Timed tests (Trait Category=Performance) are left out of the normal run: sharing the CPU with every other test
+         project makes them fail at random. `dotnet test -c Release -p:Performance=true` runs only them, one at a time. -->
+    <TestingPlatformCommandLineArguments Condition="'$(Performance)' != 'true'">--ignore-exit-code 8 --filter-not-trait "Category=Performance"</TestingPlatformCommandLineArguments>
+    <TestingPlatformCommandLineArguments Condition="'$(Performance)' == 'true'">--ignore-exit-code 8 --filter-trait "Category=Performance" --parallel none</TestingPlatformCommandLineArguments>
     <!-- Renders in tests are short and in-memory; threading xUnit's token through them adds noise. -->
     <NoWarn>$(NoWarn);xUnit1051</NoWarn>
   </PropertyGroup>

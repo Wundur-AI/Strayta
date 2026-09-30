@@ -199,6 +199,7 @@ public class MagicWandTests
         Assert.Null(MagicWand.Select(image, 5, 10, Hard));
     }
 
+    [Trait("Category", "Performance")] // timed: runs in the separate performance pass (Directory.Build.props)
     [Fact]
     public void Large_images_fill_quickly()
     {

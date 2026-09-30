@@ -244,6 +244,7 @@ public class CanvasOperationsTests
                 Assert.Equal(x / 2, At(background.Pixels!, doc.Bounds, 0, x, y));
     }
 
+    [Trait("Category", "Performance")] // timed: runs in the separate performance pass (Directory.Build.props)
     [Fact]
     public void Image_size_of_a_large_layered_document_is_fast()
     {
