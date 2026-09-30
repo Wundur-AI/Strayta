@@ -10,6 +10,27 @@ internal static partial class SelfTest
     /// <summary>Closing several edited documents: one review for all of them, Cancel, save some, discard the rest.</summary>
     private static async Task RunClosingStepsAsync(EditorViewModel editor, Action<bool, string> check)
     {
+        // About Strayta carries the trademark notice (the UI itself names the stored image, not Photoshop).
+        if (Avalonia.Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime { MainWindow: { } appWindow })
+        {
+            var about = new AboutWindow();
+            about.Show(appWindow);
+            await Task.Delay(300);
+            check(Avalonia.VisualTree.VisualExtensions.GetVisualDescendants(about).OfType<Avalonia.Controls.TextBlock>()
+                    .Any(t => t.Text?.Contains("not affiliated with") == true),
+                "About Strayta shows the trademark notice");
+            if (Environment.GetEnvironmentVariable("STRAYTA_SELFTEST_SHOTS") is { Length: > 0 } shots)
+            {
+                foreach (var (w, name) in new (Avalonia.Controls.Window, string)[] { (about, "about.png"), (appWindow, "main-window.png") })
+                {
+                    using var shot = new RenderTargetBitmap(new Avalonia.PixelSize((int)w.Bounds.Width, (int)w.Bounds.Height));
+                    shot.Render(w);
+                    shot.Save(Path.Combine(shots, name), new PngBitmapEncoderOptions());
+                }
+            }
+            about.Close();
+        }
+
         foreach (var open in editor.Factory.OpenDocuments().ToList()) open.CloseWithoutAsking(); // start from nothing open
         var saved = editor.ReviewUnsaved;
         var paths = new List<string>();

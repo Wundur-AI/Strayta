@@ -25,4 +25,9 @@ public partial class App : Application
         }
         base.OnFrameworkInitializationCompleted();
     }
+
+    private void OnAbout(object? sender, EventArgs e)
+    {
+        if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime { MainWindow: { } owner }) _ = new AboutWindow().ShowDialog(owner);
+    }
 }

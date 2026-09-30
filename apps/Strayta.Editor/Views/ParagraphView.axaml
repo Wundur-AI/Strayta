@@ -46,7 +46,7 @@
       </Grid>
 
       <CheckBox Content="Hyphenate" IsChecked="{Binding Hyphenate}"
-                ToolTip.Tip="Saved with the text for Photoshop; Strayta's own line breaking does not hyphenate yet" />
+                ToolTip.Tip="Saved with the text for other apps; Strayta's own line breaking does not hyphenate yet" />
     </StackPanel>
   </ScrollViewer>
 </UserControl>

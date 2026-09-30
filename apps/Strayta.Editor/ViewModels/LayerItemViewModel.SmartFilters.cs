@@ -20,7 +20,7 @@ public sealed class SmartFilterRowViewModel(LayerItemViewModel owner, string nam
 
     public double EyeOpacity => !IsVisible ? 0 : dimmed ? 0.3 : 1;
     public Avalonia.Thickness Indent => new(Owner.Depth * 18 + (IsMaster ? 44 : 60), 0, 0, 0);
-    public string Tip => IsUnknown ? "Strayta does not have this filter; the layer keeps the pixels Photoshop drew" : "Double-click to edit the filter's settings";
+    public string Tip => IsUnknown ? "Strayta does not have this filter; the layer keeps the pixels stored in the file" : "Double-click to edit the filter's settings";
 }
 
 // The Layers panel's list of a smart object's smart filters, as Photoshop shows them under the layer.

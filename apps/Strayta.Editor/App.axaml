@@ -6,6 +6,12 @@
              x:Class="Strayta.Editor.App"
              Name="Strayta"
              RequestedThemeVariant="Dark">
+  <!-- The macOS application menu ("Strayta"): replaces Avalonia's default "About Avalonia" item. -->
+  <NativeMenu.Menu>
+    <NativeMenu>
+      <NativeMenuItem Header="About Strayta" Click="OnAbout" />
+    </NativeMenu>
+  </NativeMenu.Menu>
   <Application.Styles>
     <FluentTheme DensityStyle="Compact">
       <!-- Neutral greys with one blue accent; Fluent controls (and Dock) draw from these palettes. -->

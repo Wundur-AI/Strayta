@@ -159,7 +159,7 @@ public sealed partial class EditorViewModel
         if (FilterDialogProvider is not { } dialogs || DocumentViewModel.SmartFiltersOf(layer) is not { } stack || index >= stack.Filters.Count) return;
         if (SmartObjects.ToFilter(stack.Filters[index]) is not { } current)
         {
-            doc.Notice = $"Strayta does not have the {stack.Filters[index].Name} filter; it is kept as Photoshop applied it.";
+            doc.Notice = $"Strayta does not have the {stack.Filters[index].Name} filter; it is kept as stored in the file.";
             return;
         }
         var kind = FilterSessionViewModel.KindOf(current);

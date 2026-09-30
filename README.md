@@ -359,6 +359,13 @@ observation of real files, and standard compositing math. Do not copy or port
 code from GPL-licensed implementations (e.g. GIMP, Krita). MIT/BSD-licensed
 projects may be consulted for behavior and must be credited.
 
+## Trademarks
+
+Adobe and Photoshop are trademarks or registered trademarks of Adobe Inc. in the United States and/or other countries.
+Strayta is an independent project; it is not affiliated with, endorsed by or sponsored by Adobe. Strayta reads and writes
+the PSD file format, which Adobe publishes, for compatibility; references to Photoshop in this README describe that
+compatibility and the behaviour Strayta aims to match.
+
 ## License
 
 MIT. See [LICENSE](LICENSE).

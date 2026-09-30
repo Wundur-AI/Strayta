@@ -233,7 +233,7 @@ public sealed partial class DocumentViewModel : Dock.Model.Mvvm.Controls.Documen
             AdjustmentLayer => "Adjustment layers have no pixels to paint on.",
             { Visible: false } => $"\"{SelectedLayer!.Node.Name}\" is hidden.",
             var n when n.Tags.Contains("text") || n.Tags.Contains("smart-object") || n.Tags.Contains("fill") || n.Tags.Contains("shape")
-                => $"\"{n.Name}\" is a {Kind(n)} layer. Photoshop redraws these from their own data, so painting on it would be lost. Rasterize it to paint on it, or paint on a new layer.",
+                => $"\"{n.Name}\" is a {Kind(n)} layer. These are drawn from their own data (text, shape or placed content), so painting on it would be lost. Rasterize it to paint on it, or paint on a new layer.",
             _ when Model.ColorMode is not (ColorMode.Rgb or ColorMode.Grayscale) => $"Painting in {Model.ColorMode} documents is not supported yet.",
             _ => null,
         };
@@ -577,7 +577,7 @@ public sealed partial class DocumentViewModel : Dock.Model.Mvvm.Controls.Documen
             _lastRender = rgba;
             _lastRenderVersion = version; // lets the selection tools reuse this render
             Show(rgba, doc.Width, doc.Height, warnings, version, full: true);
-            string against = Model.SourceData is PsdFile { CompositeIsFromPhotoshop: true } ? "Photoshop" : "the image stored in the file";
+            string against = Model.SourceData is PsdFile { CompositeIsFromPhotoshop: true } ? "the stored image" : "the stored image (written by Strayta)";
             RenderInfo = report is not null
                 ? $"{report.MatchPercent:F2}% match with {against} · {sw.ElapsedMilliseconds} ms"
                 : $"full resolution · {sw.ElapsedMilliseconds} ms";

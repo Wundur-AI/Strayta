@@ -40,7 +40,7 @@
               Padding="12,6" CornerRadius="14" Background="{DynamicResource St.PanelRaised}"
               BorderBrush="{DynamicResource St.Border}" BorderThickness="1" BoxShadow="0 4 16 0 #60000000">
         <StackPanel Orientation="Horizontal" Spacing="10">
-          <TextBlock VerticalAlignment="Center" Text="Photoshop's saved image — edits aren't shown here" />
+          <TextBlock VerticalAlignment="Center" Text="The image stored in the file — edits aren't shown here" />
           <Button Content="Show Strayta" Padding="8,2" Click="OnShowStrayta" />
         </StackPanel>
       </Border>

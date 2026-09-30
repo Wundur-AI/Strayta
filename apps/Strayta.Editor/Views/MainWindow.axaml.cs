@@ -151,7 +151,7 @@ public partial class MainWindow : Window, IEditorDialogs
                 Item("Delete", Editor.DeleteLayerCommand)),
             Submenu("View",
                 Item("Strayta Render", Editor.SetViewCommand, parameter: "Strayta"),
-                Item("Photoshop Composite", Editor.SetViewCommand, parameter: "Photoshop"),
+                Item("Stored Image", Editor.SetViewCommand, parameter: "Photoshop"),
                 Item("Difference", Editor.SetViewCommand, parameter: "Difference"),
                 new NativeMenuItemSeparator(),
                 Item("Fit on Screen", Editor.FitCommand, new KeyGesture(Key.D0, cmd)),
@@ -171,6 +171,8 @@ public partial class MainWindow : Window, IEditorDialogs
                 Item("History", Editor.ShowPanelCommand, parameter: "History"),
                 new NativeMenuItemSeparator(),
                 Item("Reset Layout", Editor.ResetLayoutCommand)),
+            Submenu("Help",
+                Item("About Strayta", new CommunityToolkit.Mvvm.Input.RelayCommand(() => _ = new AboutWindow().ShowDialog(this)))),
         };
         AddImageMenu(menu, Item); // MainWindow.Crop.cs
         AddLayerStyleMenus(menu, Item); // MainWindow.LayerStyle.cs
@@ -253,9 +255,9 @@ public partial class MainWindow : Window, IEditorDialogs
 
     // ---- IEditorDialogs ----------------------------------------------------------------------------
 
-    private static readonly FilePickerFileType PsdFiles = new("Photoshop documents") { Patterns = ["*.psd", "*.psb"] };
+    private static readonly FilePickerFileType PsdFiles = new("PSD documents") { Patterns = ["*.psd", "*.psb"] };
 
-    private static readonly FilePickerFileType OpenableFiles = new("Images and Photoshop documents")
+    private static readonly FilePickerFileType OpenableFiles = new("Images and PSD documents")
     {
         Patterns = ["*.psd", "*.psb", "*.png", "*.jpg", "*.jpeg", "*.webp", "*.gif", "*.bmp", "*.ico", "*.heic", "*.heif"],
     };
