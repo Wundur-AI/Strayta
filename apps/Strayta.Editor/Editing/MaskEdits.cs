@@ -11,6 +11,9 @@ public sealed class MaskEdit(LayerNode node, LayerMask? mask, string description
     private readonly LayerMask? _old = node.GetMask();
 
     public LayerNode Node { get; } = node;
+
+    /// <summary>The new mask (null removes it).</summary>
+    public LayerMask? Mask => mask;
     public string Description => description;
     public bool ChangesStructure => false;
 

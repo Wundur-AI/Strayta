@@ -51,7 +51,7 @@ public sealed partial class DocumentViewModel
     /// </summary>
     public string? FilterRasterizePrompt()
     {
-        if (EditMask && SelectedLayer?.Node.GetMask() is not null) return null;
+        if (EditMask && SelectedLayer?.Node.GetMask() is not null || ChannelMaskOwner() is not null) return null;
         if (SelectedLayer?.Node is not { Visible: true } node || !RasterizeEdit.CanRasterize(node)) return null;
         return node.Tags.Contains("text") ? "This type layer must be rasterized before proceeding. Its text will no longer be editable."
             : node.Tags.Contains("smart-object") ? "This smart object must be rasterized before proceeding. Its contents will no longer be editable."
@@ -73,10 +73,11 @@ public sealed partial class DocumentViewModel
             return false;
         }
         LayerNode owner;
-        bool mask = EditMask && SelectedLayer?.Node is { } n && n.GetMask() is not null;
+        var channel = ChannelMaskOwner(); // a targeted channel is filtered as a mask (DocumentViewModel.Channels.cs)
+        bool mask = channel is not null || EditMask && SelectedLayer?.Node is { } n && n.GetMask() is not null;
         if (mask)
         {
-            owner = SelectedLayer!.Node;
+            owner = channel ?? SelectedLayer!.Node;
             string? problem = owner.Visible ? null : $"Could not complete the {name} command because the target layer is hidden.";
             if (Model.ColorMode is not (ColorMode.Rgb or ColorMode.Grayscale)) problem = $"Filters in {Model.ColorMode} documents are not supported yet.";
             if (problem is not null)

@@ -35,6 +35,7 @@ public sealed class DockFactory(EditorViewModel editor) : Factory
         var paragraph = new ParagraphToolViewModel(editor) { Id = "Paragraph", Title = "Paragraph", CanClose = false };
         var info = new InfoToolViewModel(editor) { Id = "Info", Title = "Info", CanClose = false }; // InfoPanel.cs
         var paths = new PathsToolViewModel(editor) { Id = "Paths", Title = "Paths", CanClose = false }; // PathsPanel.cs
+        var channels = new ChannelsToolViewModel(editor) { Id = "Channels", Title = "Channels", CanClose = false }; // ChannelsPanel.cs
 
         // Photoshop's default right column: Color/Swatches on top, Properties in the middle, Layers below.
         var tools = new ProportionalDock
@@ -47,7 +48,7 @@ public sealed class DockFactory(EditorViewModel editor) : Factory
                 new ProportionalDockSplitter(),
                 new ToolDock { Id = "PropertiesDock", Alignment = Alignment.Right, Proportion = 0.3, ActiveDockable = properties, VisibleDockables = CreateList<IDockable>(properties, history, cloneSource, character, paragraph) },
                 new ProportionalDockSplitter(),
-                new ToolDock { Id = "LayersDock", Alignment = Alignment.Right, Proportion = 0.45, ActiveDockable = layers, VisibleDockables = CreateList<IDockable>(layers, paths) }),
+                new ToolDock { Id = "LayersDock", Alignment = Alignment.Right, Proportion = 0.45, ActiveDockable = layers, VisibleDockables = CreateList<IDockable>(layers, channels, paths) }),
         };
 
         var main = new ProportionalDock

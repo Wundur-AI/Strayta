@@ -148,6 +148,11 @@ public sealed class PixelsEdit(PixelLayer layer, Raster? pixels, PixelRect bound
     private readonly Raster? _oldPixels = layer.Pixels;
     private readonly PixelRect _oldBounds = layer.Bounds;
 
+    /// <summary>The edited layer and its new pixels (the Channels panel narrows the edit to targeted channels).</summary>
+    public PixelLayer Layer => layer;
+    public Raster? Pixels => pixels;
+    public PixelRect Bounds => bounds;
+
     public string Description => description;
     public bool ChangesStructure => false;
 

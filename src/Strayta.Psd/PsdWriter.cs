@@ -74,8 +74,7 @@ public static class PsdWriter
         // original composite; keep them as long as the canvas size is unchanged.
         var extraChannels = source is null || source.Header.Width != doc.Width || source.Header.Height != doc.Height
             ? []
-            : source.CompositeChannels.Skip(colorChannels + (source.CompositeHasTransparency ? 1 : 0))
-                .Where(p => p.BitDepth == doc.BitDepth).ToList();
+            : PsdChannels.ExtraPlanes(source).Where(p => p.BitDepth == doc.BitDepth).ToList(); // PsdChannels.cs
 
         var w = new BigEndianWriter(stream);
 
@@ -94,12 +93,12 @@ public static class PsdWriter
         w.U32((uint)colorModeData.Length);
         w.Bytes(colorModeData);
 
-        WriteResources(w, doc, source);
+        WriteResources(w, doc, source, compositeAlpha);
         WriteLayerAndMaskInfo(w, doc, source, psb, compositeAlpha, options);
         WriteComposite(w, doc, composite, colorChannels, extraChannels, psb);
     }
 
-    private static void WriteResources(BigEndianWriter w, Document doc, PsdFile? source)
+    private static void WriteResources(BigEndianWriter w, Document doc, PsdFile? source, bool compositeAlpha)
     {
         var section = new MemoryStream();
         var s = new BigEndianWriter(section);
@@ -126,7 +125,8 @@ public static class PsdWriter
         // Guides are modeled too: the stored block is kept byte for byte while it still says the same, rewritten
         // (keeping its grid cycle) when they changed, and added when a document without one gets guides.
         bool guidesWritten = false;
-        foreach (var r in source?.Resources ?? [])
+        // The channel lists (names, IDs, display) follow the new image gaining or losing its transparency channel.
+        foreach (var r in source is null ? [] : PsdChannels.ResourcesForComposite(source, compositeAlpha))
         {
             if (DroppedResources.Contains(r.Id) || r.Id == PsdVersionInfo.ResourceId) continue;
             if (r.Id == PsdGuides.ResourceId)

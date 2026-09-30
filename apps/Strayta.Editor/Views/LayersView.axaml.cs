@@ -181,6 +181,7 @@ public partial class LayersView : UserControl
             return;
         }
         doc.Target(item, mask: true);
+        if (e.KeyModifiers.HasFlag(KeyModifiers.Alt)) doc.ToggleLayerMaskAlone(); // Option-click views the mask alone (DocumentViewModel.Channels.cs)
     }
 
     private void OnNewAdjustment(object? sender, RoutedEventArgs e)
