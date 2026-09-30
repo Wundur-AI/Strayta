@@ -27,6 +27,12 @@ public sealed class RenderOptions
     /// documents, which blend linearly.
     /// </summary>
     public float? TextGamma { get; init; } = 1.45f;
+
+    /// <summary>
+    /// Draw artboards as artboards (background, clipped to their bounds). Off, they are ordinary groups: exporting a
+    /// single layer from an artboard shows just that layer.
+    /// </summary>
+    public bool DrawArtboards { get; init; } = true;
 }
 
 /// <summary>Result of rendering: the image plus notes about content that could not be reproduced.</summary>
@@ -140,7 +146,7 @@ public sealed partial class Compositor
     }
 
     private static bool IsDirectPassThrough(LayerGroup g) =>
-        g.BlendMode == BlendMode.PassThrough && g.Opacity >= 1f && g.Mask is not { Disabled: false } && !EffectRenderer.HasRenderable(g.Effects);
+        g.Artboard is null && g.BlendMode == BlendMode.PassThrough && g.Opacity >= 1f && g.Mask is not { Disabled: false } && !EffectRenderer.HasRenderable(g.Effects);
 
     private RenderBuffer RunSteps(List<Unit> steps)
     {
@@ -253,6 +259,8 @@ public sealed partial class Compositor
                     break;
                 case LayerGroup g:
                     hash.Add(g.Children.Count);
+                    hash.Add(g.Artboard);
+                    hash.Add(_options.DrawArtboards);
                     AddMask(ref hash, g.Mask);
                     break;
                 case AdjustmentLayer a:
@@ -342,6 +350,11 @@ public sealed partial class Compositor
 
     private void RenderGroup(LayerGroup group, RenderBuffer target, Source? clip, float clipOpacity)
     {
+        if (group.Artboard is { } artboard && clip is null && _options.DrawArtboards && !EffectRenderer.HasRenderable(group.Effects))
+        {
+            RenderArtboard(group, artboard, target); // Compositor.Artboards.cs
+            return;
+        }
         var bounds = GroupBounds(group).Intersect(target.Bounds);
         if (bounds.IsEmpty) return;
         var mask = group.Mask is { Disabled: false } m ? m : null;

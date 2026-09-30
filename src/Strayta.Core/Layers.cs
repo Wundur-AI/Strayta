@@ -65,6 +65,9 @@ public sealed class LayerGroup : LayerNode
 
     public LayerMask? Mask { get; set; }
 
+    /// <summary>Set when this (top-level) group is an artboard: its bounds and background (Artboards.cs).</summary>
+    public Artboard? Artboard { get; set; }
+
     public void Add(LayerNode child) => Insert(_children.Count, child);
 
     /// <summary>Inserts <paramref name="child"/> at <paramref name="index"/> (0 = bottom-most).</summary>

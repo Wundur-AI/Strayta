@@ -186,6 +186,8 @@ public partial class MainWindow : Window, IEditorDialogs
         AddGuideMenus(menu, Item); // rulers, guides, grid, snapping, Info (MainWindow.Guides.cs)
         AddPathMenus(menu, Item); // Window › Paths, ⌘Return, path keys (MainWindow.Paths.cs)
         AddSmartObjectMenus(menu, Item); // MainWindow.SmartObjects.cs
+        AddExportMenus(menu, Item); // File › Export, Generate, Layer › Export As (MainWindow.Export.cs)
+        AddArtboardMenus(menu, Item); // Layer › New Artboard… and Artboards from Layers / Group (MainWindow.Artboards.cs)
         NativeMenu.SetMenu(this, menu);
         if (Environment.GetEnvironmentVariable("STRAYTA_ADJUSTBENCH") == "new")
             Opened += async (_, _) => await SelfTest.RunAdjustmentBenchmarkAsync(Editor); // SelfTest.Adjustments.cs

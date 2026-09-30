@@ -1,0 +1,147 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:Strayta.Editor.ViewModels"
+        xmlns:c="using:Strayta.Editor.Controls"
+        x:Class="Strayta.Editor.Views.ExportAsWindow"
+        x:DataType="vm:ExportAsViewModel"
+        Title="Export As"
+        Width="1080" Height="700" MinWidth="820" MinHeight="520"
+        WindowStartupLocation="CenterOwner"
+        Background="{DynamicResource St.Panel}"
+        FontSize="12">
+  <!-- Photoshop's Export As: items on the left, the preview in the middle, settings on the right. -->
+  <Window.Styles>
+    <Style Selector="ComboBox">
+      <Setter Property="MinHeight" Value="24" />
+      <Setter Property="Height" Value="24" />
+      <Setter Property="Padding" Value="8,0" />
+      <Setter Property="FontSize" Value="12" />
+    </Style>
+    <Style Selector="TextBlock.section">
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="Margin" Value="0,6,0,2" />
+    </Style>
+    <Style Selector="TextBlock.label">
+      <Setter Property="Width" Value="84" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+  </Window.Styles>
+  <DockPanel>
+    <!-- Footer: size estimate and the buttons -->
+    <Border DockPanel.Dock="Bottom" BorderBrush="{DynamicResource St.Border}" BorderThickness="0,1,0,0" Padding="16,10">
+      <DockPanel>
+        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="8">
+          <Button x:Name="CancelButton" Content="Cancel" IsCancel="True" MinWidth="90" />
+          <Button x:Name="ExportButton" Content="Export…" IsDefault="True" MinWidth="110" Classes="accent" />
+        </StackPanel>
+        <TextBlock Text="{Binding PreviewInfo}" VerticalAlignment="Center" Classes="muted" />
+      </DockPanel>
+    </Border>
+
+    <!-- Left: the scale list, then the items -->
+    <Border DockPanel.Dock="Left" Width="236" BorderBrush="{DynamicResource St.Border}" BorderThickness="0,0,1,0">
+      <DockPanel Margin="12">
+        <StackPanel DockPanel.Dock="Top" Spacing="6">
+          <DockPanel>
+            <Button x:Name="AddScaleButton" DockPanel.Dock="Right" Content="+" Padding="8,0" ToolTip.Tip="Add a size (e.g. @2x)" />
+            <TextBlock Text="Scale All" Classes="section" />
+          </DockPanel>
+          <ItemsControl ItemsSource="{Binding Scales}">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="vm:ExportScaleRow">
+                <DockPanel Margin="0,2">
+                  <Button DockPanel.Dock="Right" Content="−" Padding="8,0" Click="OnRemoveScale" ToolTip.Tip="Remove this size" />
+                  <ComboBox DockPanel.Dock="Left" Width="72" ItemsSource="{x:Static vm:ExportScaleRow.ChoiceNames}" SelectedIndex="{Binding ScaleIndex}" />
+                  <TextBox Text="{Binding Suffix}" Margin="6,0" MinHeight="24" Padding="6,2" PlaceholderText="Suffix" />
+                </DockPanel>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+          <TextBlock Text="Items" Classes="section" Margin="0,12,0,2" />
+        </StackPanel>
+        <ListBox ItemsSource="{Binding Items}" SelectedItem="{Binding SelectedItem}" Background="Transparent">
+          <ListBox.ItemTemplate>
+            <DataTemplate x:DataType="vm:ExportItem">
+              <DockPanel>
+                <CheckBox DockPanel.Dock="Left" IsChecked="{Binding Include}" VerticalAlignment="Center" ToolTip.Tip="Export this item" />
+                <Border DockPanel.Dock="Left" Width="40" Height="40" Margin="2,0,8,0" Background="{DynamicResource St.Window}" CornerRadius="3">
+                  <Image Source="{Binding Thumbnail}" Stretch="Uniform" />
+                </Border>
+                <StackPanel VerticalAlignment="Center">
+                  <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
+                  <TextBlock Text="{Binding Kind}" Classes="muted" FontSize="10" />
+                </StackPanel>
+              </DockPanel>
+            </DataTemplate>
+          </ListBox.ItemTemplate>
+        </ListBox>
+      </DockPanel>
+    </Border>
+
+    <!-- Right: settings -->
+    <Border DockPanel.Dock="Right" Width="300" BorderBrush="{DynamicResource St.Border}" BorderThickness="1,0,0,0">
+      <ScrollViewer>
+        <StackPanel Margin="14,10" Spacing="6">
+          <TextBlock Text="File Settings" Classes="section" />
+          <StackPanel Orientation="Horizontal">
+            <TextBlock Text="Format" Classes="label" />
+            <ComboBox Width="160" ItemsSource="{x:Static vm:ExportAsViewModel.FormatNames}" SelectedIndex="{Binding FormatIndex}" />
+          </StackPanel>
+          <StackPanel Orientation="Horizontal" IsVisible="{Binding HasQuality}">
+            <TextBlock Text="Quality" Classes="label" />
+            <Slider Width="120" Minimum="1" Maximum="100" Value="{Binding Quality}" VerticalAlignment="Center" />
+            <TextBlock Text="{Binding Quality, StringFormat='{}{0:0}%'}" VerticalAlignment="Center" Margin="8,0,0,0" />
+          </StackPanel>
+          <CheckBox Content="Transparency" IsChecked="{Binding Transparency}" IsVisible="{Binding HasTransparency}" Margin="84,0,0,0" />
+          <CheckBox Content="Smaller File (8-bit)" IsChecked="{Binding SmallerFile}" IsVisible="{Binding IsPng}" Margin="84,0,0,0" />
+          <CheckBox Content="Lossless" IsChecked="{Binding Lossless}" IsVisible="{Binding IsWebP}" Margin="84,0,0,0" />
+          <StackPanel Orientation="Horizontal" IsVisible="{Binding HasMatte}">
+            <TextBlock Text="Matte" Classes="label" />
+            <ComboBox Width="160" ItemsSource="{x:Static vm:ExportAsViewModel.MatteNames}" SelectedIndex="{Binding MatteIndex}" />
+          </StackPanel>
+
+          <TextBlock Text="Image Size" Classes="section" Margin="0,14,0,2" />
+          <StackPanel Orientation="Horizontal" Spacing="6">
+            <TextBlock Text="W" VerticalAlignment="Center" />
+            <c:NumberField Value="{Binding ImageWidth}" Unit=" px" Width="80" />
+            <TextBlock Text="H" VerticalAlignment="Center" Margin="6,0,0,0" />
+            <c:NumberField Value="{Binding ImageHeight}" Unit=" px" Width="80" />
+          </StackPanel>
+          <StackPanel Orientation="Horizontal" Spacing="6">
+            <TextBlock Text="Scale" VerticalAlignment="Center" />
+            <c:NumberField Value="{Binding ScalePercent}" Unit="%" Width="80" />
+            <TextBlock Text="Bicubic" Classes="muted" VerticalAlignment="Center" Margin="6,0,0,0" />
+          </StackPanel>
+          <TextBlock Text="{Binding SourceSizeText, StringFormat='Source {0}'}" Classes="muted" FontSize="11" />
+
+          <TextBlock Text="Canvas Size" Classes="section" Margin="0,14,0,2" />
+          <StackPanel Orientation="Horizontal" Spacing="6">
+            <TextBlock Text="W" VerticalAlignment="Center" />
+            <c:NumberField Value="{Binding CanvasWidth}" Unit=" px" Width="80" />
+            <TextBlock Text="H" VerticalAlignment="Center" Margin="6,0,0,0" />
+            <c:NumberField Value="{Binding CanvasHeight}" Unit=" px" Width="80" />
+            <Button x:Name="ResetCanvasButton" Content="Reset" Padding="8,0" Margin="4,0,0,0" ToolTip.Tip="Back to the image's own size" />
+          </StackPanel>
+
+          <TextBlock Text="Metadata" Classes="section" Margin="0,14,0,2" />
+          <ComboBox Width="220" ItemsSource="{x:Static vm:ExportAsViewModel.MetadataNames}" SelectedIndex="{Binding MetadataIndex}" />
+          <StackPanel Spacing="4" IsVisible="{Binding HasCopyright}">
+            <TextBox Text="{Binding Copyright}" PlaceholderText="Copyright notice" MinHeight="24" Padding="6,2" />
+            <TextBox Text="{Binding Author}" PlaceholderText="Author / contact" MinHeight="24" Padding="6,2" />
+          </StackPanel>
+
+          <TextBlock Text="Color Space" Classes="section" Margin="0,14,0,2" />
+          <CheckBox Content="Convert to sRGB" IsChecked="{Binding ConvertToSrgb}"
+                    ToolTip.Tip="Convert colors from the document's profile to sRGB, as the web expects. Off keeps the document's profile, embedded." />
+        </StackPanel>
+      </ScrollViewer>
+    </Border>
+
+    <!-- Middle: the preview of the selected item as the file will look -->
+    <Panel Background="{DynamicResource St.Canvas}">
+      <Image Source="{Binding Preview}" Stretch="Uniform" StretchDirection="DownOnly" Margin="24"
+             RenderOptions.BitmapInterpolationMode="HighQuality" />
+      <TextBlock Text="{Binding FileSizeText}" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="12" Classes="muted" />
+    </Panel>
+  </DockPanel>
+</Window>

@@ -32,7 +32,8 @@ public sealed partial class EditorViewModel
         // Photoshop's tool-strip order.
         ToolGroups =
         [
-            new ToolGroup(this, "V", new ToolInfo(CanvasTool.Move, "Move", "IconMove")),
+            new ToolGroup(this, "V", new ToolInfo(CanvasTool.Move, "Move", "IconMove"),
+                new ToolInfo(CanvasTool.Artboard, "Artboard", "IconArtboard")), // EditorViewModel.Artboards.cs
             _marqueeGroup,
             new ToolGroup(this, "L", new ToolInfo(CanvasTool.Lasso, "Lasso", "IconLasso")),
             _selectionGroup,
@@ -63,6 +64,7 @@ public sealed partial class EditorViewModel
         SyncCropTool(); // EditorViewModel.Crop.cs
         SyncTypeTool(); // EditorViewModel.Type.cs
         SyncPathTools(); // EditorViewModel.Shapes.cs
+        NotifyArtboardOptions(); // EditorViewModel.Artboards.cs
     }
 
     /// <summary>A tool-group shortcut: the key alone picks the group's current tool, with Shift it steps through the group.</summary>

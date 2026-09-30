@@ -107,6 +107,7 @@ internal static class PsdDocumentConverter
                     group.SourceData = new PsdGroupRecords(record, divider);
                     group.Expanded = record.SectionType == PsdSectionType.OpenFolder;
                     group.Mask = BuildMask(record);
+                    group.Artboard = PsdArtboards.Read(record); // PsdArtboards.cs
                     var (_, sectionBlend) = PsdBlocks.ReadSection(record.FindBlock("lsct") ?? record.FindBlock("lsdk"));
                     if (sectionBlend is not null && PsdBlocks.TryMapBlendMode(sectionBlend, out var mode))
                         group.BlendMode = mode;

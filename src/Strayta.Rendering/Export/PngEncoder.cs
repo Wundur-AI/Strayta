@@ -15,7 +15,9 @@ public static class PngEncoder
 
     /// <param name="rgba">Straight-alpha RGBA, row-major.</param>
     /// <param name="iccProfile">Embedded as the image's color profile; when null the image is marked sRGB.</param>
-    public static void Encode(Stream output, byte[] rgba, int width, int height, bool keepAlpha = true, byte[]? iccProfile = null)
+    /// <param name="text">tEXt chunks (keyword, Latin-1 text), such as "Copyright" and "Author".</param>
+    public static void Encode(Stream output, byte[] rgba, int width, int height, bool keepAlpha = true, byte[]? iccProfile = null,
+        IReadOnlyList<(string Keyword, string Text)>? text = null)
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(width);
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(height);
@@ -43,6 +45,7 @@ public static class PngEncoder
         {
             WriteChunk(output, "sRGB", [0]); // perceptual rendering intent
         }
+        WriteText(output, text);
 
         // Filter rows in parallel (the expensive part), then compress them in order.
         int stride = width * bpp;
@@ -64,6 +67,67 @@ public static class PngEncoder
         for (int o = 0; o < data.Length || o == 0; o += 1 << 20)
             WriteChunk(output, "IDAT", data.Slice(o, Math.Min(1 << 20, data.Length - o)));
         WriteChunk(output, "IEND", []);
+    }
+
+    /// <summary>
+    /// Writes an 8-bit palette PNG (color type 3; "smaller file"): the palette, a tRNS chunk with the entries' alpha
+    /// when any is below 255, and one index per pixel.
+    /// </summary>
+    public static void EncodeIndexed(Stream output, IndexedImage image, byte[]? iccProfile = null, IReadOnlyList<(string Keyword, string Text)>? text = null)
+    {
+        int width = image.Width, height = image.Height;
+        output.Write([0x89, (byte)'P', (byte)'N', (byte)'G', 0x0D, 0x0A, 0x1A, 0x0A]);
+        var ihdr = new byte[13];
+        BinaryPrimitives.WriteInt32BigEndian(ihdr, width);
+        BinaryPrimitives.WriteInt32BigEndian(ihdr.AsSpan(4), height);
+        ihdr[8] = 8;
+        ihdr[9] = 3; // palette
+        WriteChunk(output, "IHDR", ihdr);
+        if (iccProfile is not null)
+        {
+            using var z = new MemoryStream();
+            z.Write("ICC Profile\0\0"u8);
+            using (var zs = new ZLibStream(z, CompressionLevel.Optimal, leaveOpen: true)) zs.Write(iccProfile);
+            WriteChunk(output, "iCCP", z.ToArray());
+        }
+        else WriteChunk(output, "sRGB", [0]);
+        WriteText(output, text);
+
+        int n = Math.Max(1, image.ColorCount);
+        var plte = new byte[n * 3];
+        var trns = new byte[n];
+        int lastTransparent = -1;
+        for (int k = 0; k < image.ColorCount; k++)
+        {
+            plte[k * 3] = image.Palette[k * 4];
+            plte[k * 3 + 1] = image.Palette[k * 4 + 1];
+            plte[k * 3 + 2] = image.Palette[k * 4 + 2];
+            trns[k] = image.Palette[k * 4 + 3];
+            if (trns[k] != 255) lastTransparent = k;
+        }
+        WriteChunk(output, "PLTE", plte);
+        if (lastTransparent >= 0) WriteChunk(output, "tRNS", trns.AsSpan(0, lastTransparent + 1));
+
+        // Indexed rows are filtered with None, which suits palette images best.
+        var raw = new byte[(long)height * (width + 1)];
+        for (int y = 0; y < height; y++)
+            Array.Copy(image.Indices, (long)y * width, raw, (long)y * (width + 1) + 1, width);
+        using var compressed = new MemoryStream();
+        using (var z = new ZLibStream(compressed, CompressionLevel.SmallestSize, leaveOpen: true)) z.Write(raw);
+        var data = compressed.GetBuffer().AsSpan(0, (int)compressed.Length);
+        for (int o = 0; o < data.Length || o == 0; o += 1 << 20)
+            WriteChunk(output, "IDAT", data.Slice(o, Math.Min(1 << 20, data.Length - o)));
+        WriteChunk(output, "IEND", []);
+    }
+
+    private static void WriteText(Stream output, IReadOnlyList<(string Keyword, string Text)>? text)
+    {
+        foreach (var (keyword, value) in text ?? [])
+        {
+            if (string.IsNullOrEmpty(keyword) || keyword.Length > 79) continue;
+            var latin1 = Encoding.Latin1;
+            WriteChunk(output, "tEXt", [.. latin1.GetBytes(keyword), 0, .. latin1.GetBytes(value)]);
+        }
     }
 
     private static bool HasTransparency(byte[] rgba)

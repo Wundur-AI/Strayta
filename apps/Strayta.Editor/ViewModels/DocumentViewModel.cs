@@ -765,6 +765,7 @@ public sealed partial class DocumentViewModel : Dock.Model.Mvvm.Controls.Documen
         {
             IsBusy = false;
         }
+        await AfterSaveGenerateAssetsAsync(); // File › Generate › Image Assets (DocumentViewModel.Export.cs)
     }
 
     /// <summary>Asks the document's view to change zoom ("fit" or "actual").</summary>

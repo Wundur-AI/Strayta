@@ -79,4 +79,6 @@
   <StreamGeometry x:Key="IconJustifyRight">M4 6h16 M4 10h16 M4 14h16 M11 18h9</StreamGeometry>
   <StreamGeometry x:Key="IconJustifyAll">M4 6h16 M4 10h16 M4 14h16 M4 18h16</StreamGeometry>
   <StreamGeometry x:Key="IconTypePanels">M3 13l3.5-9 3.5 9 M4.3 10h4.4 M13 5h8 M13 9h8 M3 17h18 M3 21h18</StreamGeometry>
+  <!-- Artboards (Artboard tool, artboard rows in the Layers panel): a page with crop-mark corners -->
+  <StreamGeometry x:Key="IconArtboard">M7 3v3 M3 7h3 M17 3v3 M21 7h-3 M7 21v-3 M3 17h3 M17 21v-3 M21 17h-3 M8 8h8v8H8Z</StreamGeometry>
 </ResourceDictionary>

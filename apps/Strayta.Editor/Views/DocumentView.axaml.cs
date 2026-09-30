@@ -20,6 +20,7 @@ public partial class DocumentView : UserControl
         Canvas.TransformCommit += () => _ = _vm?.CommitTransformAsync();
         WireWandTools();
         WireEverydayTools(); // DocumentView.Everyday.cs
+        WireArtboards(); // DocumentView.Artboards.cs
         WireCrop(); // DocumentView.Crop.cs
         WireRetouch(); // DocumentView.Retouch.cs
         WireSelectionTools(); // History Brush, Object Finder (DocumentView.SelectionTools.cs)

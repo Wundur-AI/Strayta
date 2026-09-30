@@ -67,7 +67,7 @@ public static class LayerFactory
 
     private static LayerGroup DuplicateGroup(LayerGroup g)
     {
-        var copy = new LayerGroup { Expanded = g.Expanded, Mask = g.Mask };
+        var copy = new LayerGroup { Expanded = g.Expanded, Mask = g.Mask, Artboard = g.Artboard };
         foreach (var child in g.Children)
         {
             var c = Duplicate(child);

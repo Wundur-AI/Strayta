@@ -89,6 +89,7 @@ public sealed class MoveEdit(LayerNode node, int dx, int dy, int canvasWidth = 0
                 break;
             case LayerGroup g:
                 g.Mask = ShiftMask(g.Mask, dx, dy);
+                if (g.Artboard is { } artboard) g.Artboard = artboard with { Rect = Shift(artboard.Rect, dx, dy) }; // an artboard moves with its layers
                 foreach (var child in g.Children) Offset(child, dx, dy);
                 break;
         }

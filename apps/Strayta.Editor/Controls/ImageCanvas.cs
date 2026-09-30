@@ -43,6 +43,7 @@ public enum CanvasTool
     Polygon,
     Line,
     CustomShape,
+    Artboard, // in the Move tool's slot (ImageCanvas.Artboards.cs)
 }
 
 /// <summary>
@@ -193,7 +194,7 @@ public sealed partial class ImageCanvas : Control
         using (context.PushTransform(CropImageTransform())) // the Crop tool turns and moves the image (ImageCanvas.Crop.cs)
         using (context.PushRenderOptions(new RenderOptions { BitmapInterpolationMode = mode }))
         {
-            context.FillRectangle(_checker, dest);
+            if (!RenderArtboardChecker(context, dest)) context.FillRectangle(_checker, dest); // outside artboards is pasteboard (ImageCanvas.Artboards.cs)
             context.DrawImage(bmp, new Rect(0, 0, bmp.PixelSize.Width, bmp.PixelSize.Height), dest);
         }
         RenderGridAndGuides(context); // ImageCanvas.Guides.cs
@@ -204,6 +205,7 @@ public sealed partial class ImageCanvas : Control
             RenderObjectHover(context); // ImageCanvas.ObjectFinder.cs
         }
         DrawTransformBox(context);
+        RenderArtboards(context); // names, the Artboard tool's handles and "+" (ImageCanvas.Artboards.cs)
         RenderType(context); // caret, selection and text box (ImageCanvas.Type.cs)
         RenderPaths(context); // paths, anchors and shapes being drawn (ImageCanvas.Paths.cs)
         RenderEverydayTools(context); // ImageCanvas.Everyday.cs
@@ -246,7 +248,7 @@ public sealed partial class ImageCanvas : Control
             e.Pointer.Capture(this);
             return;
         }
-        if (TransformPressed(e) || CropPressed(e))
+        if (TransformPressed(e) || CropPressed(e) || !_panning && ArtboardPressed(e, props)) // ImageCanvas.Artboards.cs
         {
             _dragStart = null;
             e.Pointer.Capture(this);
@@ -300,7 +302,7 @@ public sealed partial class ImageCanvas : Control
     {
         base.OnPointerMoved(e);
         if (GuidesMoved(e)) return; // ImageCanvas.Guides.cs
-        if (TransformMoved(e) || CropMoved(e) || ZoomMoved(e)) return;
+        if (TransformMoved(e) || CropMoved(e) || ZoomMoved(e) || ArtboardMovedPointer(e)) return;
         ObjectFinderMoved(e); // ImageCanvas.ObjectFinder.cs
         if (TypeMoved(e)) return;
         if (PathToolMoved(e)) return; // ImageCanvas.Paths.cs
@@ -362,6 +364,7 @@ public sealed partial class ImageCanvas : Control
             return;
         }
         TransformReleased();
+        ArtboardReleased(); // ImageCanvas.Artboards.cs
         TypeReleased(e);
         PathToolReleased(e); // ImageCanvas.Paths.cs
         ZoomReleased(e);

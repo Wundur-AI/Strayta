@@ -122,6 +122,7 @@ public sealed partial class LayerItemViewModel : ObservableObject
     /// <summary>Icon shown instead of a thumbnail.</summary>
     public StreamGeometry? PlaceholderIcon => Node switch
     {
+        LayerGroup { Artboard: not null } => Icon("IconArtboard"), // artboards (Artboards.cs)
         LayerGroup => Icon("IconFolder"),
         AdjustmentLayer => Icon("IconAdjust"),
         _ => null,
