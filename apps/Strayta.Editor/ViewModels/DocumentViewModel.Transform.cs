@@ -215,7 +215,8 @@ public sealed partial class DocumentViewModel
         {
             var corners = warp is { Layer: var l } w && l == node ? w.Corners : so.Corners.Select(c => map.Apply(c.X, c.Y)).ToArray();
             var spec = warp is { Layer: var l2 } w2 && l2 == node ? w2.Spec : null;
-            if (SmartObjectTransform.WithPlacement(original, corners, spec) is { } moved)
+            // Its other live data (a vector mask) follows the map's affine fit; the corners and warp are set exactly.
+            if (SmartObjectTransform.WithPlacement(source as Psd.PsdLayerRecord ?? original, corners, spec) is { } moved)
             {
                 source = moved;
                 if (doc.SourceData is Psd.PsdFile file && LiveContent.Redraw(layer, moved, file, doc, s.Bounds, doc.Bounds, doc.Bounds, near) is { } redrawn)

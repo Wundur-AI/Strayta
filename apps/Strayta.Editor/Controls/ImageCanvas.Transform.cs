@@ -78,7 +78,7 @@ public sealed partial class ImageCanvas
     }
 
     /// <summary>
-    /// The warp's mesh: grid lines through the patches' thirds (the lines Photoshop draws), and for a custom warp the
+    /// The warp's mesh: grid lines through its thirds (one patch) or along its patches (split), as Photoshop draws it, and for a custom warp the
     /// anchors (squares), their handles (dots) and the handle lines.
     /// </summary>
     private void DrawWarp(DrawingContext context, WarpTransform warp, Projective frame)
@@ -105,17 +105,18 @@ public sealed partial class ImageCanvas
                 g.EndFigure(false);
             }
             double x0 = sx[0], x1 = sx[^1], y0 = sy[0], y1 = sy[^1];
+            int cuts = sx.Count > 2 || sy.Count > 2 ? 1 : 3; // a split mesh shows its patches; one patch its thirds
             for (int i = 0; i < sx.Count - 1; i++)
-                for (int k = 0; k < 3; k++)
+                for (int k = 0; k < cuts; k++)
                 {
-                    double u = sx[i] + (sx[i + 1] - sx[i]) * k / 3;
+                    double u = sx[i] + (sx[i + 1] - sx[i]) * k / cuts;
                     Curve(t => mesh.Map(u, y0 + (y1 - y0) * t));
                 }
             Curve(t => mesh.Map(x1, y0 + (y1 - y0) * t));
             for (int j = 0; j < sy.Count - 1; j++)
-                for (int k = 0; k < 3; k++)
+                for (int k = 0; k < cuts; k++)
                 {
-                    double v = sy[j] + (sy[j + 1] - sy[j]) * k / 3;
+                    double v = sy[j] + (sy[j + 1] - sy[j]) * k / cuts;
                     Curve(t => mesh.Map(x0 + (x1 - x0) * t, v));
                 }
             Curve(t => mesh.Map(x0 + (x1 - x0) * t, y1));
