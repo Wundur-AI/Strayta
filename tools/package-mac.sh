@@ -56,13 +56,23 @@ entitlements="$root/packaging/macos/Strayta.entitlements"
 
 if [[ -n $identity ]]; then
   print "• Signing with: $identity"
-  # Inside out: every native library and executable, then the app. --deep is deprecated for signing.
-  find "$app/Contents/MacOS" -type f \( -name '*.dylib' -o -perm -u+x \) ! -name Strayta -print0 |
-    while IFS= read -r -d '' f; do
-      if file -b "$f" | grep -q 'Mach-O'; then
-        codesign --force --timestamp --options runtime --entitlements "$entitlements" --sign "$identity" "$f"
+  # Inside out: every file in Contents/MacOS (codesign treats all of them as code: native libraries, .NET
+  # assemblies, models; non-Mach-O files get their signature in extended attributes), then the executable, then the
+  # app. --deep is deprecated for signing.
+  # Files are independent, so they are signed 16 at a time (each signature asks Apple's timestamp server; many
+  # more at once risks it throttling).
+  export STRAYTA_SIGN_ID=$identity STRAYTA_SIGN_ENT=$entitlements
+  find "$app/Contents/MacOS" -type f ! -path "$app/Contents/MacOS/Strayta" -print0 |
+    xargs -0 -P 16 -n 1 /bin/zsh -c '
+      if file -b "$1" | grep -q Mach-O; then
+        codesign --force --timestamp --options runtime --entitlements "$STRAYTA_SIGN_ENT" --sign "$STRAYTA_SIGN_ID" "$1" 2>&1 | grep -v "replacing existing signature"
+      else
+        codesign --force --timestamp --sign "$STRAYTA_SIGN_ID" "$1" 2>&1 | grep -v "replacing existing signature"
       fi
-    done
+      exit 0' _
+  # Every file must have come out signed (a failure inside xargs would otherwise go unnoticed).
+  find "$app/Contents/MacOS" -type f ! -path "$app/Contents/MacOS/Strayta" -print0 |
+    xargs -0 -P 16 -n 1 /bin/zsh -c 'codesign --verify "$1" 2>/dev/null || { print -u2 "not signed: $1"; exit 255; }' _
   codesign --force --timestamp --options runtime --entitlements "$entitlements" --sign "$identity" "$app/Contents/MacOS/Strayta"
   codesign --force --timestamp --options runtime --entitlements "$entitlements" --sign "$identity" "$app"
   codesign --verify --strict --deep "$app"
