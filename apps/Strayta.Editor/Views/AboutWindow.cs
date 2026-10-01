@@ -32,7 +32,7 @@ public sealed class AboutWindow : Window
                 new TextBlock { Text = "Strayta", FontSize = 20, FontWeight = FontWeight.SemiBold },
                 new TextBlock { Text = $"Version {version?.ToString(3) ?? "0.1.0"}", Opacity = 0.7 },
                 new TextBlock { Text = "A free, open-source image editor for layered documents. MIT license.", TextWrapping = TextWrapping.Wrap },
-                new TextBlock { Text = "github.com/Wundur-Ai/strayta", Opacity = 0.7 },
+                new TextBlock { Text = "github.com/Wundur-AI/Strayta", Opacity = 0.7 },
                 new TextBlock { Text = TrademarkNotice, TextWrapping = TextWrapping.Wrap, FontSize = 11, Opacity = 0.6, Margin = new Thickness(0, 6, 0, 0) },
                 close,
             },
