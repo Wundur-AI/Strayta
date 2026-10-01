@@ -24,6 +24,7 @@ jobs:
     runs-on: macos-latest
     environment: release
     strategy:
+      fail-fast: false
       matrix:
         arch: [arm64, x64]
     steps:
@@ -47,16 +48,34 @@ jobs:
           MACOS_CERT_P12: ${{ secrets.MACOS_CERT_P12 }}
           MACOS_CERT_PASSWORD: ${{ secrets.MACOS_CERT_PASSWORD }}
         run: |
+          # Each check reports what is wrong as a public annotation (job logs need a signed-in viewer); none of
+          # them prints a secret.
+          fail() { echo "::error title=Signing setup::$1"; exit 1; }
+          [ -n "$MACOS_CERT_P12" ] || fail "The MACOS_CERT_P12 secret is empty or missing (add it to the release environment or the repository)."
+          [ -n "$MACOS_CERT_PASSWORD" ] || fail "The MACOS_CERT_PASSWORD secret is empty or missing."
+          printf '%s' "$MACOS_CERT_P12" | tr -d ' \r\n' | base64 --decode > "$RUNNER_TEMP/cert.p12" 2>/dev/null \
+            || fail "MACOS_CERT_P12 is not valid base64 (paste the output of: base64 -i file.p12 | pbcopy)."
+          size=$(wc -c < "$RUNNER_TEMP/cert.p12" | tr -d ' ')
+          [ "$size" -gt 500 ] || fail "MACOS_CERT_P12 decodes to only $size bytes; it is not a .p12 export."
+          openssl pkcs12 -in "$RUNNER_TEMP/cert.p12" -passin env:MACOS_CERT_PASSWORD -noout -legacy 2>/dev/null \
+            || openssl pkcs12 -in "$RUNNER_TEMP/cert.p12" -passin env:MACOS_CERT_PASSWORD -noout 2>/dev/null \
+            || fail "The .p12 does not open with MACOS_CERT_PASSWORD (wrong password, or not a .p12)."
+          keys=$( (openssl pkcs12 -in "$RUNNER_TEMP/cert.p12" -passin env:MACOS_CERT_PASSWORD -nocerts -nodes -legacy 2>/dev/null \
+                   || openssl pkcs12 -in "$RUNNER_TEMP/cert.p12" -passin env:MACOS_CERT_PASSWORD -nocerts -nodes 2>/dev/null) | grep -c 'PRIVATE KEY-----' || true)
+          [ "$keys" -gt 0 ] || fail "The .p12 has no private key: export the certificate line (with its key underneath) from My Certificates."
           keychain="$RUNNER_TEMP/signing.keychain-db"
           keychain_password=$(openssl rand -base64 24)
-          echo "$MACOS_CERT_P12" | base64 --decode > "$RUNNER_TEMP/cert.p12"
           security create-keychain -p "$keychain_password" "$keychain"
           security set-keychain-settings -lut 21600 "$keychain"
           security unlock-keychain -p "$keychain_password" "$keychain"
-          security import "$RUNNER_TEMP/cert.p12" -k "$keychain" -P "$MACOS_CERT_PASSWORD" -T /usr/bin/codesign
-          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$keychain_password" "$keychain"
+          out=$(security import "$RUNNER_TEMP/cert.p12" -k "$keychain" -P "$MACOS_CERT_PASSWORD" -T /usr/bin/codesign 2>&1) \
+            || fail "Importing the certificate failed: $out"
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$keychain_password" "$keychain" > /dev/null
           security list-keychains -d user -s "$keychain" $(security list-keychains -d user | tr -d '"')
           rm "$RUNNER_TEMP/cert.p12"
+          ids=$(security find-identity -v -p codesigning "$keychain")
+          echo "$ids" | grep -q "Developer ID Application" \
+            || fail "The certificate imported but is not a valid Developer ID Application identity: $(echo "$ids" | tail -1)"
 
       - name: Package, sign and notarize
         env:
