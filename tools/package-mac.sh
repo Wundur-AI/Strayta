@@ -16,6 +16,23 @@
 # (default ai.wundur.strayta). No secrets live in this script.
 set -euo pipefail
 
+# On GitHub Actions, failures become annotations (job logs need a signed-in viewer): the stage that failed and the
+# last lines the failing command printed.
+stage="Starting"
+step() { stage=$1; print "• $1"; }
+log="$(mktemp -t strayta-package)"
+run() {
+  local code=0
+  "$@" >"$log" 2>&1 || code=$?
+  cat "$log"
+  if (( code )); then
+    if [[ -n ${GITHUB_ACTIONS:-} ]]; then
+      print "::error title=Packaging failed: ${stage}::$(tail -n 25 "$log" | sed -e 's/%/%25/g' | awk 'BEGIN{ORS="%0A"} {print}')"
+    fi
+    exit $code
+  fi
+}
+
 arch=arm64
 models=1
 root=${0:A:h:h}
@@ -37,13 +54,13 @@ publish="$out/publish-$arch"
 app="$out/Strayta.app"
 dmg="$out/Strayta-$version-$arch.dmg"
 
-print "• Publishing Strayta $version (build $build) for osx-$arch"
+step "Publishing Strayta $version (build $build) for osx-$arch"
 rm -rf "$publish" "$app"
-dotnet publish "$root/apps/Strayta.Editor/Strayta.Editor.csproj" -c Release -r "osx-$arch" --self-contained true \
+run dotnet publish "$root/apps/Strayta.Editor/Strayta.Editor.csproj" -c Release -r "osx-$arch" --self-contained true \
   -p:UseAppHost=true -p:DebugType=none -p:Version="$version" -o "$publish" -v quiet -nologo
 if (( ! models )); then rm -rf "$publish/models"; fi
 
-print "• Assembling $app"
+step "Assembling $app"
 mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources"
 cp -R "$publish/" "$app/Contents/MacOS/"
 cp "$root/packaging/macos/AppIcon.icns" "$app/Contents/Resources/AppIcon.icns"
@@ -58,7 +75,7 @@ fi
 entitlements="$root/packaging/macos/Strayta.entitlements"
 
 if [[ -n $identity ]]; then
-  print "• Signing with: $identity"
+  step "Signing with: $identity"
   # Inside out: every file in Contents/MacOS (codesign treats all of them as code: native libraries, .NET
   # assemblies, models; non-Mach-O files get their signature in extended attributes), then the executable, then the
   # app. --deep is deprecated for signing.
@@ -74,25 +91,31 @@ if [[ -n $identity ]]; then
       fi
       exit 0' _
   # Every file must have come out signed (a failure inside xargs would otherwise go unnoticed).
-  find "$app/Contents/MacOS" -type f ! -path "$app/Contents/MacOS/Strayta" -print0 |
-    xargs -0 -P 16 -n 1 /bin/zsh -c 'codesign --verify "$1" 2>/dev/null || { print -u2 "not signed: $1"; exit 255; }' _
-  codesign --force --timestamp --options runtime --entitlements "$entitlements" --sign "$identity" "$app/Contents/MacOS/Strayta"
-  codesign --force --timestamp --options runtime --entitlements "$entitlements" --sign "$identity" "$app"
-  codesign --verify --strict --deep "$app"
+  export STRAYTA_APP=$app
+  run /bin/zsh -c 'find "$STRAYTA_APP/Contents/MacOS" -type f ! -path "$STRAYTA_APP/Contents/MacOS/Strayta" -print0 |
+    xargs -0 -P 16 -n 1 /bin/zsh -c '"'"'codesign --verify "$1" 2>/dev/null || { print "not signed: $1"; codesign --verify "$1" 2>&1 | tail -1; exit 255; }'"'"' _' 
+  run codesign --force --timestamp --options runtime --entitlements "$entitlements" --sign "$identity" "$app/Contents/MacOS/Strayta"
+  run codesign --force --timestamp --options runtime --entitlements "$entitlements" --sign "$identity" "$app"
+  run codesign --verify --strict --deep "$app"
 else
   print "• No Developer ID certificate found: signing ad hoc (runs here; elsewhere right-click › Open)"
   codesign --force --deep --sign - "$app"
 fi
 
-print "• Building $dmg"
-stage="$out/dmg-stage"
-rm -rf "$stage" "$dmg"
-mkdir -p "$stage"
-cp -R "$app" "$stage/"
-ln -s /Applications "$stage/Applications"
-hdiutil create -volname "Strayta $version" -srcfolder "$stage" -ov -format UDZO -quiet "$dmg"
-rm -rf "$stage"
-[[ -n $identity ]] && codesign --force --timestamp --sign "$identity" "$dmg"
+step "Building $dmg"
+stage_dir="$out/dmg-stage"
+rm -rf "$stage_dir" "$dmg"
+mkdir -p "$stage_dir"
+cp -R "$app" "$stage_dir/"
+ln -s /Applications "$stage_dir/Applications"
+# hdiutil sometimes reports "Resource busy" on CI machines; a retry clears it.
+for attempt in 1 2 3; do
+  hdiutil create -volname "Strayta $version" -srcfolder "$stage_dir" -ov -format UDZO -quiet "$dmg" >"$log" 2>&1 && break
+  (( attempt == 3 )) && { stage="Building the disk image"; run false; }
+  sleep 5
+done
+rm -rf "$stage_dir"
+[[ -n $identity ]] && run codesign --force --timestamp --sign "$identity" "$dmg"
 
 profile=${STRAYTA_NOTARY_PROFILE:-strayta-notary}
 notary=()
@@ -102,10 +125,21 @@ elif xcrun notarytool history --keychain-profile "$profile" >/dev/null 2>&1; the
   notary=(--keychain-profile "$profile")
 fi
 if [[ -n $identity ]] && (( ${#notary} )); then
-  print "• Notarizing (this waits for Apple)"
-  xcrun notarytool submit "$dmg" "${notary[@]}" --wait
-  xcrun stapler staple "$dmg"
-  xcrun stapler staple "$app"
+  step "Notarizing (this waits for Apple)"
+  if ! xcrun notarytool submit "$dmg" "${notary[@]}" --wait --output-format plist > "$out/notary.plist"; then
+    run false
+  fi
+  notary_status=$(/usr/libexec/PlistBuddy -c 'Print :status' "$out/notary.plist" 2>/dev/null || echo unknown)
+  if [[ $notary_status != Accepted ]]; then
+    # Apple's log names each rejected file and why.
+    notary_id=$(/usr/libexec/PlistBuddy -c 'Print :id' "$out/notary.plist" 2>/dev/null || echo "")
+    [[ -n $notary_id ]] && xcrun notarytool log "$notary_id" "${notary[@]}" > "$log" 2>&1 || true
+    stage="Notarization ($notary_status)"
+    run false
+  fi
+  step "Stapling"
+  run xcrun stapler staple "$dmg"
+  run xcrun stapler staple "$app"
   spctl --assess --type open --context context:primary-signature -v "$dmg" || true
 elif [[ -n $identity ]]; then
   print "• Signed but not notarized: no notarytool profile '$profile' or API key (see the comment at the top of this script)"
