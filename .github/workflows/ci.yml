@@ -46,13 +46,19 @@ jobs:
 
       - name: Test
         shell: bash
-        run: dotnet test -c Release --no-build 2>&1 | tee test-output.txt; exit ${PIPESTATUS[0]}
+        env:
+          NO_COLOR: '1'
+        run: dotnet test -c Release --no-build --no-ansi 2>&1 | tee test-output.txt; exit ${PIPESTATUS[0]}
 
-      # Job logs are only visible to signed-in users; annotations are public, so failing tests are copied there.
+      # Job logs are only visible to signed-in users; annotations are public, so each failing test (with the lines
+      # under it) becomes one annotation. Colour codes are stripped in case any remain.
       - name: Annotate failing tests
         if: failure()
         shell: bash
         run: |
-          grep -E -A6 '^(failed|  failed) ' test-output.txt | head -c 60000 | while IFS= read -r line; do
-            echo "::error title=Test failure (${{ runner.os }})::${line}"
-          done || true
+          sed -E 's/\x1b\[[0-9;]*[A-Za-z]//g' test-output.txt | awk '
+            function flush() { if (msg != "") { print "::error title=Test failure (" os ")::" msg; msg = "" } }
+            /^[[:space:]]*failed / { flush(); msg = $0; n = 0; next }
+            msg != "" && n < 12 { gsub(/%/, "%25"); msg = msg "%0A" $0; n++; next }
+            msg != "" { flush() }
+            END { flush() }' os="${{ runner.os }}"
