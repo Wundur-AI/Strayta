@@ -43,6 +43,18 @@ jobs:
           key: models-${{ hashFiles('tools/FetchModels.proj') }}
       - run: dotnet build tools/FetchModels.proj
 
+      # Which secrets reach this job, by length only (a length reveals nothing; empty means not visible here:
+      # misnamed, stored as a variable, or an organization secret whose access excludes this public repository).
+      - name: Secrets visible to this job
+        env:
+          S1: ${{ secrets.MACOS_CERT_P12 }}
+          S2: ${{ secrets.MACOS_CERT_PASSWORD }}
+          S3: ${{ secrets.ASC_KEY_P8 }}
+          S4: ${{ secrets.ASC_KEY_ID }}
+          S5: ${{ secrets.ASC_ISSUER_ID }}
+        run: |
+          echo "::notice title=Secrets visible (environment: release)::MACOS_CERT_P12=${#S1} MACOS_CERT_PASSWORD=${#S2} ASC_KEY_P8=${#S3} ASC_KEY_ID=${#S4} ASC_ISSUER_ID=${#S5} characters"
+
       - name: Signing keychain
         env:
           MACOS_CERT_P12: ${{ secrets.MACOS_CERT_P12 }}
