@@ -10,7 +10,10 @@
 #   - Without one, it is signed ad hoc: it runs on this Mac, and elsewhere after right-click › Open (Gatekeeper).
 # Notarization runs when a notarytool keychain profile exists (STRAYTA_NOTARY_PROFILE, default "strayta-notary"):
 #   xcrun notarytool store-credentials strayta-notary --apple-id <id> --team-id <TEAMID> --password <app-specific>
-# STRAYTA_BUNDLE_ID overrides the bundle identifier (default ai.wundur.strayta). No secrets live in this script.
+# In CI, notarization uses an App Store Connect API key instead: STRAYTA_NOTARY_KEY (path to the .p8 file),
+# STRAYTA_NOTARY_KEY_ID and STRAYTA_NOTARY_ISSUER.
+# STRAYTA_VERSION overrides the version (CI passes the tag); STRAYTA_BUNDLE_ID the bundle identifier
+# (default ai.wundur.strayta). No secrets live in this script.
 set -euo pipefail
 
 arch=arm64
@@ -27,7 +30,7 @@ while (( $# )); do
 done
 [[ $arch == arm64 || $arch == x64 ]] || { print -u2 "--arch must be arm64 or x64"; exit 2; }
 
-version=$(sed -n 's:.*<Version>\(.*\)</Version>.*:\1:p' "$root/Directory.Build.props" | head -1)
+version=${STRAYTA_VERSION:-$(sed -n 's:.*<Version>\(.*\)</Version>.*:\1:p' "$root/Directory.Build.props" | head -1)}
 build=$(git -C "$root" rev-list --count HEAD 2>/dev/null || echo 1)
 bundle_id=${STRAYTA_BUNDLE_ID:-ai.wundur.strayta}
 publish="$out/publish-$arch"
@@ -37,7 +40,7 @@ dmg="$out/Strayta-$version-$arch.dmg"
 print "• Publishing Strayta $version (build $build) for osx-$arch"
 rm -rf "$publish" "$app"
 dotnet publish "$root/apps/Strayta.Editor/Strayta.Editor.csproj" -c Release -r "osx-$arch" --self-contained true \
-  -p:UseAppHost=true -p:DebugType=none -o "$publish" -v quiet -nologo
+  -p:UseAppHost=true -p:DebugType=none -p:Version="$version" -o "$publish" -v quiet -nologo
 if (( ! models )); then rm -rf "$publish/models"; fi
 
 print "• Assembling $app"
@@ -92,14 +95,20 @@ rm -rf "$stage"
 [[ -n $identity ]] && codesign --force --timestamp --sign "$identity" "$dmg"
 
 profile=${STRAYTA_NOTARY_PROFILE:-strayta-notary}
-if [[ -n $identity ]] && xcrun notarytool history --keychain-profile "$profile" >/dev/null 2>&1; then
-  print "• Notarizing with keychain profile '$profile' (this waits for Apple)"
-  xcrun notarytool submit "$dmg" --keychain-profile "$profile" --wait
+notary=()
+if [[ -n ${STRAYTA_NOTARY_KEY:-} ]]; then
+  notary=(--key "$STRAYTA_NOTARY_KEY" --key-id "$STRAYTA_NOTARY_KEY_ID" --issuer "$STRAYTA_NOTARY_ISSUER")
+elif xcrun notarytool history --keychain-profile "$profile" >/dev/null 2>&1; then
+  notary=(--keychain-profile "$profile")
+fi
+if [[ -n $identity ]] && (( ${#notary} )); then
+  print "• Notarizing (this waits for Apple)"
+  xcrun notarytool submit "$dmg" "${notary[@]}" --wait
   xcrun stapler staple "$dmg"
   xcrun stapler staple "$app"
   spctl --assess --type open --context context:primary-signature -v "$dmg" || true
 elif [[ -n $identity ]]; then
-  print "• Signed but not notarized: no notarytool profile '$profile' (see the comment at the top of this script)"
+  print "• Signed but not notarized: no notarytool profile '$profile' or API key (see the comment at the top of this script)"
 fi
 
 print "\nDone:\n  $app\n  $dmg ($(du -h "$dmg" | cut -f1))"

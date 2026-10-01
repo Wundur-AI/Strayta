@@ -1,0 +1,129 @@
+# Builds release packages when a version tag (v1.2.3) is pushed and attaches them to a draft GitHub Release:
+#   macOS: Strayta.app in a .dmg for Apple silicon and Intel, signed with the Developer ID certificate and notarized.
+#   Windows: a .zip of the app (signed with Azure Trusted Signing once it is set up; see the Windows job).
+#   Linux: a .tar.gz of the app.
+# The jobs run in the "release" environment: give it required reviewers (Settings › Environments) so a release
+# waits for approval before any signing secret is used. Secrets (Settings › Secrets and variables › Actions, on the
+# repository or the organization):
+#   MACOS_CERT_P12            base64 of the Developer ID Application certificate + private key exported as .p12
+#   MACOS_CERT_PASSWORD       the .p12's password
+#   ASC_KEY_P8                contents of the App Store Connect API key (.p8) used for notarization
+#   ASC_KEY_ID, ASC_ISSUER_ID that key's ID and issuer ID
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  macos:
+    name: macOS (${{ matrix.arch }})
+    runs-on: macos-latest
+    environment: release
+    strategy:
+      matrix:
+        arch: [arm64, x64]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # the build number is the commit count
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: AI selection models
+        uses: actions/cache@v4
+        with:
+          path: models/*.onnx
+          key: models-${{ hashFiles('tools/FetchModels.proj') }}
+      - run: dotnet build tools/FetchModels.proj
+
+      - name: Signing keychain
+        env:
+          MACOS_CERT_P12: ${{ secrets.MACOS_CERT_P12 }}
+          MACOS_CERT_PASSWORD: ${{ secrets.MACOS_CERT_PASSWORD }}
+        run: |
+          keychain="$RUNNER_TEMP/signing.keychain-db"
+          keychain_password=$(openssl rand -base64 24)
+          echo "$MACOS_CERT_P12" | base64 --decode > "$RUNNER_TEMP/cert.p12"
+          security create-keychain -p "$keychain_password" "$keychain"
+          security set-keychain-settings -lut 21600 "$keychain"
+          security unlock-keychain -p "$keychain_password" "$keychain"
+          security import "$RUNNER_TEMP/cert.p12" -k "$keychain" -P "$MACOS_CERT_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$keychain_password" "$keychain"
+          security list-keychains -d user -s "$keychain" $(security list-keychains -d user | tr -d '"')
+          rm "$RUNNER_TEMP/cert.p12"
+
+      - name: Package, sign and notarize
+        env:
+          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+          STRAYTA_NOTARY_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          STRAYTA_NOTARY_ISSUER: ${{ secrets.ASC_ISSUER_ID }}
+        run: |
+          export STRAYTA_VERSION="${GITHUB_REF_NAME#v}"
+          export STRAYTA_NOTARY_KEY="$RUNNER_TEMP/notary.p8"
+          echo "$ASC_KEY_P8" > "$STRAYTA_NOTARY_KEY"
+          tools/package-mac.sh --arch ${{ matrix.arch }} --out "$RUNNER_TEMP/out"
+          rm "$STRAYTA_NOTARY_KEY"
+
+      - name: Remove the signing keychain
+        if: always()
+        run: security delete-keychain "$RUNNER_TEMP/signing.keychain-db" || true
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          draft: true
+          files: ${{ runner.temp }}/out/*.dmg
+
+  windows:
+    name: Windows (x64)
+    runs-on: windows-latest
+    environment: release
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+      - run: dotnet build tools/FetchModels.proj
+      - name: Publish
+        shell: pwsh
+        run: |
+          $version = "${{ github.ref_name }}".TrimStart('v')
+          dotnet publish apps/Strayta.Editor/Strayta.Editor.csproj -c Release -r win-x64 --self-contained true `
+            -p:Version=$version -p:DebugType=none -o "$env:RUNNER_TEMP/Strayta"
+      # Azure Trusted Signing goes here once the account exists (azure/trusted-signing-action, signing
+      # $env:RUNNER_TEMP/Strayta/Strayta.exe and the native DLLs). Until then the build is unsigned.
+      - name: Zip
+        shell: pwsh
+        run: |
+          $version = "${{ github.ref_name }}".TrimStart('v')
+          Compress-Archive -Path "$env:RUNNER_TEMP/Strayta/*" -DestinationPath "$env:RUNNER_TEMP/Strayta-$version-win-x64.zip"
+      - uses: softprops/action-gh-release@v2
+        with:
+          draft: true
+          files: ${{ runner.temp }}/Strayta-*-win-x64.zip
+
+  linux:
+    name: Linux (x64)
+    runs-on: ubuntu-latest
+    environment: release
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+      - run: dotnet build tools/FetchModels.proj
+      - name: Publish and archive
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          dotnet publish apps/Strayta.Editor/Strayta.Editor.csproj -c Release -r linux-x64 --self-contained true \
+            -p:Version="$version" -p:DebugType=none -o "$RUNNER_TEMP/Strayta"
+          tar -C "$RUNNER_TEMP" -czf "$RUNNER_TEMP/Strayta-$version-linux-x64.tar.gz" Strayta
+      - uses: softprops/action-gh-release@v2
+        with:
+          draft: true
+          files: ${{ runner.temp }}/Strayta-*-linux-x64.tar.gz
