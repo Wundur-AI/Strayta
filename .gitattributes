@@ -1,0 +1,8 @@
+# Check out text files with LF line endings on every system: several tests compare bytes of text files (and
+# Windows runners would otherwise convert them to CRLF).
+* text=auto eol=lf
+*.sln text eol=crlf
+*.png binary
+*.icns binary
+*.psd binary
+*.onnx binary

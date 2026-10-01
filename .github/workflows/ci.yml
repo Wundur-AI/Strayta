@@ -45,4 +45,14 @@ jobs:
         run: dotnet build -c Release
 
       - name: Test
-        run: dotnet test -c Release --no-build
+        shell: bash
+        run: dotnet test -c Release --no-build 2>&1 | tee test-output.txt; exit ${PIPESTATUS[0]}
+
+      # Job logs are only visible to signed-in users; annotations are public, so failing tests are copied there.
+      - name: Annotate failing tests
+        if: failure()
+        shell: bash
+        run: |
+          grep -E -A6 '^(failed|  failed) ' test-output.txt | head -c 60000 | while IFS= read -r line; do
+            echo "::error title=Test failure (${{ runner.os }})::${line}"
+          done || true
