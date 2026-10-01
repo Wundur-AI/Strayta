@@ -29,6 +29,14 @@ dotnet test                                   # everything except the timed test
 dotnet test -c Release -p:Performance=true    # only the timed tests (Trait Category=Performance), one at a time
 ```
 
+### Packaging for macOS
+
+`tools/package-mac.sh [--arch arm64|x64] [--no-models]` publishes the editor self-contained and writes `Strayta.app`
+and a `.dmg` to `~/Strayta-builds` (the internal disk: `codesign` rejects the metadata files exFAT drives keep).
+With a "Developer ID Application" certificate in the keychain it signs with the hardened runtime
+(`packaging/macos/Strayta.entitlements`), and with a `notarytool` keychain profile (`strayta-notary`) it also
+notarizes and staples; without them the app is signed ad hoc. `packaging/macos/make-icon.cs` redraws the icon.
+
 Timed tests assert how fast large operations are, so they run in their own pass on an otherwise quiet machine;
 tag new ones with `[Trait("Category", "Performance")]`.
 
