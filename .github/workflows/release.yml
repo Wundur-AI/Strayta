@@ -98,7 +98,7 @@ jobs:
           export STRAYTA_VERSION="${GITHUB_REF_NAME#v}"
           export STRAYTA_NOTARY_KEY="$RUNNER_TEMP/notary.p8"
           echo "$ASC_KEY_P8" > "$STRAYTA_NOTARY_KEY"
-          tools/package-mac.sh --arch ${{ matrix.arch }} --out "$RUNNER_TEMP/out"
+          zsh tools/package-mac.sh --arch ${{ matrix.arch }} --out "$RUNNER_TEMP/out"
           rm "$STRAYTA_NOTARY_KEY"
 
       - name: Remove the signing keychain

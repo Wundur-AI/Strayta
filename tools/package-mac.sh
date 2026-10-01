@@ -21,6 +21,8 @@ set -euo pipefail
 stage="Starting"
 step() { stage=$1; print "• $1"; }
 log="$(mktemp -t strayta-package)"
+# Anything that fails outside run() still names its stage and line on CI.
+[[ -n ${GITHUB_ACTIONS:-} ]] && trap 'print "::error title=Packaging failed: ${stage}::line $LINENO exited with status $?"' ZERR
 run() {
   local code=0
   "$@" >"$log" 2>&1 || code=$?
