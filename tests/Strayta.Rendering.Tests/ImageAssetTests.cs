@@ -105,7 +105,9 @@ public class ImageAssetTests
                 Assert.Equal((50, 50), (photo.Width, photo.Height));
                 Assert.True(photo.GetPixel(25, 25).Blue > 230);
             }
-            Assert.Equal(Path.Combine("/work", "Poster-assets"), ImageAssetGenerator.FolderFor("/work/Poster.psd"));
+            // A rooted path on every system ("/work" becomes "D:\work" on Windows).
+            string work = Path.Combine(Path.GetTempPath(), "work");
+            Assert.Equal(Path.Combine(work, "Poster-assets"), ImageAssetGenerator.FolderFor(Path.Combine(work, "Poster.psd")));
         }
         finally
         {
