@@ -6,3 +6,4 @@
 *.icns binary
 *.psd binary
 *.onnx binary
+*.tiff binary

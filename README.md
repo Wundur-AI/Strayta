@@ -35,7 +35,16 @@ dotnet test -c Release -p:Performance=true    # only the timed tests (Trait Cate
 and a `.dmg` to `~/Strayta-builds` (the internal disk: `codesign` rejects the metadata files exFAT drives keep).
 With a "Developer ID Application" certificate in the keychain it signs with the hardened runtime
 (`packaging/macos/Strayta.entitlements`), and with a `notarytool` keychain profile (`strayta-notary`) it also
-notarizes and staples; without them the app is signed ad hoc. `packaging/macos/make-icon.cs` redraws the icon.
+notarizes and staples; without them the app is signed ad hoc. The disk image gets its window layout (background,
+icon positions) from dmgbuild, installed into a private virtual environment beside the output.
+`packaging/macos/make-icon.cs` and `make-dmg-background.cs` redraw the icon and the disk image background.
+
+### Releases
+
+Pull requests run CI (build and tests on macOS, Windows and Linux). Every merge to `main` runs the tests again and
+replaces the **Nightly** pre-release with signed, notarized builds of that commit. Pushing a tag `v1.2.3` publishes a
+release with generated notes (`v1.2.3-rc1` and other suffixed tags publish as pre-releases). Bump `<Version>` in
+`Directory.Build.props` after a release so nightlies sort after it.
 
 Timed tests assert how fast large operations are, so they run in their own pass on an otherwise quiet machine;
 tag new ones with `[Trait("Category", "Performance")]`.

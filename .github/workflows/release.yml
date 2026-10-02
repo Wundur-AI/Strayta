@@ -1,10 +1,10 @@
-# Builds release packages when a version tag (v1.2.3) is pushed and attaches them to a draft GitHub Release:
-#   macOS: Strayta.app in a .dmg for Apple silicon and Intel, signed with the Developer ID certificate and notarized.
-#   Windows: a .zip of the app (signed with Azure Trusted Signing once it is set up; see the Windows job).
-#   Linux: a .tar.gz of the app.
-# The jobs run in the "release" environment: give it required reviewers (Settings › Environments) so a release
-# waits for approval before any signing secret is used. Secrets (Settings › Secrets and variables › Actions, on the
-# repository or the organization):
+# Builds the downloads and publishes them:
+#   - every push to main (a merged pull request): after the tests pass, the rolling "Nightly" pre-release is replaced
+#     with signed and notarized builds of that commit (version <next>-nightly.<run>);
+#   - a version tag (v1.2.3, or v1.2.3-rc1 for a pre-release): a GitHub Release with generated notes.
+# macOS: Strayta.app in a .dmg for Apple silicon and Intel, Developer ID signed and notarized. Windows: a .zip
+# (signed with Azure Trusted Signing once it is set up). Linux: a .tar.gz. Every release carries SHA256SUMS.txt.
+# Signing secrets (organization or repository secrets; the workflow never runs for pull requests from forks):
 #   MACOS_CERT_P12            base64 of the Developer ID Application certificate + private key exported as .p12
 #   MACOS_CERT_PASSWORD       the .p12's password
 #   ASC_KEY_P8                contents of the App Store Connect API key (.p8) used for notarization
@@ -13,16 +13,46 @@ name: Release
 
 on:
   push:
+    branches: [main]
     tags: ['v*']
 
 permissions:
-  contents: write
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  # A newer merge supersedes a nightly build still in progress; releases always finish.
+  cancel-in-progress: ${{ github.ref == 'refs/heads/main' }}
 
 jobs:
+  version:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.v.outputs.version }}
+      kind: ${{ steps.v.outputs.kind }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: v
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            version="${GITHUB_REF_NAME#v}"
+            [[ "$version" == *-* ]] && kind=prerelease || kind=release
+          else
+            base=$(sed -n 's:.*<Version>\(.*\)</Version>.*:\1:p' Directory.Build.props | head -1)
+            version="$base-nightly.$GITHUB_RUN_NUMBER"
+            kind=nightly
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "kind=$kind" >> "$GITHUB_OUTPUT"
+          echo "::notice title=Building::$version ($kind)"
+
+  test:
+    uses: ./.github/workflows/ci.yml
+
   macos:
     name: macOS (${{ matrix.arch }})
+    needs: [version, test]
     runs-on: macos-latest
-    environment: release
     strategy:
       fail-fast: false
       matrix:
@@ -44,7 +74,7 @@ jobs:
       - run: dotnet build tools/FetchModels.proj
 
       # Which secrets reach this job, by length only (a length reveals nothing; empty means not visible here:
-      # misnamed, stored as a variable, or an organization secret whose access excludes this public repository).
+      # misnamed, stored as a variable, or an organization secret whose access excludes this repository).
       - name: Secrets visible to this job
         env:
           S1: ${{ secrets.MACOS_CERT_P12 }}
@@ -53,7 +83,7 @@ jobs:
           S4: ${{ secrets.ASC_KEY_ID }}
           S5: ${{ secrets.ASC_ISSUER_ID }}
         run: |
-          echo "::notice title=Secrets visible (environment: release)::MACOS_CERT_P12=${#S1} MACOS_CERT_PASSWORD=${#S2} ASC_KEY_P8=${#S3} ASC_KEY_ID=${#S4} ASC_ISSUER_ID=${#S5} characters"
+          echo "::notice title=Secrets visible::MACOS_CERT_P12=${#S1} MACOS_CERT_PASSWORD=${#S2} ASC_KEY_P8=${#S3} ASC_KEY_ID=${#S4} ASC_ISSUER_ID=${#S5} characters"
 
       - name: Signing keychain
         env:
@@ -63,7 +93,7 @@ jobs:
           # Each check reports what is wrong as a public annotation (job logs need a signed-in viewer); none of
           # them prints a secret.
           fail() { echo "::error title=Signing setup::$1"; exit 1; }
-          [ -n "$MACOS_CERT_P12" ] || fail "The MACOS_CERT_P12 secret is empty or missing (add it to the release environment or the repository)."
+          [ -n "$MACOS_CERT_P12" ] || fail "The MACOS_CERT_P12 secret is empty or missing."
           [ -n "$MACOS_CERT_PASSWORD" ] || fail "The MACOS_CERT_PASSWORD secret is empty or missing."
           printf '%s' "$MACOS_CERT_P12" | tr -d ' \r\n' | base64 --decode > "$RUNNER_TEMP/cert.p12" 2>/dev/null \
             || fail "MACOS_CERT_P12 is not valid base64 (paste the output of: base64 -i file.p12 | pbcopy)."
@@ -94,26 +124,29 @@ jobs:
           ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
           STRAYTA_NOTARY_KEY_ID: ${{ secrets.ASC_KEY_ID }}
           STRAYTA_NOTARY_ISSUER: ${{ secrets.ASC_ISSUER_ID }}
+          STRAYTA_VERSION: ${{ needs.version.outputs.version }}
         run: |
-          export STRAYTA_VERSION="${GITHUB_REF_NAME#v}"
           export STRAYTA_NOTARY_KEY="$RUNNER_TEMP/notary.p8"
           echo "$ASC_KEY_P8" > "$STRAYTA_NOTARY_KEY"
           zsh tools/package-mac.sh --arch ${{ matrix.arch }} --out "$RUNNER_TEMP/out"
           rm "$STRAYTA_NOTARY_KEY"
+          mkdir -p dist && cp "$RUNNER_TEMP"/out/*.dmg dist/
 
       - name: Remove the signing keychain
         if: always()
         run: security delete-keychain "$RUNNER_TEMP/signing.keychain-db" || true
 
-      - uses: softprops/action-gh-release@v2
+      - uses: actions/upload-artifact@v4
         with:
-          draft: true
-          files: ${{ runner.temp }}/out/*.dmg
+          name: strayta-macos-${{ matrix.arch }}
+          path: dist/*
+          if-no-files-found: error
+          retention-days: 14
 
   windows:
     name: Windows (x64)
+    needs: [version, test]
     runs-on: windows-latest
-    environment: release
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
@@ -123,25 +156,26 @@ jobs:
       - name: Publish
         shell: pwsh
         run: |
-          $version = "${{ github.ref_name }}".TrimStart('v')
           dotnet publish apps/Strayta.Editor/Strayta.Editor.csproj -c Release -r win-x64 --self-contained true `
-            -p:Version=$version -p:DebugType=none -o "$env:RUNNER_TEMP/Strayta"
+            -p:Version=${{ needs.version.outputs.version }} -p:DebugType=none -o "$env:RUNNER_TEMP/Strayta"
       # Azure Trusted Signing goes here once the account exists (azure/trusted-signing-action, signing
       # $env:RUNNER_TEMP/Strayta/Strayta.exe and the native DLLs). Until then the build is unsigned.
       - name: Zip
         shell: pwsh
         run: |
-          $version = "${{ github.ref_name }}".TrimStart('v')
-          Compress-Archive -Path "$env:RUNNER_TEMP/Strayta/*" -DestinationPath "$env:RUNNER_TEMP/Strayta-$version-win-x64.zip"
-      - uses: softprops/action-gh-release@v2
+          New-Item -ItemType Directory -Force dist | Out-Null
+          Compress-Archive -Path "$env:RUNNER_TEMP/Strayta/*" -DestinationPath "dist/Strayta-${{ needs.version.outputs.version }}-win-x64.zip"
+      - uses: actions/upload-artifact@v4
         with:
-          draft: true
-          files: ${{ runner.temp }}/Strayta-*-win-x64.zip
+          name: strayta-windows-x64
+          path: dist/*
+          if-no-files-found: error
+          retention-days: 14
 
   linux:
     name: Linux (x64)
+    needs: [version, test]
     runs-on: ubuntu-latest
-    environment: release
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
@@ -149,12 +183,56 @@ jobs:
           global-json-file: global.json
       - run: dotnet build tools/FetchModels.proj
       - name: Publish and archive
+        env:
+          VERSION: ${{ needs.version.outputs.version }}
         run: |
-          version="${GITHUB_REF_NAME#v}"
           dotnet publish apps/Strayta.Editor/Strayta.Editor.csproj -c Release -r linux-x64 --self-contained true \
-            -p:Version="$version" -p:DebugType=none -o "$RUNNER_TEMP/Strayta"
-          tar -C "$RUNNER_TEMP" -czf "$RUNNER_TEMP/Strayta-$version-linux-x64.tar.gz" Strayta
-      - uses: softprops/action-gh-release@v2
+            -p:Version="$VERSION" -p:DebugType=none -o "$RUNNER_TEMP/Strayta"
+          mkdir -p dist
+          tar -C "$RUNNER_TEMP" -czf "dist/Strayta-$VERSION-linux-x64.tar.gz" Strayta
+      - uses: actions/upload-artifact@v4
         with:
-          draft: true
-          files: ${{ runner.temp }}/Strayta-*-linux-x64.tar.gz
+          name: strayta-linux-x64
+          path: dist/*
+          if-no-files-found: error
+          retention-days: 14
+
+  publish:
+    needs: [version, macos, windows, linux]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      VERSION: ${{ needs.version.outputs.version }}
+      KIND: ${{ needs.version.outputs.kind }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: strayta-*
+          path: dist
+          merge-multiple: true
+
+      - name: Checksums
+        working-directory: dist
+        run: |
+          ls -l
+          sha256sum * > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+
+      # The rolling nightly: the old release and its tag are replaced by this commit's builds.
+      - name: Publish the nightly
+        if: env.KIND == 'nightly'
+        run: |
+          gh release delete nightly --repo "$GITHUB_REPOSITORY" --cleanup-tag --yes || true
+          gh release create nightly dist/* --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --prerelease \
+            --title "Nightly ($VERSION)" \
+            --notes "Built automatically from the latest commit on main ($GITHUB_SHA). Untested beyond the automated tests; for trying the newest changes. Stable versions are the numbered releases."
+
+      - name: Publish the release
+        if: env.KIND != 'nightly'
+        run: |
+          flags=()
+          [[ "$KIND" == prerelease ]] && flags+=(--prerelease)
+          gh release create "$GITHUB_REF_NAME" dist/* --repo "$GITHUB_REPOSITORY" --verify-tag \
+            --title "Strayta $VERSION" --generate-notes "${flags[@]}"

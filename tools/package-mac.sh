@@ -105,18 +105,29 @@ else
 fi
 
 step "Building $dmg"
-stage_dir="$out/dmg-stage"
-rm -rf "$stage_dir" "$dmg"
-mkdir -p "$stage_dir"
-cp -R "$app" "$stage_dir/"
-ln -s /Applications "$stage_dir/Applications"
-# hdiutil sometimes reports "Resource busy" on CI machines; a retry clears it.
+# The disk image's window layout (background, icon positions, size) comes from dmgbuild, a small MIT-licensed
+# Python tool that writes Finder's layout file without Finder, so it works on CI. It is installed into a private
+# virtual environment next to the output; without Python or network it falls back to a plain disk image.
+rm -f "$dmg"
+dmgbuild=""
+venv="$out/.dmgbuild-venv"
+if [[ -x "$venv/bin/dmgbuild" ]] || { python3 -m venv "$venv" >/dev/null 2>&1 && "$venv/bin/pip" install -q 'dmgbuild>=1.6,<2' >/dev/null 2>&1; }; then
+  dmgbuild="$venv/bin/dmgbuild"
+fi
+# hdiutil (used by both paths) sometimes reports "Resource busy" on CI machines; a retry clears it.
 for attempt in 1 2 3; do
-  hdiutil create -volname "Strayta $version" -srcfolder "$stage_dir" -ov -format UDZO -quiet "$dmg" >"$log" 2>&1 && break
+  if [[ -n $dmgbuild ]]; then
+    "$dmgbuild" -s "$root/packaging/macos/dmg-settings.py" -D app="$app" -D background="$root/packaging/macos/dmg-background.tiff" \
+      "Strayta $version" "$dmg" >"$log" 2>&1 && break
+  else
+    print "  (dmgbuild unavailable: plain disk image)"
+    stage_dir="$out/dmg-stage"
+    rm -rf "$stage_dir" && mkdir -p "$stage_dir" && cp -R "$app" "$stage_dir/" && ln -s /Applications "$stage_dir/Applications"
+    hdiutil create -volname "Strayta $version" -srcfolder "$stage_dir" -ov -format UDZO -quiet "$dmg" >"$log" 2>&1 && { rm -rf "$stage_dir"; break; }
+  fi
   (( attempt == 3 )) && { stage="Building the disk image"; run false; }
   sleep 5
 done
-rm -rf "$stage_dir"
 [[ -n $identity ]] && run codesign --force --timestamp --sign "$identity" "$dmg"
 
 profile=${STRAYTA_NOTARY_PROFILE:-strayta-notary}

@@ -1,12 +1,12 @@
-# Builds Strayta and runs the tests on macOS, Windows and Linux for every push to main and every pull request.
+# Builds Strayta and runs the tests on macOS, Windows and Linux for every pull request, and (called from the
+# release workflow) before every nightly build and release.
 # The timed tests (Trait Category=Performance) are left out, as in a normal `dotnet test`; shared CI machines are
 # too noisy for them. The editor's self-test needs a display and the private PSD corpus, so it is not run here.
 name: CI
 
 on:
-  push:
-    branches: [main]
   pull_request:
+  workflow_call:
 
 permissions:
   contents: read
