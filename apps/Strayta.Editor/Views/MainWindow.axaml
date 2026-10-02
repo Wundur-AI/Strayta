@@ -213,6 +213,23 @@
           <Button Content="Open…" Command="{Binding OpenCommand}" />
         </StackPanel>
       </StackPanel>
+      <!-- Files kept only in iCloud or OneDrive download before they open (EditorViewModel.CloudDownloads.cs). -->
+      <ItemsControl x:Name="CloudDownloadsList" ItemsSource="{Binding CloudDownloads}" IsVisible="{Binding HasCloudDownloads}"
+                    HorizontalAlignment="Center" VerticalAlignment="Center">
+        <ItemsControl.ItemTemplate>
+          <DataTemplate x:DataType="vm:CloudDownload">
+            <Border Background="{DynamicResource St.PanelRaised}" BorderBrush="{DynamicResource St.Border}" BorderThickness="1"
+                    CornerRadius="8" Padding="18,14" Margin="0,4" Width="340" BoxShadow="0 6 24 0 #40000000">
+              <StackPanel Spacing="8">
+                <TextBlock Text="{Binding Title}" FontWeight="SemiBold" />
+                <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
+                <ProgressBar IsIndeterminate="True" Height="4" MinHeight="4" />
+                <TextBlock Text="{Binding Detail}" Classes="muted" FontSize="12" />
+              </StackPanel>
+            </Border>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
     </Panel>
   </DockPanel>
 </Window>

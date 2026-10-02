@@ -29,6 +29,30 @@ internal static partial class SelfTest
                 }
             }
             about.Close();
+
+            // A file still in iCloud: a card over the canvas says it is downloading, then goes away when it arrives.
+            var cloudFile = Path.Combine(Path.GetTempPath(), "Strayta cloud test.png");
+            await File.WriteAllBytesAsync(cloudFile, new byte[3 << 20]);
+            var downloading = editor.ShowCloudDownload(cloudFile, TimeSpan.Zero);
+            await Task.Delay(1300);
+            var card = Avalonia.VisualTree.VisualExtensions.GetVisualDescendants(appWindow).OfType<Avalonia.Controls.ItemsControl>()
+                .FirstOrDefault(c => c.Name == "CloudDownloadsList");
+            check(card is { IsEffectivelyVisible: true } && editor.CloudDownloads.Count == 1
+                  && editor.CloudDownloads[0].Detail.StartsWith("3.0 MB · ") && !editor.CloudDownloads[0].Detail.EndsWith(" 0 s"),
+                $"a file downloading from iCloud shows a card with its size and the time waited ({editor.CloudDownloads.FirstOrDefault()?.Detail})");
+            if (Environment.GetEnvironmentVariable("STRAYTA_SELFTEST_SHOTS") is { Length: > 0 } cloudShots)
+            {
+                using var shot = new RenderTargetBitmap(new Avalonia.PixelSize((int)appWindow.Bounds.Width, (int)appWindow.Bounds.Height));
+                shot.Render(appWindow);
+                shot.Save(Path.Combine(cloudShots, "cloud-download.png"), new PngBitmapEncoderOptions());
+            }
+            downloading.Dispose();
+            check(!editor.HasCloudDownloads && card?.IsEffectivelyVisible != true, "the download card goes away when the file arrives");
+            using (editor.ShowCloudDownload(cloudFile)) await Task.Delay(50);
+            await Task.Delay(500);
+            check(!editor.HasCloudDownloads, "a quick download never shows the card");
+            File.Delete(cloudFile);
+            check(!CloudFiles.NeedsDownload(Path.GetTempFileName()), "a local file doesn't need downloading");
         }
 
         foreach (var open in editor.Factory.OpenDocuments().ToList()) open.CloseWithoutAsking(); // start from nothing open

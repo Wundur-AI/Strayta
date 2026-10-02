@@ -162,7 +162,10 @@ public sealed partial class EditorViewModel : ObservableObject
         try
         {
             StartupTiming.Mark($"opening {Path.GetFileName(path)}");
-            var model = await Task.Run(() => ImageImporter.CanOpen(path) ? ImageImporter.Open(path) : PsdFile.OpenForEditing(path));
+            Document model;
+            // A file kept only in iCloud or OneDrive downloads on first read, which can take many seconds.
+            using (CloudFiles.NeedsDownload(path) ? ShowCloudDownload(path) : null)
+                model = await Task.Run(() => ImageImporter.CanOpen(path) ? ImageImporter.Open(path) : PsdFile.OpenForEditing(path));
             StartupTiming.Mark("file read");
             var document = new DocumentViewModel(model, path, this) { ConfirmClose = ConfirmCloseAsync };
             if (StartupTiming.Enabled)
