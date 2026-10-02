@@ -138,7 +138,19 @@ public sealed partial class EditorViewModel : ObservableObject
         if (e.PropertyName is nameof(DocumentViewModel.IsTransforming)) OnPropertyChanged(nameof(IsTransforming));
     }
 
+    // Paths being read right now: on macOS a file given at launch can arrive both as an argument and as a Finder
+    // activation, and the second request must not read it again while the first is still loading.
+    private readonly HashSet<string> _opening = new(StringComparer.Ordinal);
+
     public async Task OpenAsync(string path)
+    {
+        path = Path.GetFullPath(path); // one spelling per file ("dir//a.png" and "dir/a.png" are the same document)
+        if (!_opening.Add(path)) return;
+        try { await OpenCoreAsync(path); }
+        finally { _opening.Remove(path); }
+    }
+
+    private async Task OpenCoreAsync(string path)
     {
         var existing = Factory.OpenDocuments().FirstOrDefault(d => string.Equals(d.FilePath, path, StringComparison.Ordinal));
         if (existing is not null)
@@ -149,8 +161,19 @@ public sealed partial class EditorViewModel : ObservableObject
 
         try
         {
+            StartupTiming.Mark($"opening {Path.GetFileName(path)}");
             var model = await Task.Run(() => ImageImporter.CanOpen(path) ? ImageImporter.Open(path) : PsdFile.OpenForEditing(path));
+            StartupTiming.Mark("file read");
             var document = new DocumentViewModel(model, path, this) { ConfirmClose = ConfirmCloseAsync };
+            if (StartupTiming.Enabled)
+            {
+                bool preview = false, full = false;
+                document.FrameDisplayed += isFull =>
+                {
+                    if (!isFull && !preview) { preview = true; StartupTiming.Mark("first preview shown"); }
+                    if (isFull && !full) { full = true; StartupTiming.Mark("full-resolution render shown"); }
+                };
+            }
             Factory.AddDocument(document);
             ActiveDocument = document;
             await document.RenderAsync();

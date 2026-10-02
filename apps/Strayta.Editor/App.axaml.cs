@@ -19,10 +19,12 @@ public partial class App : Application
         {
             _ = Task.Run(Warmup.Run);
             _ = Strayta.Text.FontCatalog.WarmUp(); // index the installed fonts for type layers in the background
+            StartupTiming.Mark("framework ready");
             var window = new MainWindow();
+            window.Opened += (_, _) => StartupTiming.Mark("window shown");
             // Self-test and benchmark runs open a real window: keep it from taking the keyboard, so typing in another
             // app can't reach it (a stray Delete once removed a layer mid-test) and the person's work isn't interrupted.
-            if (Environment.GetEnvironmentVariable("STRAYTA_SELFTEST") is { Length: > 0 }) window.ShowActivated = false;
+            if (Environment.GetEnvironmentVariable("STRAYTA_SELFTEST") is { Length: > 0 } || StartupTiming.Enabled) window.ShowActivated = false;
             desktop.MainWindow = window;
             foreach (var path in desktop.Args ?? [])
                 _ = window.Editor.OpenAsync(path);
