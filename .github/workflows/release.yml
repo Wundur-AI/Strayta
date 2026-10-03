@@ -1,8 +1,9 @@
 # Builds the downloads and publishes them:
 #   - every push to main (a merged pull request): after the tests pass, the rolling "Nightly" pre-release is replaced
-#     with signed and notarized builds of that commit (version <next>-nightly.<run>);
+#     with builds of that commit (version <next>-nightly.<run>);
 #   - a version tag (v1.2.3, or v1.2.3-rc1 for a pre-release): a GitHub Release with generated notes.
-# macOS: Strayta.app in a .dmg for Apple silicon and Intel, Developer ID signed and notarized. Windows: a .zip
+# macOS: Strayta.app in a .dmg for Apple silicon and Intel: Developer ID signed and notarized when the signing secrets
+# below reach this repository, otherwise unsigned (signed ad hoc; first launch needs right-click › Open). Windows: a .zip
 # (signed with Azure Trusted Signing once it is set up). Linux: a .tar.gz. Every release carries SHA256SUMS.txt.
 # Signing secrets (organization or repository secrets; the workflow never runs for pull requests from forks):
 #   MACOS_CERT_P12            base64 of the Developer ID Application certificate + private key exported as .p12
@@ -76,6 +77,7 @@ jobs:
       # Which secrets reach this job, by length only (a length reveals nothing; empty means not visible here:
       # misnamed, stored as a variable, or an organization secret whose access excludes this repository).
       - name: Secrets visible to this job
+        id: secrets
         env:
           S1: ${{ secrets.MACOS_CERT_P12 }}
           S2: ${{ secrets.MACOS_CERT_PASSWORD }}
@@ -84,8 +86,12 @@ jobs:
           S5: ${{ secrets.ASC_ISSUER_ID }}
         run: |
           echo "::notice title=Secrets visible::MACOS_CERT_P12=${#S1} MACOS_CERT_PASSWORD=${#S2} ASC_KEY_P8=${#S3} ASC_KEY_ID=${#S4} ASC_ISSUER_ID=${#S5} characters"
+          # No certificate: an unsigned build rather than a failed one.
+          if [ -n "$S1" ]; then echo "sign=true" >> "$GITHUB_OUTPUT"
+          else echo "::notice title=Unsigned build::No MACOS_CERT_P12 secret: the disk images are signed ad hoc and not notarized."; fi
 
       - name: Signing keychain
+        if: steps.secrets.outputs.sign == 'true'
         env:
           MACOS_CERT_P12: ${{ secrets.MACOS_CERT_P12 }}
           MACOS_CERT_PASSWORD: ${{ secrets.MACOS_CERT_PASSWORD }}
@@ -121,15 +127,18 @@ jobs:
 
       - name: Package, sign and notarize
         env:
+          SIGN: ${{ steps.secrets.outputs.sign }}
           ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
           STRAYTA_NOTARY_KEY_ID: ${{ secrets.ASC_KEY_ID }}
           STRAYTA_NOTARY_ISSUER: ${{ secrets.ASC_ISSUER_ID }}
           STRAYTA_VERSION: ${{ needs.version.outputs.version }}
         run: |
-          export STRAYTA_NOTARY_KEY="$RUNNER_TEMP/notary.p8"
-          echo "$ASC_KEY_P8" > "$STRAYTA_NOTARY_KEY"
+          if [ "$SIGN" = true ] && [ -n "$ASC_KEY_P8" ]; then
+            export STRAYTA_NOTARY_KEY="$RUNNER_TEMP/notary.p8"
+            echo "$ASC_KEY_P8" > "$STRAYTA_NOTARY_KEY"
+          fi
           zsh tools/package-mac.sh --arch ${{ matrix.arch }} --out "$RUNNER_TEMP/out"
-          rm "$STRAYTA_NOTARY_KEY"
+          rm -f "$RUNNER_TEMP/notary.p8"
           mkdir -p dist && cp "$RUNNER_TEMP"/out/*.dmg dist/
 
       - name: Remove the signing keychain

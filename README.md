@@ -42,7 +42,8 @@ icon positions) from dmgbuild, installed into a private virtual environment besi
 ### Releases
 
 Pull requests run CI (build and tests on macOS, Windows and Linux). Every merge to `main` runs the tests again and
-replaces the **Nightly** pre-release with signed, notarized builds of that commit. Pushing a tag `v1.2.3` publishes a
+replaces the **Nightly** pre-release with builds of that commit (macOS builds are signed and notarized only when the
+signing secrets are available to the repository; otherwise they are unsigned). Pushing a tag `v1.2.3` publishes a
 release with generated notes (`v1.2.3-rc1` and other suffixed tags publish as pre-releases). Bump `<Version>` in
 `Directory.Build.props` after a release so nightlies sort after it.
 
